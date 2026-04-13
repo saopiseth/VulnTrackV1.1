@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan:*)",
+      "Bash(php -l \"c:/xampp/htdocs/myproject/ProjectAss/app/Http/Controllers/VulnerabilityController.php\")",
+      "Bash(php --version)",
+      "Bash(php -l app/Http/Controllers/VulnAssessmentController.php)",
+      "Bash(php -l app/Models/VulnFinding.php)",
+      "Bash(php -l app/Services/VulnClassifier.php)",
+      "Bash(php -l app/Models/VulnHostOs.php)",
+      "Bash(php -l app/Services/OsDetector.php)",
+      "Bash(php -r ':*)",
+      "Bash(php -l app/Models/VulnAssessment.php)"
+    ]
+  }
+}
