@@ -7,6 +7,8 @@ use App\Models\VulnFinding;
 use App\Models\VulnHostOs;
 use App\Models\VulnRemediation;
 use App\Models\VulnScan;
+use App\Models\VulnTracked;
+use App\Models\VulnTrackedHistory;
 use App\Services\OsDetector;
 use App\Services\VulnClassifier;
 use Illuminate\Http\Request;
@@ -53,16 +55,40 @@ class VulnAssessmentController extends Controller
         $baseline    = $assessment->baselineScan();
         $latestScan  = $assessment->latestScan();
 
-        // Stats (from all findings of the latest scan, or baseline if only one)
         $activeScan = $latestScan ?? $baseline;
 
-        $stats = null;
+        // ── Stats from vuln_tracked (cumulative across ALL scans) ─────────
+        // Active = New + Pending (not yet resolved)
+        $stats  = null;
         $topIps = collect();
-        $comparison = null;
-        $findingsQuery = null;
 
-        if ($activeScan) {
-            // Stats and top IPs are restricted to displayed severities only (Info excluded)
+        $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
+
+        if ($hasTracked) {
+            $stats = VulnTracked::where('assessment_id', $assessment->id)
+                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->whereIn('tracking_status', ['New', 'Pending'])
+                ->selectRaw("
+                    COUNT(*) as total,
+                    SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
+                    SUM(CASE WHEN severity='High'     THEN 1 ELSE 0 END) as high,
+                    SUM(CASE WHEN severity='Medium'   THEN 1 ELSE 0 END) as medium,
+                    SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as low
+                ")->first();
+
+            $topIps = VulnTracked::where('assessment_id', $assessment->id)
+                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->whereIn('tracking_status', ['New', 'Pending'])
+                ->selectRaw('ip_address, COUNT(*) as total,
+                    SUM(CASE WHEN severity="Critical" THEN 1 ELSE 0 END) as critical,
+                    SUM(CASE WHEN severity="High" THEN 1 ELSE 0 END) as high')
+                ->groupBy('ip_address')
+                ->orderByDesc('critical')->orderByDesc('high')->orderByDesc('total')
+                ->limit(10)
+                ->get();
+        } elseif ($activeScan) {
+            // Fallback to raw findings if tracking hasn't been built yet
+            // (i.e. scans uploaded before the tracking engine was added)
             $stats = VulnFinding::where('scan_id', $activeScan->id)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
                 ->selectRaw("
@@ -72,40 +98,58 @@ class VulnAssessmentController extends Controller
                     SUM(CASE WHEN severity='Medium'   THEN 1 ELSE 0 END) as medium,
                     SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as low
                 ")->first();
-
-            $topIps = VulnFinding::where('scan_id', $activeScan->id)
-                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-                ->selectRaw('ip_address, COUNT(*) as total,
-                    SUM(CASE WHEN severity="Critical" THEN 1 ELSE 0 END) as critical,
-                    SUM(CASE WHEN severity="High" THEN 1 ELSE 0 END) as high')
-                ->groupBy('ip_address')
-                ->orderByDesc('critical')->orderByDesc('high')->orderByDesc('total')
-                ->limit(10)
-                ->get();
         }
 
-        // Comparison (baseline vs latest)
-        if ($baseline && $latestScan) {
-            $baselineKeys  = $baseline->fingerprintSet();
-            $latestKeys    = $latestScan->fingerprintSet();
+        $comparison   = null;
+
+        // ── Scan-level comparison (vuln_tracked_history for latest scan) ───
+        $hostComparison = null;
+        if ($latestScan) {
             $comparison = [
-                'new'        => $latestKeys->diff($baselineKeys)->count(),
-                'resolved'   => $baselineKeys->diff($latestKeys)->count(),
-                'persistent' => $baselineKeys->intersect($latestKeys)->count(),
+                'new'        => VulnTracked::where('assessment_id', $assessment->id)
+                                    ->where('tracking_status', 'New')
+                                    ->where('first_scan_id', $latestScan->id)->count(),
+                'resolved'   => VulnTrackedHistory::where('scan_id', $latestScan->id)
+                                    ->where('event_type', 'resolved')->count(),
+                'persistent' => VulnTrackedHistory::where('scan_id', $latestScan->id)
+                                    ->whereIn('event_type', ['still_present', 'status_changed'])->count(),
+            ];
+        } elseif ($baseline) {
+            $comparison = null;
+        }
+
+        // Host-level comparison (baseline vs latest)
+        if ($baseline && $latestScan) {
+            $baselineIps = $baseline->hostSet();
+            $latestIps   = $latestScan->hostSet();
+            $hostComparison = [
+                'baseline_count' => $baselineIps->count(),
+                'latest_count'   => $latestIps->count(),
+                'new'            => $latestIps->diff($baselineIps)->count(),
+                'removed'        => $baselineIps->diff($latestIps)->count(),
+                'persistent'     => $baselineIps->intersect($latestIps)->count(),
+                'new_ips'        => $latestIps->diff($baselineIps)->sort()->values(),
+                'removed_ips'    => $baselineIps->diff($latestIps)->sort()->values(),
             ];
         }
 
-        // Remediation progress — scoped to C/H/M/L findings in the active scan only (Info excluded)
+        // Unique active hosts across ALL scans (from tracking table)
+        $activeHostCount = VulnTracked::where('assessment_id', $assessment->id)
+            ->whereIn('tracking_status', ['New', 'Pending'])
+            ->distinct('ip_address')->count('ip_address');
+
+        // Remediation progress — scoped to active (New+Pending) C/H/M/L tracked vulns
         $remStats = null;
-        if ($activeScan) {
-            $remStats = VulnRemediation::where('assessment_id', $assessment->id)
-                ->whereExists(function ($sub) use ($activeScan) {
+        if ($hasTracked) {
+            $remStats = VulnRemediation::where('vuln_remediations.assessment_id', $assessment->id)
+                ->whereExists(function ($sub) use ($assessment) {
                     $sub->select(DB::raw(1))
-                        ->from('vuln_findings')
-                        ->whereColumn('vuln_findings.plugin_id', 'vuln_remediations.plugin_id')
-                        ->whereColumn('vuln_findings.ip_address', 'vuln_remediations.ip_address')
-                        ->where('vuln_findings.scan_id', $activeScan->id)
-                        ->whereIn('vuln_findings.severity', ['Critical', 'High', 'Medium', 'Low']);
+                        ->from('vuln_tracked')
+                        ->whereColumn('vuln_tracked.plugin_id',  'vuln_remediations.plugin_id')
+                        ->whereColumn('vuln_tracked.ip_address', 'vuln_remediations.ip_address')
+                        ->where('vuln_tracked.assessment_id', $assessment->id)
+                        ->whereIn('vuln_tracked.tracking_status', ['New', 'Pending'])
+                        ->whereIn('vuln_tracked.severity', ['Critical', 'High', 'Medium', 'Low']);
                 })
                 ->selectRaw("
                     COUNT(*) as total,
@@ -127,7 +171,7 @@ class VulnAssessmentController extends Controller
 
         return view('vuln_assessments.show', compact(
             'assessment', 'baseline', 'latestScan', 'activeScan',
-            'stats', 'topIps', 'comparison', 'remStats',
+            'stats', 'topIps', 'comparison', 'hostComparison', 'activeHostCount', 'remStats',
             'osDistribution', 'osHostCount'
         ));
     }
@@ -135,54 +179,108 @@ class VulnAssessmentController extends Controller
     public function findings(Request $request, VulnAssessment $vulnAssessment)
     {
         $assessment = $vulnAssessment;
-        $baseline   = $assessment->baselineScan();
-        $latestScan = $assessment->latestScan();
-        $activeScan = $latestScan ?? $baseline;
+        $latestScan = $assessment->latestScan() ?? $assessment->baselineScan();
 
-        abort_unless($activeScan, 404);
+        // Abort only if zero scans have ever been uploaded
+        abort_unless($assessment->scans()->exists(), 404);
 
-        $baselineKeys = $baseline ? $baseline->fingerprintSet() : collect();
-        $latestKeys   = $latestScan ? $latestScan->fingerprintSet() : collect();
+        $displaySeverities  = ['Critical', 'High', 'Medium', 'Low'];
+        $unresolvedStatuses = ['Open', 'In Progress'];
 
-        // Always restrict display to actionable severities only (Info is stored but not shown)
-        $displaySeverities = ['Critical', 'High', 'Medium', 'Low'];
+        // ── Base query: vuln_tracked (ALL scans, cumulative) ─────────────
+        $query = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
+            ->whereIn('vuln_tracked.severity', $displaySeverities)
+            ->select('vuln_tracked.*');
 
-        $query = VulnFinding::where('scan_id', $activeScan->id)
-            ->whereIn('severity', $displaySeverities);
+        // Join remediations for remediation-status filtering
+        $query->leftJoin('vuln_remediations', function ($join) use ($assessment) {
+            $join->on('vuln_remediations.plugin_id',  '=', 'vuln_tracked.plugin_id')
+                 ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
+                 ->where('vuln_remediations.assessment_id', '=', $assessment->id);
+        });
 
-        if ($request->filled('severity') && in_array($request->severity, $displaySeverities)) {
-            $query->where('severity', $request->severity);
+        // ── Tracking status filter (New / Pending / Resolved) ─────────────
+        $trackingFilter = $request->input('tracking');   // new | pending | resolved | all
+        if ($trackingFilter === 'resolved') {
+            $query->where('vuln_tracked.tracking_status', 'Resolved');
+        } elseif ($trackingFilter === 'new') {
+            $query->where('vuln_tracked.tracking_status', 'New');
+        } elseif ($trackingFilter === 'pending') {
+            $query->where('vuln_tracked.tracking_status', 'Pending');
+        } else {
+            // Default: show active only (New + Pending); hide already resolved
+            $query->whereIn('vuln_tracked.tracking_status', ['New', 'Pending']);
         }
-        if ($request->filled('category') && in_array($request->category, \App\Models\VulnFinding::categories())) {
-            $query->where('vuln_category', $request->category);
+
+        // ── Standard filters ──────────────────────────────────────────────
+        if ($request->filled('severity') && in_array($request->severity, $displaySeverities)) {
+            $query->where('vuln_tracked.severity', $request->severity);
+        }
+        if ($request->filled('category') && in_array($request->category, VulnFinding::categories())) {
+            $query->where('vuln_tracked.vuln_category', $request->category);
         }
         if ($request->filled('os_family') && in_array($request->os_family, ['Windows', 'Linux', 'Unix', 'Other'])) {
-            $query->where('os_family', $request->os_family);
+            $query->where('vuln_tracked.os_family', $request->os_family);
         }
-        if ($request->filled('os_name')) {
-            $query->where('os_name', 'like', '%' . $request->os_name . '%');
+        if ($request->filled('ip')) {
+            $query->where('vuln_tracked.ip_address', $request->ip);
         }
-        if ($request->filled('ip'))       $query->where('ip_address', $request->ip);
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
-                $q->where('vuln_name', 'like', "%$s%")
-                  ->orWhere('ip_address', 'like', "%$s%")
-                  ->orWhere('plugin_id', 'like', "%$s%")
-                  ->orWhere('cve', 'like', "%$s%");
+                $q->where('vuln_tracked.vuln_name',  'like', "%$s%")
+                  ->orWhere('vuln_tracked.ip_address','like', "%$s%")
+                  ->orWhere('vuln_tracked.plugin_id', 'like', "%$s%")
+                  ->orWhere('vuln_tracked.cve',       'like', "%$s%");
             });
         }
 
-        $findings = $query->orderByRaw("CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")->paginate(30)->withQueryString();
+        // ── Remediation status filter ─────────────────────────────────────
+        $remStatusFilter = $request->input('rem_status');
+        if ($remStatusFilter === 'unresolved') {
+            $query->where(function ($q) use ($unresolvedStatuses) {
+                $q->whereNull('vuln_remediations.status')
+                  ->orWhereIn('vuln_remediations.status', $unresolvedStatuses);
+            });
+        } elseif ($remStatusFilter && in_array($remStatusFilter, VulnRemediation::statuses())) {
+            $query->where('vuln_remediations.status', $remStatusFilter);
+        }
 
-        // Load remediations keyed by plugin_id|ip_address
+        $findings = $query
+            ->orderByRaw("CASE vuln_tracked.tracking_status WHEN 'New' THEN 1 WHEN 'Pending' THEN 2 WHEN 'Resolved' THEN 3 END")
+            ->orderByRaw("CASE vuln_tracked.severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
+            ->paginate(30)
+            ->withQueryString();
+
+        // ── Remediations keyed for display ────────────────────────────────
         $remediations = VulnRemediation::where('assessment_id', $assessment->id)
             ->get()
             ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
 
+        // ── Tracking status counts (for filter tabs) ──────────────────────
+        $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
+            ->whereIn('severity', $displaySeverities)
+            ->selectRaw('tracking_status, COUNT(*) as cnt')
+            ->groupBy('tracking_status')
+            ->pluck('cnt', 'tracking_status');
+
+        // ── Remediation status counts ─────────────────────────────────────
+        $remStatusCounts = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
+            ->whereIn('vuln_tracked.severity', $displaySeverities)
+            ->whereIn('vuln_tracked.tracking_status', ['New', 'Pending'])
+            ->leftJoin('vuln_remediations', function ($join) use ($assessment) {
+                $join->on('vuln_remediations.plugin_id',  '=', 'vuln_tracked.plugin_id')
+                     ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
+                     ->where('vuln_remediations.assessment_id', '=', $assessment->id);
+            })
+            ->selectRaw("COALESCE(vuln_remediations.status, 'Open') as rem_status, COUNT(*) as cnt")
+            ->groupBy('rem_status')
+            ->pluck('cnt', 'rem_status');
+
         return view('vuln_assessments.findings', compact(
-            'assessment', 'activeScan', 'findings', 'remediations',
-            'baselineKeys', 'latestKeys', 'baseline', 'latestScan'
+            'assessment', 'latestScan', 'findings', 'remediations',
+            'trackingCounts', 'trackingFilter',
+            'remStatusCounts', 'remStatusFilter'
         ));
     }
 
@@ -244,7 +342,11 @@ class VulnAssessmentController extends Controller
                 }
             }
 
-            $scan->update(['finding_count' => $inserted]);
+            $hostCount = VulnFinding::where('scan_id', $scan->id)
+                ->distinct('ip_address')
+                ->count('ip_address');
+
+            $scan->update(['finding_count' => $inserted, 'host_count' => $hostCount]);
 
             // ── Upsert vuln_host_os per IP ────────────────────
             foreach ($hostOsMap as $ip => $osData) {
@@ -285,11 +387,192 @@ class VulnAssessmentController extends Controller
                     ]));
                 }
             }
+
+            // ── Tracking engine: compare this scan against all previous state ──
+            $this->runTrackingEngine($assessment, $scan);
         });
 
         $label = $isBaseline ? 'Baseline scan' : 'Latest scan';
         return redirect()->route('vuln-assessments.show', $assessment)
             ->with('success', "{$label} \"{$filename}\" imported successfully.");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TRACKING ENGINE
+    // Runs inside the upload transaction after findings are written.
+    // Implements the New / Pending / Resolved lifecycle per (ip + plugin_id).
+    // ─────────────────────────────────────────────────────────────────────────
+    private function runTrackingEngine(VulnAssessment $assessment, VulnScan $scan): void
+    {
+        $scanTime = $scan->created_at ?? now();
+
+        // ── 1. Load what this scan actually contains (from vuln_findings) ──
+        // We query the DB so we get fully-populated rows (vuln_category etc.)
+        $scanFindings = VulnFinding::where('scan_id', $scan->id)
+            ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+            ->get();
+
+        // Build current fingerprint map: "ip|plugin_id" → finding row
+        $currentMap = $scanFindings->keyBy(fn($f) => $f->ip_address . '|' . $f->plugin_id);
+
+        // ── 2. Load all existing tracked items for this assessment ──
+        $existingTracked = VulnTracked::where('assessment_id', $assessment->id)
+            ->get()
+            ->keyBy(fn($t) => $t->ip_address . '|' . $t->plugin_id);
+
+        // ── 3. Load remediations (to skip 'Accepted Risk' from auto-resolve) ──
+        $remediations = VulnRemediation::where('assessment_id', $assessment->id)
+            ->get()
+            ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
+
+        // ── 4. Process each finding in the current scan ────────────────────
+        foreach ($scanFindings as $finding) {
+            $fp = $finding->ip_address . '|' . $finding->plugin_id;
+
+            // Common fields to keep current from the latest scan
+            $currentData = [
+                'hostname'           => $finding->hostname,
+                'vuln_name'          => $finding->vuln_name,
+                'description'        => $finding->description,
+                'remediation_text'   => $finding->remediation_text,
+                'severity'           => $finding->severity,
+                'port'               => $finding->port,
+                'protocol'           => $finding->protocol,
+                'vuln_category'      => $finding->vuln_category,
+                'affected_component' => $finding->affected_component,
+                'os_detected'        => $finding->os_detected,
+                'os_name'            => $finding->os_name,
+                'os_family'          => $finding->os_family,
+                'last_seen_at'       => $scanTime,
+                'last_scan_id'       => $scan->id,
+                'resolved_at'        => null,
+            ];
+
+            if (isset($existingTracked[$fp])) {
+                // ── CASE: Already tracked ─────────────────────────────────
+                $tracked      = $existingTracked[$fp];
+                $prevStatus   = $tracked->tracking_status;
+                $prevSeverity = $tracked->severity;
+                $newSeverity  = $finding->severity;
+                $sevChanged   = $prevSeverity !== $newSeverity;
+
+                // Determine new tracking status: it's visible → Pending
+                $newStatus = 'Pending';
+
+                $tracked->update(array_merge($currentData, [
+                    'tracking_status' => $newStatus,
+                ]));
+
+                // Write history entries
+                if ($prevStatus === 'Resolved') {
+                    // Vulnerability re-appeared after being resolved (regression)
+                    VulnTrackedHistory::create([
+                        'tracked_id'  => $tracked->id,
+                        'scan_id'     => $scan->id,
+                        'event_type'  => 'reappeared',
+                        'prev_status' => 'Resolved',
+                        'new_status'  => 'Pending',
+                        'changed_at'  => $scanTime,
+                    ]);
+                } elseif ($prevStatus === 'New') {
+                    // First re-confirmation: New → Pending
+                    VulnTrackedHistory::create([
+                        'tracked_id'  => $tracked->id,
+                        'scan_id'     => $scan->id,
+                        'event_type'  => 'status_changed',
+                        'prev_status' => 'New',
+                        'new_status'  => 'Pending',
+                        'changed_at'  => $scanTime,
+                    ]);
+                } else {
+                    // Already Pending — log still_present
+                    VulnTrackedHistory::create([
+                        'tracked_id'  => $tracked->id,
+                        'scan_id'     => $scan->id,
+                        'event_type'  => 'still_present',
+                        'prev_status' => 'Pending',
+                        'new_status'  => 'Pending',
+                        'changed_at'  => $scanTime,
+                    ]);
+                }
+
+                // Log severity change as a separate entry (regardless of status)
+                if ($sevChanged) {
+                    VulnTrackedHistory::create([
+                        'tracked_id'   => $tracked->id,
+                        'scan_id'      => $scan->id,
+                        'event_type'   => 'severity_changed',
+                        'prev_severity'=> $prevSeverity,
+                        'new_severity' => $newSeverity,
+                        'changed_at'   => $scanTime,
+                    ]);
+                }
+            } else {
+                // ── CASE: Brand new ip+vuln combination ──────────────────
+                $tracked = VulnTracked::create(array_merge($currentData, [
+                    'assessment_id'  => $assessment->id,
+                    'ip_address'     => $finding->ip_address,
+                    'plugin_id'      => $finding->plugin_id,
+                    'cve'            => $finding->cve,
+                    'tracking_status'=> 'New',
+                    'first_seen_at'  => $scanTime,
+                    'first_scan_id'  => $scan->id,
+                ]));
+
+                VulnTrackedHistory::create([
+                    'tracked_id'  => $tracked->id,
+                    'scan_id'     => $scan->id,
+                    'event_type'  => 'created',
+                    'new_status'  => 'New',
+                    'new_severity'=> $finding->severity,
+                    'changed_at'  => $scanTime,
+                ]);
+            }
+        }
+
+        // ── 5. Resolve findings that are MISSING from this scan ───────────────
+        // Only consider IPs that this scan actually covers. Findings for hosts
+        // not present in this scan are left untouched — they may be scanned
+        // separately (e.g. different Nessus file per host).
+        $scannedIps = $scanFindings->pluck('ip_address')->unique()->flip(); // O(1) lookup
+
+        foreach ($existingTracked as $fp => $tracked) {
+            // Skip if the host wasn't covered by this scan at all
+            if (!$scannedIps->has($tracked->ip_address)) {
+                continue;
+            }
+
+            if ($currentMap->has($fp)) {
+                continue; // still present — handled above
+            }
+
+            if ($tracked->tracking_status === 'Resolved') {
+                continue; // already resolved — no change needed
+            }
+
+            // Never auto-resolve a manually accepted risk
+            $rem = $remediations->get($tracked->plugin_id . '|' . $tracked->ip_address);
+            if ($rem && $rem->status === 'Accepted Risk') {
+                continue;
+            }
+
+            $prevStatus = $tracked->tracking_status;
+
+            $tracked->update([
+                'tracking_status' => 'Resolved',
+                'resolved_at'     => $scanTime,
+                'last_scan_id'    => $scan->id,
+            ]);
+
+            VulnTrackedHistory::create([
+                'tracked_id'  => $tracked->id,
+                'scan_id'     => $scan->id,
+                'event_type'  => 'resolved',
+                'prev_status' => $prevStatus,
+                'new_status'  => 'Resolved',
+                'changed_at'  => $scanTime,
+            ]);
+        }
     }
 
     public function updateRemediation(Request $request, VulnAssessment $vulnAssessment, VulnRemediation $remediation)

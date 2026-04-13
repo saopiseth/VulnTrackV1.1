@@ -154,6 +154,13 @@
                         <div style="font-size:1.6rem;font-weight:800;color:#475569">{{ $stats->low }}</div>
                     </div>
                 </div>
+                <div class="col-6 col-md">
+                    <div class="stat-box" style="background:#eff6ff;border:1px solid #bfdbfe">
+                        <div style="font-size:.7rem;color:#1e40af;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Hosts</div>
+                        <div style="font-size:1.6rem;font-weight:800;color:#1e40af">{{ $activeHostCount }}</div>
+                        <div style="font-size:.72rem;color:#94a3b8">unique IPs</div>
+                    </div>
+                </div>
             </div>
             @else
             <div class="va-card" style="text-align:center;padding:3rem;color:#94a3b8">
@@ -322,6 +329,78 @@
         </div>
     </div>
 
+    {{-- Host tracking comparison --}}
+    @if($hostComparison)
+    <div class="va-card" style="margin-bottom:1rem">
+        <h6><i class="bi bi-hdd-network me-2"></i>Host / IP Tracking</h6>
+        <div class="row g-2 mb-3">
+            <div class="col-6 col-md-3">
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:.9rem 1rem;text-align:center">
+                    <div style="font-size:.65rem;color:#1e40af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Baseline Hosts</div>
+                    <div style="font-size:1.8rem;font-weight:800;color:#1e40af;line-height:1.2">{{ $hostComparison['baseline_count'] }}</div>
+                    <div style="font-size:.72rem;color:#94a3b8">unique IPs</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:.9rem 1rem;text-align:center">
+                    <div style="font-size:.65rem;color:#1e40af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Latest Hosts</div>
+                    <div style="font-size:1.8rem;font-weight:800;color:#1e40af;line-height:1.2">{{ $hostComparison['latest_count'] }}</div>
+                    <div style="font-size:.72rem;color:#94a3b8">unique IPs</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:.9rem 1rem;text-align:center">
+                    <div style="font-size:.65rem;color:#991b1b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">New IPs</div>
+                    <div style="font-size:1.8rem;font-weight:800;color:#991b1b;line-height:1.2">{{ $hostComparison['new'] }}</div>
+                    <div style="font-size:.72rem;color:#94a3b8">added in latest</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:10px;padding:.9rem 1rem;text-align:center">
+                    <div style="font-size:.65rem;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Removed IPs</div>
+                    <div style="font-size:1.8rem;font-weight:800;color:#065f46;line-height:1.2">{{ $hostComparison['removed'] }}</div>
+                    <div style="font-size:.72rem;color:#94a3b8">gone from latest</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:.9rem 1rem;text-align:center">
+                    <div style="font-size:.65rem;color:#854d0e;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Persistent</div>
+                    <div style="font-size:1.8rem;font-weight:800;color:#854d0e;line-height:1.2">{{ $hostComparison['persistent'] }}</div>
+                    <div style="font-size:.72rem;color:#94a3b8">in both scans</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- New IP list --}}
+        @if($hostComparison['new_ips']->isNotEmpty())
+        <div class="mb-2">
+            <div style="font-size:.75rem;font-weight:700;color:#991b1b;margin-bottom:.4rem">
+                <i class="bi bi-plus-circle-fill me-1"></i> New IPs in latest scan
+            </div>
+            <div class="d-flex flex-wrap gap-1">
+                @foreach($hostComparison['new_ips'] as $ip)
+                <span style="font-family:monospace;font-size:.78rem;background:#fee2e2;color:#991b1b;border-radius:6px;padding:.15rem .55rem;border:1px solid #fca5a5">{{ $ip }}</span>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Removed IP list --}}
+        @if($hostComparison['removed_ips']->isNotEmpty())
+        <div>
+            <div style="font-size:.75rem;font-weight:700;color:#065f46;margin-bottom:.4rem">
+                <i class="bi bi-dash-circle-fill me-1"></i> IPs not present in latest scan
+            </div>
+            <div class="d-flex flex-wrap gap-1">
+                @foreach($hostComparison['removed_ips'] as $ip)
+                <span style="font-family:monospace;font-size:.78rem;background:#d1fae5;color:#065f46;border-radius:6px;padding:.15rem .55rem;border:1px solid #6ee7b7">{{ $ip }}</span>
+                @endforeach
+            </div>
+        </div>
+        @endif
+    </div>
+    @endif
+
     <div class="va-card" style="padding:.85rem 1.5rem">
         <div class="d-flex gap-3 align-items-center flex-wrap" style="font-size:.85rem">
             <div>
@@ -436,7 +515,12 @@
                 @endif
             </div>
             <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem">
-                {{ $scan->finding_count }} findings &middot; Uploaded {{ $scan->created_at->format('d M Y, H:i') }}
+                {{ $scan->finding_count }} findings
+                &middot;
+                <span style="color:#1e40af;font-weight:600">
+                    <i class="bi bi-hdd-network" style="font-size:.7rem"></i> {{ $scan->host_count }} host{{ $scan->host_count !== 1 ? 's' : '' }}
+                </span>
+                &middot; Uploaded {{ $scan->created_at->format('d M Y, H:i') }}
                 @if($scan->creator) &middot; by {{ $scan->creator->name }} @endif
                 @if($scan->notes) &middot; {{ $scan->notes }} @endif
             </div>

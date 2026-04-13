@@ -10,7 +10,11 @@
       "Bash(php -l app/Models/VulnHostOs.php)",
       "Bash(php -l app/Services/OsDetector.php)",
       "Bash(php -r ':*)",
-      "Bash(php -l app/Models/VulnAssessment.php)"
+      "Bash(php -l app/Models/VulnAssessment.php)",
+      "Bash(gh auth:*)",
+      "Bash(python -c ':*)",
+      "Bash(php -l \"c:/xampp/htdocs/myproject/ProjectAss/app/Console/Commands/RebuildVulnTracking.php\")",
+      "Bash(grep -n '$baseline\\\\|$latestKeys\\\\|$baselineKeys\\\\|cmpLabel\\\\|cmpClass\\\\|scan_timestamp\\\\|cmp-new\\\\|cmp-resolved\\\\|cmp-persistent' c:/xampp/htdocs/myproject/ProjectAss/resources/views/vuln_assessments/findings.blade.php)"
     ]
   }
 }

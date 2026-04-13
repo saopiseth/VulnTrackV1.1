@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class VulnScan extends Model
 {
     protected $fillable = [
-        'assessment_id', 'filename', 'is_baseline', 'finding_count', 'notes', 'created_by',
+        'assessment_id', 'filename', 'is_baseline', 'finding_count', 'host_count', 'notes', 'created_by',
     ];
 
     protected $casts = [
@@ -37,5 +37,13 @@ class VulnScan extends Model
         return $this->findings()
             ->selectRaw('plugin_id || "|" || ip_address as fp')
             ->pluck('fp');
+    }
+
+    /** Unique IP addresses seen in this scan */
+    public function hostSet(): \Illuminate\Support\Collection
+    {
+        return $this->findings()
+            ->distinct()
+            ->pluck('ip_address');
     }
 }

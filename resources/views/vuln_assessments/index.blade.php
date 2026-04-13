@@ -47,27 +47,24 @@
             <tbody>
                 @forelse($assessments as $a)
                 @php
-                    // Active scan = latest non-baseline with findings, or baseline if only one
-                    $activeScan = $a->scans->where('is_baseline', false)->where('finding_count', '>', 0)->sortByDesc('id')->first()
-                                ?? $a->scans->where('is_baseline', true)->first();
+                    // Pull stats from vuln_tracked (cumulative across all scans)
+                    $tracked = \App\Models\VulnTracked::where('assessment_id', $a->id)
+                        ->whereIn('severity', ['Critical','High','Medium','Low'])
+                        ->selectRaw("
+                            COUNT(*) as total,
+                            SUM(CASE WHEN tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as active,
+                            SUM(CASE WHEN tracking_status = 'Resolved'         THEN 1 ELSE 0 END) as resolved,
+                            SUM(CASE WHEN severity='Critical' AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as c,
+                            SUM(CASE WHEN severity='High'     AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as h,
+                            SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as m,
+                            SUM(CASE WHEN severity='Low'      AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as l
+                        ")->first();
 
-                    // Unique findings per host (plugin_id + ip_address) — excludes Info
-                    $sevStats    = null;
-                    $uniqueHosts = 0;
-                    if ($activeScan) {
-                        $sevStats = \App\Models\VulnFinding::where('scan_id', $activeScan->id)
-                            ->whereIn('severity', ['Critical','High','Medium','Low'])
-                            ->selectRaw("COUNT(*) as total,
-                                         SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as c,
-                                         SUM(CASE WHEN severity='High'     THEN 1 ELSE 0 END) as h,
-                                         SUM(CASE WHEN severity='Medium'   THEN 1 ELSE 0 END) as m,
-                                         SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as l")
-                            ->first();
-                        $uniqueHosts = \App\Models\VulnFinding::where('scan_id', $activeScan->id)
-                            ->distinct('ip_address')
-                            ->count('ip_address');
-                    }
-                    $activeFindingCount = $sevStats->total ?? 0;
+                    $activeCount = $tracked->active  ?? 0;
+                    $resolvedCount = $tracked->resolved ?? 0;
+                    $uniqueHosts = \App\Models\VulnTracked::where('assessment_id', $a->id)
+                        ->whereIn('tracking_status', ['New','Pending'])
+                        ->distinct('ip_address')->count('ip_address');
                 @endphp
                 <tr style="border-color:#f1f5f9">
                     <td style="padding:.65rem 1rem;vertical-align:middle;border-color:#f1f5f9">
@@ -91,29 +88,31 @@
                     </td>
                     <td style="padding:.65rem 1rem;vertical-align:middle;border-color:#f1f5f9;text-align:center">
                         <span style="font-weight:700;color:#0f172a">{{ $a->scans->count() }}</span>
-                        @if($activeScan)
                         @php $latestCount = $a->scans->where('is_baseline', false)->count(); @endphp
+                        @if($a->scans->count() > 0)
                         <div style="font-size:.67rem;color:#94a3b8;margin-top:.1rem">
-                            {{ $latestCount > 0 ? $latestCount . ' latest' : 'Baseline only' }}
+                            {{ $latestCount > 0 ? $latestCount . ' uploaded' : 'Baseline only' }}
                         </div>
                         @endif
                     </td>
                     <td style="padding:.65rem 1rem;vertical-align:middle;border-color:#f1f5f9;text-align:center">
-                        @if($activeScan && $activeFindingCount > 0)
-                        <span style="font-weight:700;color:rgb(118,151,7);font-size:.95rem">{{ number_format($activeFindingCount) }}</span>
-                        <div style="font-size:.67rem;color:#94a3b8;margin-top:.1rem">
-                            <i class="bi bi-hdd-network me-1"></i>{{ $uniqueHosts }} {{ Str::plural('host', $uniqueHosts) }}
-                        </div>
-                        @if($sevStats && ($sevStats->c + $sevStats->h + $sevStats->m + $sevStats->l) > 0)
-                        <div class="d-flex justify-content-center gap-1 mt-1 flex-wrap">
-                            @if($sevStats->c > 0)<span style="font-size:.63rem;background:#fee2e2;color:#991b1b;border-radius:10px;padding:.05rem .35rem;font-weight:700">C:{{ $sevStats->c }}</span>@endif
-                            @if($sevStats->h > 0)<span style="font-size:.63rem;background:#ffedd5;color:#9a3412;border-radius:10px;padding:.05rem .35rem;font-weight:700">H:{{ $sevStats->h }}</span>@endif
-                            @if($sevStats->m > 0)<span style="font-size:.63rem;background:#fef9c3;color:#854d0e;border-radius:10px;padding:.05rem .35rem;font-weight:700">M:{{ $sevStats->m }}</span>@endif
-                            @if($sevStats->l > 0)<span style="font-size:.63rem;background:#f1f5f9;color:#475569;border-radius:10px;padding:.05rem .35rem;font-weight:700">L:{{ $sevStats->l }}</span>@endif
-                        </div>
+                        @if($activeCount > 0)
+                        <span style="font-weight:700;color:rgb(118,151,7);font-size:.95rem">{{ number_format($activeCount) }}</span>
+                        <span style="font-size:.67rem;color:#94a3b8;margin-left:.3rem">active</span>
+                        @if($resolvedCount > 0)
+                        <span style="font-size:.67rem;color:#065f46;margin-left:.3rem">/ {{ number_format($resolvedCount) }} resolved</span>
                         @endif
-                        @elseif($activeScan)
-                        <span style="color:#94a3b8;font-size:.82rem">No findings</span>
+                        <div style="font-size:.67rem;color:#94a3b8;margin-top:.1rem">
+                            <i class="bi bi-hdd-network me-1"></i>{{ $uniqueHosts }} {{ Str::plural('host', $uniqueHosts) }} at risk
+                        </div>
+                        <div class="d-flex justify-content-center gap-1 mt-1 flex-wrap">
+                            @if($tracked->c > 0)<span style="font-size:.63rem;background:#fee2e2;color:#991b1b;border-radius:10px;padding:.05rem .35rem;font-weight:700">C:{{ $tracked->c }}</span>@endif
+                            @if($tracked->h > 0)<span style="font-size:.63rem;background:#ffedd5;color:#9a3412;border-radius:10px;padding:.05rem .35rem;font-weight:700">H:{{ $tracked->h }}</span>@endif
+                            @if($tracked->m > 0)<span style="font-size:.63rem;background:#fef9c3;color:#854d0e;border-radius:10px;padding:.05rem .35rem;font-weight:700">M:{{ $tracked->m }}</span>@endif
+                            @if($tracked->l > 0)<span style="font-size:.63rem;background:#f1f5f9;color:#475569;border-radius:10px;padding:.05rem .35rem;font-weight:700">L:{{ $tracked->l }}</span>@endif
+                        </div>
+                        @elseif($a->scans->count() > 0)
+                        <span style="color:#94a3b8;font-size:.82rem">No active findings</span>
                         @else
                         <span style="color:#cbd5e1">—</span>
                         @endif

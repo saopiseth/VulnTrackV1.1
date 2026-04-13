@@ -10,19 +10,11 @@
     .sev-high     { background:#ffedd5; color:#9a3412; }
     .sev-medium   { background:#fef9c3; color:#854d0e; }
     .sev-low      { background:#f1f5f9; color:#475569; }
-    .cmp-new        { background:#fee2e2; color:#991b1b; font-size:.65rem; font-weight:700; padding:.1rem .45rem; border-radius:20px; }
-    .cmp-resolved   { background:#d1fae5; color:#065f46; font-size:.65rem; font-weight:700; padding:.1rem .45rem; border-radius:20px; }
-    .cmp-persistent { background:#fef9c3; color:#854d0e; font-size:.65rem; font-weight:700; padding:.1rem .45rem; border-radius:20px; }
     .rem-open        { background:#fee2e2; color:#991b1b; }
     .rem-in-progress { background:#fef9c3; color:#854d0e; }
     .rem-resolved    { background:#d1fae5; color:#065f46; }
     .rem-accepted    { background:#f1f5f9; color:#475569; }
     thead.lime-head th { background:var(--lime-muted) !important; color:var(--lime-dark) !important; }
-
-    /* OS badge */
-    .os-badge { display:inline-flex; align-items:center; gap:.3rem; font-size:.68rem; font-weight:600;
-        background:#f1f5f9; color:#475569; padding:.12rem .45rem; border-radius:5px; margin-top:.25rem; }
-    .os-badge i { font-size:.72rem; }
 
     /* Category badge */
     .cat-badge { display:inline-flex; align-items:center; gap:.28rem; font-size:.68rem; font-weight:700;
@@ -63,13 +55,6 @@
             <li class="breadcrumb-item active">Findings</li>
         </ol></nav>
         <h4>{{ $assessment->name }} — Findings</h4>
-        <p>
-            Showing: <strong>{{ $activeScan->is_baseline ? 'Baseline' : 'Latest' }} Scan</strong>
-            &middot; {{ $activeScan->filename }}
-            &middot; <strong>{{ $findings->total() }}</strong> unique findings across
-            <strong>{{ \App\Models\VulnFinding::where('scan_id', $activeScan->id)->distinct('ip_address')->count('ip_address') }}</strong>
-            {{ Str::plural('host', \App\Models\VulnFinding::where('scan_id', $activeScan->id)->distinct('ip_address')->count('ip_address')) }}
-        </p>
     </div>
     <a href="{{ route('vuln-assessments.show', $assessment) }}" class="btn btn-sm"
         style="border:1.5px solid rgb(152,194,10);border-radius:9px;color:rgb(118,151,7);background:#fff;font-weight:500">
@@ -84,119 +69,70 @@
 </div>
 @endif
 
-{{-- Severity Quick-Filter Tabs --}}
-<div class="d-flex gap-2 mb-3 flex-wrap">
-    @php
-        $sevCounts = [
-            'Critical' => \App\Models\VulnFinding::where('scan_id', $activeScan->id)->where('severity','Critical')->count(),
-            'High'     => \App\Models\VulnFinding::where('scan_id', $activeScan->id)->where('severity','High')->count(),
-            'Medium'   => \App\Models\VulnFinding::where('scan_id', $activeScan->id)->where('severity','Medium')->count(),
-            'Low'      => \App\Models\VulnFinding::where('scan_id', $activeScan->id)->where('severity','Low')->count(),
-        ];
-        $sevStyles = [
-            'Critical' => ['bg'=>'#fee2e2','color'=>'#991b1b','border'=>'#fca5a5'],
-            'High'     => ['bg'=>'#ffedd5','color'=>'#9a3412','border'=>'#fdba74'],
-            'Medium'   => ['bg'=>'#fef9c3','color'=>'#854d0e','border'=>'#fde047'],
-            'Low'      => ['bg'=>'#f1f5f9','color'=>'#475569','border'=>'#cbd5e1'],
-        ];
-        $currentSev = request('severity');
-    @endphp
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['search','ip']))) }}"
-       class="btn btn-sm" style="border-radius:8px;font-weight:600;font-size:.8rem;
-        background:{{ !$currentSev ? 'rgb(152,194,10)' : '#fff' }};
-        color:{{ !$currentSev ? '#fff' : '#64748b' }};
-        border:1.5px solid {{ !$currentSev ? 'rgb(152,194,10)' : '#e2e8f0' }}">
-        All
-    </a>
-    @foreach($sevStyles as $sev => $st)
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['search','ip']), ['severity' => $sev])) }}"
-       class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.8rem;
-        background:{{ $currentSev===$sev ? $st['color'] : $st['bg'] }};
-        color:{{ $currentSev===$sev ? '#fff' : $st['color'] }};
-        border:1.5px solid {{ $st['border'] }}">
-        {{ $sev }} <span style="opacity:.8">({{ $sevCounts[$sev] }})</span>
-    </a>
-    @endforeach
-</div>
-
-{{-- Category Quick-Filter Tabs --}}
+{{-- Tracking Status Filter Tabs (New / Pending / Resolved / All) --}}
 @php
-    $catCounts   = \App\Models\VulnFinding::where('scan_id', $activeScan->id)
-        ->whereIn('severity', ['Critical','High','Medium','Low'])
-        ->selectRaw('vuln_category, COUNT(*) as cnt')
-        ->groupBy('vuln_category')
-        ->pluck('cnt','vuln_category');
-    $currentCat  = request('category');
 @endphp
-<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-    <span style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Category:</span>
-    <a href="{{ route('vuln-assessments.findings', array_filter([$assessment->id, 'severity'=>request('severity'), 'search'=>request('search'), 'ip'=>request('ip')])) }}"
-       class="btn btn-sm" style="border-radius:8px;font-weight:600;font-size:.78rem;
-        background:{{ !$currentCat ? '#0f172a' : '#fff' }};
-        color:{{ !$currentCat ? '#fff' : '#64748b' }};
-        border:1.5px solid {{ !$currentCat ? '#0f172a' : '#e2e8f0' }}">
-        All Categories
-    </a>
-    @foreach(\App\Models\VulnFinding::categories() as $cat)
-    @php [$cbg,$ccol,$cicon] = \App\Models\VulnFinding::categoryStyle($cat); @endphp
-    <a href="{{ route('vuln-assessments.findings', array_filter([$assessment->id, 'severity'=>request('severity'), 'search'=>request('search'), 'ip'=>request('ip'), 'category'=>$cat])) }}"
-       class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
-        background:{{ $currentCat===$cat ? $ccol : $cbg }};
-        color:{{ $currentCat===$cat ? '#fff' : $ccol }};
-        border:1.5px solid {{ $ccol }}44">
-        <i class="bi {{ $cicon }} me-1"></i>{{ $cat }}
-        @if(($catCounts[$cat] ?? 0) > 0)
-        <span style="opacity:.8">({{ $catCounts[$cat] }})</span>
-        @endif
-    </a>
-    @endforeach
-</div>
 
-{{-- OS Family Quick-Filter Tabs --}}
 @php
-    $osFamilyCounts = \App\Models\VulnFinding::where('scan_id', $activeScan->id)
-        ->whereIn('severity', ['Critical','High','Medium','Low'])
-        ->whereNotNull('os_family')
-        ->selectRaw('os_family, COUNT(*) as cnt')
-        ->groupBy('os_family')
-        ->pluck('cnt','os_family');
-    $currentOsFamily = request('os_family');
-    $osFamilyMeta = [
-        'Windows' => ['icon' => 'bi-windows',       'bg' => '#dbeafe', 'color' => '#1e40af'],
-        'Linux'   => ['icon' => 'bi-ubuntu',        'bg' => '#d1fae5', 'color' => '#065f46'],
-        'Unix'    => ['icon' => 'bi-terminal-fill', 'bg' => '#ffedd5', 'color' => '#7c2d12'],
-        'Other'   => ['icon' => 'bi-cpu-fill',      'bg' => '#f3f4f6', 'color' => '#374151'],
+    $trackingScope = match($trackingFilter) {
+        'new'      => ['New'],
+        'pending'  => ['Pending'],
+        'resolved' => ['Resolved'],
+        'all'      => ['New','Pending','Resolved'],
+        default    => ['New','Pending'],
+    };
+@endphp
+
+{{-- Remediation Status Filter --}}
+@php
+    $remStatusStyles = [
+        'Open'          => ['bg'=>'#fee2e2','color'=>'#991b1b','border'=>'#fca5a5','icon'=>'bi-circle-fill'],
+        'In Progress'   => ['bg'=>'#fef9c3','color'=>'#854d0e','border'=>'#fde047','icon'=>'bi-arrow-repeat'],
+        'Resolved'      => ['bg'=>'#d1fae5','color'=>'#065f46','border'=>'#6ee7b7','icon'=>'bi-check-circle-fill'],
+        'Accepted Risk' => ['bg'=>'#f1f5f9','color'=>'#475569','border'=>'#cbd5e1','icon'=>'bi-shield-check'],
     ];
+    $unresolvedTotal = ($remStatusCounts['Open'] ?? 0) + ($remStatusCounts['In Progress'] ?? 0);
 @endphp
-@if($osFamilyCounts->isNotEmpty())
 <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-    <span style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">OS:</span>
-    <a href="{{ route('vuln-assessments.findings', array_filter([$assessment->id, 'severity'=>request('severity'), 'category'=>request('category'), 'search'=>request('search'), 'ip'=>request('ip')])) }}"
+    <span style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Status:</span>
+
+    {{-- All --}}
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['tracking','search','ip']))) }}"
        class="btn btn-sm" style="border-radius:8px;font-weight:600;font-size:.78rem;
-        background:{{ !$currentOsFamily ? '#0f172a' : '#fff' }};
-        color:{{ !$currentOsFamily ? '#fff' : '#64748b' }};
-        border:1.5px solid {{ !$currentOsFamily ? '#0f172a' : '#e2e8f0' }}">All OS</a>
-    @foreach($osFamilyMeta as $fam => $fm)
-    @if(($osFamilyCounts[$fam] ?? 0) > 0)
-    <a href="{{ route('vuln-assessments.findings', array_filter([$assessment->id, 'severity'=>request('severity'), 'category'=>request('category'), 'search'=>request('search'), 'ip'=>request('ip'), 'os_family'=>$fam])) }}"
-       class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
-        background:{{ $currentOsFamily===$fam ? $fm['color'] : $fm['bg'] }};
-        color:{{ $currentOsFamily===$fam ? '#fff' : $fm['color'] }};
-        border:1.5px solid {{ $fm['color'] }}44">
-        <i class="bi {{ $fm['icon'] }} me-1"></i>{{ $fam }}
-        <span style="opacity:.8">({{ $osFamilyCounts[$fam] }})</span>
+        background:{{ !$remStatusFilter ? '#0f172a' : '#fff' }};
+        color:{{ !$remStatusFilter ? '#fff' : '#64748b' }};
+        border:1.5px solid {{ !$remStatusFilter ? '#0f172a' : '#e2e8f0' }}">
+        All <span style="opacity:.75">({{ $remStatusCounts->sum() }})</span>
     </a>
-    @endif
+
+    {{-- Unresolved (Open + In Progress combined) --}}
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['tracking','search','ip']), ['rem_status'=>'unresolved'])) }}"
+       class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
+        background:{{ $remStatusFilter==='unresolved' ? '#991b1b' : '#fee2e2' }};
+        color:{{ $remStatusFilter==='unresolved' ? '#fff' : '#991b1b' }};
+        border:1.5px solid #fca5a5">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        Unresolved <span style="opacity:.8">({{ $unresolvedTotal }})</span>
+    </a>
+
+    {{-- Per-status tabs --}}
+    @foreach($remStatusStyles as $st => $style)
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['tracking','search','ip']), ['rem_status'=>$st])) }}"
+       class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
+        background:{{ $remStatusFilter===$st ? $style['color'] : $style['bg'] }};
+        color:{{ $remStatusFilter===$st ? '#fff' : $style['color'] }};
+        border:1.5px solid {{ $style['border'] }}">
+        <i class="bi {{ $style['icon'] }} me-1"></i>
+        {{ $st }} <span style="opacity:.8">({{ $remStatusCounts[$st] ?? 0 }})</span>
+    </a>
     @endforeach
 </div>
-@endif
+
 
 {{-- Search + IP filter --}}
 <div class="va-card" style="padding:.85rem 1.25rem;margin-bottom:1.25rem">
     <form method="GET" class="row g-2 align-items-end">
-        @if(request('severity'))<input type="hidden" name="severity" value="{{ request('severity') }}">@endif
-        @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
-        @if(request('os_family'))<input type="hidden" name="os_family" value="{{ request('os_family') }}">@endif
+        @if(request('rem_status'))<input type="hidden" name="rem_status" value="{{ request('rem_status') }}">@endif
         <div class="col-12 col-md-5">
             <div class="input-group input-group-sm">
                 <span class="input-group-text" style="border-radius:8px 0 0 8px;background:#f8fafc"><i class="bi bi-search"></i></span>
@@ -212,7 +148,7 @@
             <button type="submit" class="btn btn-sm" style="background:rgb(152,194,10);color:#fff;border-radius:8px;border:none;font-weight:600">
                 <i class="bi bi-funnel me-1"></i>Filter
             </button>
-            @if(request()->hasAny(['search','ip','severity','category','os_family','os_name']))
+            @if(request()->hasAny(['search','ip','rem_status']))
             <a href="{{ route('vuln-assessments.findings', [$assessment->id]) }}"
                class="btn btn-sm" style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">
                <i class="bi bi-x me-1"></i>Clear All
@@ -229,15 +165,13 @@
             <thead class="lime-head">
                 <tr>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">#</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Status</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Severity</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Plugin / CVE</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Vulnerability Name</th>
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Category</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Host</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">OS / Application</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Port</th>
-                    @if($baseline && $latestScan)
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Change</th>
-                    @endif
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Remediation</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center">Actions</th>
                 </tr>
@@ -252,29 +186,25 @@
                     $remStatus= $rem?->status ?? 'Open';
                     $remClass = 'rem-' . str_replace([' ','_'], '-', strtolower($remStatus));
 
-                    $cmpLabel = null; $cmpClass = null;
-                    if ($baseline && $latestScan) {
-                        if ($latestKeys->contains($fp) && !$baselineKeys->contains($fp)) {
-                            $cmpLabel = 'New';        $cmpClass = 'cmp-new';
-                        } elseif ($baselineKeys->contains($fp) && $latestKeys->contains($fp)) {
-                            $cmpLabel = 'Persistent'; $cmpClass = 'cmp-persistent';
-                        }
-                    }
-
-                    // OS display using new family/name columns, fallback to os_detected
-                    $displayOs   = $f->os_name ?? $f->os_detected;
-                    $displayFam  = $f->os_family ?? 'Other';
-                    $osFamMeta   = [
-                        'Windows' => ['icon' => 'bi-windows',       'bg' => '#dbeafe', 'color' => '#1e40af'],
-                        'Linux'   => ['icon' => 'bi-ubuntu',        'bg' => '#d1fae5', 'color' => '#065f46'],
-                        'Unix'    => ['icon' => 'bi-terminal-fill', 'bg' => '#ffedd5', 'color' => '#7c2d12'],
-                        'Other'   => ['icon' => 'bi-cpu-fill',      'bg' => '#f3f4f6', 'color' => '#374151'],
-                    ];
-                    $osMeta = $osFamMeta[$displayFam] ?? $osFamMeta['Other'];
-                    $osIcon = $osMeta['icon'];
+                    // Tracking status badge
+                    [$tsBg, $tsColor, $tsIcon] = \App\Models\VulnTracked::statusStyle($f->tracking_status);
                 @endphp
                 <tr style="border-color:#f1f5f9" id="row-{{ $f->id }}">
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;color:#94a3b8;font-size:.75rem">{{ $rowNum++ }}</td>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;white-space:nowrap">
+                        <span style="display:inline-flex;align-items:center;gap:.28rem;font-size:.7rem;font-weight:700;
+                            background:{{ $tsBg }};color:{{ $tsColor }};padding:.15rem .55rem;border-radius:20px">
+                            <i class="bi {{ $tsIcon }}" style="font-size:.68rem"></i>{{ $f->tracking_status }}
+                        </span>
+                        <div style="font-size:.65rem;color:#94a3b8;margin-top:.15rem">
+                            @if($f->tracking_status === 'Resolved' && $f->resolved_at)
+                                Fixed {{ $f->resolved_at->format('d M Y') }}
+                            @else
+                                Since {{ $f->first_seen_at->format('d M Y') }}<br>
+                                Last {{ $f->last_seen_at->format('d M Y') }}
+                            @endif
+                        </div>
+                    </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $sevClass }}">{{ $f->severity }}</span>
                     </td>
@@ -288,40 +218,76 @@
                         <div style="font-size:.73rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->description }}">{{ Str::limit($f->description, 65) }}</div>
                         @endif
                     </td>
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;white-space:nowrap">
-                        @php
-                            $cat = $f->vuln_category ?? 'Other';
-                            [$cbg,$ccol,$cicon] = \App\Models\VulnFinding::categoryStyle($cat);
-                        @endphp
-                        <div class="cat-badge" style="background:{{ $cbg }};color:{{ $ccol }}">
-                            <i class="bi {{ $cicon }}"></i>{{ $cat }}
-                        </div>
-                        @if($f->affected_component)
-                        <div style="font-size:.68rem;color:#64748b;margin-top:.2rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->affected_component }}">
-                            {{ $f->affected_component }}
-                        </div>
-                        @endif
-                    </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <div style="font-family:monospace;font-weight:600;color:#0f172a;font-size:.8rem">{{ $f->ip_address }}</div>
                         @if($f->hostname)
                         <div style="font-size:.72rem;color:#64748b">{{ $f->hostname }}</div>
                         @endif
-                        @if($displayOs)
-                        <div class="os-badge" style="background:{{ $osMeta['bg'] }};color:{{ $osMeta['color'] }}" title="{{ $displayOs }}">
-                            <i class="bi {{ $osIcon }}"></i>
-                            {{ Str::limit($displayOs, 28) }}
+                    </td>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
+                        @php
+                            $osDisplay    = $f->os_name ?? $f->os_detected;
+                            $appComponent = $f->affected_component;
+
+                            // Determine if affected_component is a 3rd-party application
+                            // (installed after fresh OS install) vs an OS-native component.
+                            // OS-native = base OS/kernel/distro names only.
+                            $isApp = $appComponent && !preg_match(
+                                '/^(microsoft\s+windows|windows\s+(server|10|11|xp|vista|7|8)|red\s?hat|rhel|centos|ubuntu|debian|fedora|suse|alma|rocky|oracle\s+linux|linux\s+kernel|unix|freebsd|solaris)/i',
+                                $appComponent
+                            );
+
+                            // Derive OS family (fall back to name-based detection)
+                            $osFam = $f->os_family;
+                            if (!$osFam || $osFam === 'Other') {
+                                $haystack = strtolower($osDisplay ?? $appComponent ?? '');
+                                if (preg_match('/windows/i', $haystack))
+                                    $osFam = 'Windows';
+                                elseif (preg_match('/linux|ubuntu|centos|red\s?hat|rhel|debian|fedora|suse|mint|arch|rocky|alma/i', $haystack))
+                                    $osFam = 'Linux';
+                                elseif (preg_match('/unix|freebsd|solaris|aix|hp-ux/i', $haystack))
+                                    $osFam = 'Unix';
+                                else
+                                    $osFam = 'Other';
+                            }
+
+                            $osFamIcons = [
+                                'Windows' => ['icon'=>'bi-windows',       'bg'=>'#dbeafe','color'=>'#1e40af'],
+                                'Linux'   => ['icon'=>'bi-ubuntu',        'bg'=>'#d1fae5','color'=>'#065f46'],
+                                'Unix'    => ['icon'=>'bi-terminal-fill', 'bg'=>'#ffedd5','color'=>'#7c2d12'],
+                                'Other'   => ['icon'=>'bi-cpu-fill',      'bg'=>'#f3f4f6','color'=>'#374151'],
+                            ];
+                            $osFamMeta = $osFamIcons[$osFam] ?? $osFamIcons['Other'];
+                        @endphp
+
+                        @php
+                            $fCat  = $f->vuln_category ?? 'Other';
+                            [$cbg, $ccol, $cicon] = \App\Models\VulnFinding::categoryStyle($fCat);
+                        @endphp
+
+                        {{-- Auto-classified OS family badge only --}}
+                        @if($osFam && $osFam !== 'Other')
+                        <div style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:600;
+                            background:{{ $osFamMeta['bg'] }};color:{{ $osFamMeta['color'] }};
+                            padding:.12rem .45rem;border-radius:5px"
+                            title="{{ $osDisplay ?? $appComponent ?? $osFam }}">
+                            <i class="bi {{ $osFamMeta['icon'] }}" style="font-size:.72rem"></i>
+                            {{ $osFam }}
                         </div>
+                        @else
+                        <span style="color:#cbd5e1;font-size:.75rem">—</span>
                         @endif
+
+                        {{-- Vulnerability category icon only --}}
+                        <div style="display:inline-flex;align-items:center;justify-content:center;
+                            background:{{ $cbg }};color:{{ $ccol }};padding:.18rem .35rem;border-radius:20px;margin-top:.25rem"
+                            title="{{ $fCat }}">
+                            <i class="bi {{ $cicon }}" style="font-size:.72rem"></i>
+                        </div>
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;color:#64748b;font-size:.78rem;font-family:monospace">
                         {{ $f->port ?? '—' }}{{ $f->protocol ? '/'.$f->protocol : '' }}
                     </td>
-                    @if($baseline && $latestScan)
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
-                        @if($cmpLabel)<span class="{{ $cmpClass }}">{{ $cmpLabel }}</span>@endif
-                    </td>
-                    @endif
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $remClass }}" style="font-size:.68rem">{{ $remStatus }}</span>
                         @if($rem?->assigned_to)
@@ -420,7 +386,7 @@
                                 <div style="flex:1;min-width:0">
                                     <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
                                         <span class="badge-sev {{ $sevClass }}" style="font-size:.75rem">{{ $f->severity }}</span>
-                                        @if($cmpLabel)<span class="{{ $cmpClass }}">{{ $cmpLabel }}</span>@endif
+                                        <span class="badge-sev" style="font-size:.68rem;background:{{ $tsBg }};color:{{ $tsColor }}">{{ $tsIcon }} {{ $f->tracking_status }}</span>
                                         <span class="badge-sev {{ $remClass }}" style="font-size:.68rem">{{ $remStatus }}</span>
                                     </div>
                                     <h5 class="modal-title mb-0" style="font-size:.95rem;font-weight:700;color:#0f172a;line-height:1.3">
@@ -450,7 +416,7 @@
                                         <div style="font-size:.82rem;font-weight:700;color:{{ $bColor }}">{{ $f->severity }} Severity Vulnerability</div>
                                         <div style="font-size:.75rem;color:#64748b">Plugin {{ $f->plugin_id }}
                                             @if($f->cve) &nbsp;&middot;&nbsp; <strong>{{ $f->cve }}</strong>@endif
-                                            @if($f->scan_timestamp) &nbsp;&middot;&nbsp; Scanned {{ $f->scan_timestamp->format('d M Y H:i') }}@endif
+                                            &nbsp;&middot;&nbsp; Since {{ $f->first_seen_at->format('d M Y') }}
                                         </div>
                                     </div>
                                 </div>
@@ -469,21 +435,6 @@
                                         <div class="detail-meta-item">
                                             <div class="label">Hostname</div>
                                             <div class="value">{{ $f->hostname ?: '—' }}</div>
-                                        </div>
-                                        <div class="detail-meta-item">
-                                            <div class="label">Operating System</div>
-                                            <div class="value d-flex align-items-center gap-1">
-                                                @if($displayOs)
-                                                    <span class="os-badge" style="background:{{ $osMeta['bg'] }};color:{{ $osMeta['color'] }}">
-                                                        <i class="bi {{ $osIcon }}"></i>{{ $displayOs }}
-                                                    </span>
-                                                    @if($f->os_confidence > 0)
-                                                    <span style="font-size:.68rem;color:#94a3b8">{{ $f->os_confidence }}%</span>
-                                                    @endif
-                                                @else
-                                                    <span style="color:#94a3b8">Not detected</span>
-                                                @endif
-                                            </div>
                                         </div>
                                         <div class="detail-meta-item">
                                             <div class="label">Port / Protocol</div>
@@ -517,12 +468,14 @@
                                             <div class="label">Severity</div>
                                             <div class="value"><span class="badge-sev {{ $sevClass }}">{{ $f->severity }}</span></div>
                                         </div>
-                                        @if($f->scan_timestamp)
                                         <div class="detail-meta-item">
-                                            <div class="label">Scan Timestamp</div>
-                                            <div class="value">{{ $f->scan_timestamp->format('d M Y H:i') }}</div>
+                                            <div class="label">First Seen</div>
+                                            <div class="value">{{ $f->first_seen_at->format('d M Y') }}</div>
                                         </div>
-                                        @endif
+                                        <div class="detail-meta-item">
+                                            <div class="label">Last Seen</div>
+                                            <div class="value">{{ $f->last_seen_at->format('d M Y') }}</div>
+                                        </div>
                                     </div>
 
                                     @if($f->description)
@@ -541,33 +494,18 @@
                                         $fCat  = $f->vuln_category ?? 'Other';
                                         [$fbg,$fcol,$ficon] = \App\Models\VulnFinding::categoryStyle($fCat);
                                     @endphp
-                                    <div class="d-flex align-items-start gap-3 flex-wrap">
-                                        <div style="background:{{ $fbg }};border:1.5px solid {{ $fcol }}44;border-radius:10px;padding:.75rem 1rem;min-width:140px;text-align:center">
-                                            <div style="font-size:1.4rem;color:{{ $fcol }}"><i class="bi {{ $ficon }}"></i></div>
-                                            <div style="font-size:.82rem;font-weight:700;color:{{ $fcol }};margin-top:.25rem">{{ $fCat }}</div>
+                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                        <div style="background:{{ $fbg }};border:1.5px solid {{ $fcol }}44;border-radius:10px;padding:.65rem 1rem;min-width:130px;text-align:center">
+                                            <div style="font-size:1.3rem;color:{{ $fcol }}"><i class="bi {{ $ficon }}"></i></div>
+                                            <div style="font-size:.82rem;font-weight:700;color:{{ $fcol }};margin-top:.2rem">{{ $fCat }}</div>
                                             <div style="font-size:.68rem;color:#94a3b8;margin-top:.1rem">Category</div>
                                         </div>
-                                        <div style="flex:1;min-width:160px">
-                                            <div style="font-size:.72rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:.3rem">Affected Component</div>
-                                            <div style="font-size:.95rem;font-weight:700;color:#0f172a">
-                                                {{ $f->affected_component ?? '—' }}
-                                            </div>
-                                            @if($displayOs)
-                                            <div style="margin-top:.6rem">
-                                                <div style="font-size:.72rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:.3rem">Detected OS</div>
-                                                <div class="os-badge" style="display:inline-flex;background:{{ $osMeta['bg'] }};color:{{ $osMeta['color'] }}">
-                                                    <i class="bi {{ $osIcon }}"></i>{{ $displayOs }}
-                                                    @if($f->os_confidence > 0)
-                                                    <span style="opacity:.75;font-size:.65rem;margin-left:.25rem">{{ $f->os_confidence }}%</span>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                            @endif
-                                            <div style="margin-top:.75rem;font-size:.75rem;color:#94a3b8;background:#f8fafc;border-radius:6px;padding:.4rem .6rem;line-height:1.5">
-                                                <i class="bi bi-info-circle me-1"></i>
-                                                Classified automatically based on vulnerability name, description, OS, and port data at scan import time.
-                                            </div>
+                                        @if($f->affected_component)
+                                        <div>
+                                            <div style="font-size:.68rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:.2rem">Affected Component</div>
+                                            <div style="font-size:.9rem;font-weight:700;color:#0f172a">{{ $f->affected_component }}</div>
                                         </div>
+                                        @endif
                                     </div>
                                 </div>
 
@@ -642,7 +580,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="{{ ($baseline && $latestScan) ? 10 : 9 }}" style="text-align:center;padding:3rem;color:#94a3b8">
+                    <td colspan="10" style="text-align:center;padding:3rem;color:#94a3b8">
                         <i class="bi bi-bug" style="font-size:2rem;display:block;margin-bottom:.75rem;opacity:.4"></i>
                         No findings match the current filters.
                     </td>
