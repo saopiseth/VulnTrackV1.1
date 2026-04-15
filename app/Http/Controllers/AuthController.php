@@ -75,21 +75,35 @@ class AuthController extends Controller
 
         $request->validate(['otp' => ['required', 'digits:6']]);
 
+        // Lock out after 5 failed attempts — flush session and force re-login
+        $attempts = $request->session()->get('mfa.attempts', 0);
+        if ($attempts >= 5) {
+            $request->session()->forget(['mfa.user_id','mfa.otp','mfa.expires_at','mfa.remember','mfa.attempts']);
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Too many failed verification attempts. Please sign in again.']);
+        }
+
         $expiresAt = $request->session()->get('mfa.expires_at');
         if (now()->timestamp > $expiresAt) {
-            $request->session()->forget(['mfa.user_id','mfa.otp','mfa.expires_at','mfa.remember']);
+            $request->session()->forget(['mfa.user_id','mfa.otp','mfa.expires_at','mfa.remember','mfa.attempts']);
             return redirect()->route('login')
                 ->withErrors(['email' => 'Verification code expired. Please sign in again.']);
         }
 
         if (!Hash::check($request->otp, $request->session()->get('mfa.otp'))) {
-            return back()->withErrors(['otp' => 'Invalid verification code. Please try again.']);
+            $request->session()->put('mfa.attempts', $attempts + 1);
+            $remaining = 4 - $attempts;
+            return back()->withErrors([
+                'otp' => $remaining > 0
+                    ? "Invalid verification code. {$remaining} attempt(s) remaining."
+                    : 'Invalid verification code. One more failure will require you to sign in again.',
+            ]);
         }
 
         $user     = User::findOrFail($request->session()->get('mfa.user_id'));
         $remember = $request->session()->get('mfa.remember', false);
 
-        $request->session()->forget(['mfa.user_id','mfa.otp','mfa.expires_at','mfa.remember']);
+        $request->session()->forget(['mfa.user_id','mfa.otp','mfa.expires_at','mfa.remember','mfa.attempts']);
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
@@ -127,7 +141,7 @@ class AuthController extends Controller
             'first_name' => ['required', 'string', 'max:50'],
             'last_name'  => ['required', 'string', 'max:50'],
             'email'      => ['required', 'email', 'unique:users,email'],
-            'password'   => ['required', 'confirmed', Password::min(8)],
+            'password'   => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
             'terms'      => ['accepted'],
         ], [
             'terms.accepted' => 'You must agree to the Terms of Service.',

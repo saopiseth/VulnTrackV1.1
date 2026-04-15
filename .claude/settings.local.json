@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"denyIfNotAdmin\\\\|authorize\\\\|policy\\\\|@can\\\\|@auth\" /c/xampp/htdocs/myproject/ProjectAss/app/Http/Controllers/*.php)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"fillable\\\\|guarded\" /c/xampp/htdocs/myproject/ProjectAss/app/Models/*.php)"
+    ]
+  }
+}

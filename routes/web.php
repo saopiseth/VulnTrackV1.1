@@ -7,6 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VulnerabilityController;
 use App\Http\Controllers\VulnAssessmentController;
 use App\Http\Controllers\AssetInventoryController;
+use App\Http\Controllers\ThreatIntelController;
 
 // ─── Redirect root to login ───────────────────────────────────
 Route::get('/', fn() => redirect()->route('login'));
@@ -14,16 +15,16 @@ Route::get('/', fn() => redirect()->route('login'));
 // ─── Guest-only routes ────────────────────────────────────────
 Route::middleware('guest')->group(function () {
     Route::get('/login',    [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login',   [AuthController::class, 'login']);
+    Route::post('/login',   [AuthController::class, 'login'])->middleware('throttle:login');
 
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register',[AuthController::class, 'register']);
+    Route::post('/register',[AuthController::class, 'register'])->middleware('throttle:register');
 });
 
 // ─── MFA routes (session-gated, no auth middleware) ───────────
 Route::get('/mfa/verify',  [AuthController::class, 'showMfa'])->name('mfa.verify');
-Route::post('/mfa/verify', [AuthController::class, 'verifyMfa'])->name('mfa.verify.post');
-Route::post('/mfa/resend', [AuthController::class, 'resendMfa'])->name('mfa.resend');
+Route::post('/mfa/verify', [AuthController::class, 'verifyMfa'])->name('mfa.verify.post')->middleware('throttle:mfa');
+Route::post('/mfa/resend', [AuthController::class, 'resendMfa'])->name('mfa.resend')->middleware('throttle:mfa');
 
 // ─── Forgot password (placeholder) ───────────────────────────
 Route::get('/forgot-password', fn() => view('auth.login'))->name('password.request');
@@ -55,9 +56,20 @@ Route::middleware('auth')->group(function () {
     Route::delete('/vuln-assessments/{vulnAssessment}',                     [VulnAssessmentController::class, 'destroy'])->name('vuln-assessments.destroy');
 
     // Asset Inventory module
-    Route::get('/inventory/scan-data', [AssetInventoryController::class, 'scanData'])->name('inventory.scan-data');
-    Route::post('/inventory/classify',  [AssetInventoryController::class, 'classify'])->name('inventory.classify');
+    Route::get('/inventory/scan-data',              [AssetInventoryController::class, 'scanData'])->name('inventory.scan-data');
+    Route::post('/inventory/classify',              [AssetInventoryController::class, 'classify'])->name('inventory.classify');
+    Route::get('/inventory/os-assets',                        [AssetInventoryController::class, 'osAssets'])->name('inventory.os-assets');
+    Route::post('/inventory/os-override/{hostOs}',           [AssetInventoryController::class, 'osOverride'])->name('inventory.os-override');
+    Route::post('/inventory/os-assets/{hostOs}/criticality', [AssetInventoryController::class, 'setCriticality'])->name('inventory.os-assets.criticality');
+    Route::get('/inventory/os-assets/{hostOs}/apps',         [AssetInventoryController::class, 'hostApps'])->name('inventory.os-assets.apps');
     Route::resource('inventory', AssetInventoryController::class);
+
+    // Threat Intel Feed
+    Route::get('/threat-intel',                  [ThreatIntelController::class, 'index'])->name('threat-intel.index');
+    Route::post('/threat-intel/import',          [ThreatIntelController::class, 'import'])->name('threat-intel.import');
+    Route::post('/threat-intel',                 [ThreatIntelController::class, 'store'])->name('threat-intel.store');
+    Route::patch('/threat-intel/{item}/status',  [ThreatIntelController::class, 'updateStatus'])->name('threat-intel.status');
+    Route::delete('/threat-intel/{item}',        [ThreatIntelController::class, 'destroy'])->name('threat-intel.destroy');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/logout',  [AuthController::class, 'logout']);

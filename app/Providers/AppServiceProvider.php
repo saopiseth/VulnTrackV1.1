@@ -2,12 +2,22 @@
 
 namespace App\Providers;
 
+use App\Models\AssetInventory;
 use App\Models\ProjectAssessment;
+use App\Models\ThreatIntelItem;
 use App\Models\User;
+use App\Models\Vulnerability;
+use App\Models\VulnAssessment;
+use App\Policies\AssetInventoryPolicy;
 use App\Policies\ProjectAssessmentPolicy;
+use App\Policies\ThreatIntelPolicy;
 use App\Policies\UserPolicy;
+use App\Policies\VulnerabilityPolicy;
+use App\Policies\VulnAssessmentPolicy;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,11 +29,53 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Register policies explicitly
-        Gate::policy(User::class, UserPolicy::class);
+        // ── Authorization policies ────────────────────────────
+        Gate::policy(User::class,             UserPolicy::class);
         Gate::policy(ProjectAssessment::class, ProjectAssessmentPolicy::class);
+        Gate::policy(VulnAssessment::class,   VulnAssessmentPolicy::class);
+        Gate::policy(Vulnerability::class,    VulnerabilityPolicy::class);
+        Gate::policy(AssetInventory::class,   AssetInventoryPolicy::class);
+        Gate::policy(ThreatIntelItem::class,  ThreatIntelPolicy::class);
 
-        // Redirect 403 with a flash message instead of error page
+        // ── Named rate limiters ───────────────────────────────
+
+        // Login: 5 attempts per minute keyed to the submitted email + IP.
+        // Combining both prevents an attacker from cycling IPs to beat a
+        // per-email limit, and prevents enumeration via per-IP-only limits.
+        RateLimiter::for('login', function (Request $request) {
+            $key = strtolower($request->input('email', '')) . '|' . $request->ip();
+            return [
+                Limit::perMinute(5)->by($key)
+                     ->response(fn () => back()
+                         ->withInput($request->only('email', 'remember'))
+                         ->withErrors(['email' => 'Too many login attempts. Please wait a minute and try again.'])),
+                Limit::perMinute(15)->by($request->ip()),
+            ];
+        });
+
+        // Registration: 3 new accounts per 10 minutes from the same IP.
+        RateLimiter::for('register', function (Request $request) {
+            return Limit::perMinutes(10, 3)->by($request->ip())
+                ->response(fn () => back()
+                    ->withErrors(['email' => 'Too many registration attempts. Please try again later.']));
+        });
+
+        // MFA: 5 code attempts per minute keyed to the user being verified.
+        // Using the session-stored user ID so an attacker who rotates IPs
+        // still hits the same bucket for the same target account.
+        RateLimiter::for('mfa', function (Request $request) {
+            $key = $request->session()->get('mfa.user_id', $request->ip());
+            return Limit::perMinute(5)->by('mfa|' . $key)
+                ->response(fn () => back()
+                    ->withErrors(['otp' => 'Too many verification attempts. Please sign in again.']));
+        });
+
+        // File upload: 10 scan uploads per 5 minutes per user.
+        RateLimiter::for('upload', function (Request $request) {
+            return Limit::perMinutes(5, 10)->by('upload|' . ($request->user()?->id ?? $request->ip()));
+        });
+
+        // Route model binding
         $this->app['router']->bind('user', function ($value) {
             return User::findOrFail($value);
         });

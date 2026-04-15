@@ -13,7 +13,7 @@ namespace App\Services;
  *   5. Plugin name + description keyword match       → confidence 60
  *   6. Service-banner / version detection            → confidence 40
  *
- * Returns: ['os_name', 'os_family', 'os_confidence', 'detection_sources']
+ * Returns: ['os_name', 'os_family', 'os_confidence', 'os_kernel', 'detection_sources']
  */
 class OsDetector
 {
@@ -32,15 +32,17 @@ class OsDetector
      *
      * @param  object  $hostProperties   SimpleXML HostProperties element
      * @param  array   $reportItems      array of SimpleXML ReportItem elements
-     * @return array{os_name:string|null,os_family:string,os_confidence:int,detection_sources:array}
+     * @return array{os_name:string|null,os_family:string,os_confidence:int,os_kernel:string|null,detection_sources:array}
      */
     public static function detectFromXml(object $hostProperties, array $reportItems): array
     {
-        $candidates = [];
+        $candidates  = [];
+        $rawOsFull   = '';   // full multi-line operating-system tag value for kernel extraction
 
         // ── Source 1 & 2: HostProperties tags ────────────────
         $hpOs = trim((string) ($hostProperties->xpath('tag[@name="operating-system"]')[0] ?? ''));
         if ($hpOs) {
+            $rawOsFull = $hpOs;
             $line = trim(explode("\n", $hpOs)[0]);
             $candidates[] = ['raw' => $line, 'confidence' => 95, 'source' => 'HostProperties:operating-system'];
         }
@@ -105,7 +107,89 @@ class OsDetector
             }
         }
 
-        return self::resolveBest($candidates);
+        $result = self::resolveBest($candidates);
+
+        // ── Kernel / build extraction ─────────────────────────────────────────
+        // Sources are searched in priority order; first non-null result wins.
+        //
+        // Linux/Unix kernel sources (Nessus real-world order):
+        //   1. HostProperties tag[name="kernel"]           e.g. "5.4.0-74-generic"
+        //   2. HostProperties tag[name="operating-system"] e.g. "Linux Kernel 5.4.0-74-generic #83-Ubuntu SMP…\nUbuntu 20.04.2"
+        //   3. Plugin 11936 (OS Identification) output     e.g. "Remote operating system : Linux Kernel 5.4.0-74-generic"
+        //   4. Plugin 25221 (Remote listeners) output
+        //
+        // Windows build sources:
+        //   1. HostProperties tag[name="msrpc-windows-version"] e.g. "10.0.19041"
+        //   2. HostProperties tag[name="operating-system"]      e.g. "Microsoft Windows 10 Enterprise 10.0.19041 Build 19041"
+        //   3. Plugin 10785 (SMB NativeLanManager) output       e.g. "The Windows version is : 10.0.19041"
+        //   4. Plugin 25221 (Remote listeners) output           e.g. "Windows 10 Build 19041"
+        //   5. Plugin 11936 output
+
+        $osFamily = $result['os_family'];
+
+        // Index plugin outputs we care about (avoid iterating twice)
+        $pluginOutputMap = [];
+        foreach ($reportItems as $item) {
+            $pid = (string) ($item['pluginID'] ?? '');
+            if (in_array($pid, ['10785', '11936', '25221', '45590', '45003'])
+                && !isset($pluginOutputMap[$pid])) {
+                $pluginOutputMap[$pid] = (string) ($item->plugin_output ?? '');
+            }
+        }
+
+        $result['os_kernel'] = null;
+
+        if ($osFamily === self::FAM_WINDOWS) {
+            // Source 1: dedicated msrpc-windows-version tag
+            $msrpc = trim((string) ($hostProperties->xpath('tag[@name="msrpc-windows-version"]')[0] ?? ''));
+            if ($msrpc && $k = self::extractWindowsBuild($msrpc)) {
+                $result['os_kernel'] = $k;
+            }
+            // Source 2: operating-system tag (some Nessus versions include build inline)
+            if (!$result['os_kernel'] && $rawOsFull
+                && $k = self::extractWindowsBuild($rawOsFull)) {
+                $result['os_kernel'] = $k;
+            }
+            // Source 3: Plugin 10785 — most reliable Windows build source
+            if (!$result['os_kernel'] && isset($pluginOutputMap['10785'])
+                && $k = self::extractWindowsBuild($pluginOutputMap['10785'])) {
+                $result['os_kernel'] = $k;
+            }
+            // Source 4: Plugin 25221
+            if (!$result['os_kernel'] && isset($pluginOutputMap['25221'])
+                && $k = self::extractWindowsBuild($pluginOutputMap['25221'])) {
+                $result['os_kernel'] = $k;
+            }
+            // Source 5: Plugin 11936
+            if (!$result['os_kernel'] && isset($pluginOutputMap['11936'])
+                && $k = self::extractWindowsBuild($pluginOutputMap['11936'])) {
+                $result['os_kernel'] = $k;
+            }
+        } else {
+            // Linux / Unix
+            // Source 1: dedicated kernel tag (rare but unambiguous)
+            $hpKernel = trim((string) ($hostProperties->xpath('tag[@name="kernel"]')[0] ?? ''));
+            if ($hpKernel && $k = self::extractLinuxKernel($hpKernel)) {
+                $result['os_kernel'] = $k;
+            }
+            // Source 2: operating-system tag (first line often "Linux Kernel X.X.X-XX-generic #…")
+            if (!$result['os_kernel'] && $rawOsFull
+                && $k = self::extractLinuxKernel($rawOsFull)) {
+                $result['os_kernel'] = $k;
+            }
+            // Source 3: Plugin 11936
+            if (!$result['os_kernel'] && isset($pluginOutputMap['11936'])
+                && $k = self::extractLinuxKernel($pluginOutputMap['11936'])) {
+                $result['os_kernel'] = $k;
+            }
+            // Source 4: Plugin 25221
+            if (!$result['os_kernel'] && isset($pluginOutputMap['25221'])
+                && $k = self::extractLinuxKernel($pluginOutputMap['25221'])) {
+                $result['os_kernel'] = $k;
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -138,7 +222,20 @@ class OsDetector
             $candidates[] = ['raw' => $matched, 'confidence' => 55, 'source' => 'CSV:PluginName'];
         }
 
-        return self::resolveBest($candidates);
+        $result = self::resolveBest($candidates);
+
+        // Kernel/build from os_raw column or plugin output, family-aware
+        $result['os_kernel'] = null;
+        foreach (array_filter([$osRaw, $pluginOutput]) as $src) {
+            if ($result['os_family'] === self::FAM_WINDOWS) {
+                $k = self::extractWindowsBuild($src);
+            } else {
+                $k = self::extractLinuxKernel($src);
+            }
+            if ($k) { $result['os_kernel'] = $k; break; }
+        }
+
+        return $result;
     }
 
     /**
@@ -162,7 +259,7 @@ class OsDetector
     private static function resolveBest(array $candidates): array
     {
         if (empty($candidates)) {
-            return ['os_name' => null, 'os_family' => self::FAM_OTHER, 'os_confidence' => 0, 'detection_sources' => []];
+            return ['os_name' => null, 'os_family' => self::FAM_OTHER, 'os_confidence' => 0, 'os_kernel' => null, 'detection_sources' => []];
         }
 
         // Sort by confidence desc
@@ -177,8 +274,64 @@ class OsDetector
             'os_name'           => $normalised['os_name'],
             'os_family'         => $normalised['os_family'],
             'os_confidence'     => min(100, $best['confidence']),
+            'os_kernel'         => null,   // filled by caller after kernel extraction
             'detection_sources' => array_values($sources),
         ];
+    }
+
+    /**
+     * Extract Linux/Unix kernel version from raw text.
+     *
+     * Nessus sources this appears in:
+     *   HostProperties tag[name="kernel"]           → "5.4.0-74-generic"
+     *   HostProperties tag[name="operating-system"] → "Linux Kernel 5.4.0-74-generic #83-Ubuntu SMP…"
+     *   Plugin 11936 output                         → "Remote operating system : Linux Kernel 5.4.0-74-generic"
+     *
+     * Returns only the version token, e.g. "5.4.0-74-generic".
+     */
+    public static function extractLinuxKernelPublic(string $raw): ?string { return self::extractLinuxKernel($raw); }
+    public static function extractWindowsBuildPublic(string $raw): ?string { return self::extractWindowsBuild($raw); }
+
+    private static function extractLinuxKernel(string $raw): ?string
+    {
+        // "Linux Kernel 5.4.0-74-generic #83-Ubuntu SMP …" — stop before the SMP comment
+        if (preg_match('/(?:linux\s+)?kernel\s+(\d+\.\d+\.\d+[^\s#]*)/i', $raw, $m)) {
+            return rtrim($m[1], '-.');
+        }
+        // Bare version that looks like a kernel flavour (e.g. "5.15.0-91-generic", "4.18.0-305.el8.x86_64")
+        if (preg_match('/\b(\d+\.\d+\.\d+[-.](?:generic|amd64|server|default|azure|aws|gcp|x86_64|el\d+[\w.]*|rt[\w.]*))\b/i', $raw, $m)) {
+            return $m[1];
+        }
+        return null;
+    }
+
+    /**
+     * Extract Windows build number from raw text.
+     *
+     * Nessus sources this appears in:
+     *   HostProperties tag[name="msrpc-windows-version"] → "10.0.19041"
+     *   HostProperties tag[name="operating-system"]      → "Microsoft Windows 10 Enterprise 10.0.19041 Build 19041"
+     *   Plugin 10785 output                              → "The Windows version is : 10.0.19041"
+     *   Plugin 25221 output                              → "Windows 10 Build 19041"
+     *
+     * Returns "Build NNNNN", e.g. "Build 19041".
+     */
+    private static function extractWindowsBuild(string $raw): ?string
+    {
+        // Explicit "Build 19041" or "Build: 19041.1415"
+        if (preg_match('/\bbuild[:\s]+(\d{4,5}(?:\.\d+)*)/i', $raw, $m)) {
+            return 'Build ' . $m[1];
+        }
+        // NT version string "10.0.19041" or "6.1.7601" — build is the third segment
+        // Matches "The Windows version is : 10.0.19041" and inline "10.0.19041 Build …"
+        if (preg_match('/\b\d+\.\d+\.(\d{4,5})\b/i', $raw, $m)) {
+            return 'Build ' . $m[1];
+        }
+        // Service Pack fallback for older Windows
+        if (preg_match('/service\s+pack\s+(\d)/i', $raw, $m)) {
+            return 'SP' . $m[1];
+        }
+        return null;
     }
 
     /**

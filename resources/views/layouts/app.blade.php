@@ -210,8 +210,13 @@
             <div class="sidebar-label mt-2">Asset Management</div>
             <ul class="list-unstyled mb-0">
                 <li class="nav-item">
-                    <a href="{{ route('inventory.index') }}" class="{{ request()->routeIs('inventory.*') ? 'active' : '' }}">
+                    <a href="{{ route('inventory.index') }}" class="{{ request()->routeIs('inventory.index') || request()->routeIs('inventory.show') || request()->routeIs('inventory.create') || request()->routeIs('inventory.edit') ? 'active' : '' }}">
                         <i class="bi bi-hdd-network-fill"></i> Servers Asset Inventory
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('inventory.os-assets') }}" class="{{ request()->routeIs('inventory.os-assets') ? 'active' : '' }}">
+                        <i class="bi bi-cpu-fill"></i> OS Assets
                     </a>
                 </li>
             </ul>
@@ -221,6 +226,11 @@
                 <li class="nav-item">
                     <a href="{{ route('vuln-assessments.index') }}" class="{{ request()->routeIs('vuln-assessments.*') ? 'active' : '' }}">
                         <i class="bi bi-bug-fill"></i> Vulnerability Tracking
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('threat-intel.index') }}" class="{{ request()->routeIs('threat-intel.*') ? 'active' : '' }}">
+                        <i class="bi bi-newspaper"></i> Threat Intel Feed
                     </a>
                 </li>
             </ul>

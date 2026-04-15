@@ -286,8 +286,10 @@ class VulnAssessmentController extends Controller
 
     public function uploadScan(Request $request, VulnAssessment $vulnAssessment)
     {
+        $this->authorize('manage', $vulnAssessment);
+
         $request->validate([
-            'scan_file' => ['required', 'file', 'max:51200'],
+            'scan_file' => ['required', 'file', 'max:51200', 'mimes:xml,csv,txt'],
             'notes'     => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -374,6 +376,7 @@ class VulnAssessmentController extends Controller
                             'os_name'          => $osData['os_name'],
                             'os_family'        => $osData['os_family'],
                             'os_confidence'    => $osData['os_confidence'],
+                            'os_kernel'        => $osData['os_kernel'] ?? null,
                             'detection_sources'=> $osData['detection_sources'],
                             'os_history'       => $history,
                         ]);
@@ -577,6 +580,7 @@ class VulnAssessmentController extends Controller
 
     public function updateRemediation(Request $request, VulnAssessment $vulnAssessment, VulnRemediation $remediation)
     {
+        $this->authorize('update', $vulnAssessment);
         abort_unless($remediation->assessment_id === $vulnAssessment->id, 403);
 
         $data = $request->validate([
@@ -598,6 +602,8 @@ class VulnAssessmentController extends Controller
      */
     public function reclassify(Request $request, VulnAssessment $vulnAssessment)
     {
+        $this->authorize('manage', $vulnAssessment);
+
         $forceAll = $request->boolean('force', false);
 
         $query = VulnFinding::where('assessment_id', $vulnAssessment->id);
@@ -649,6 +655,8 @@ class VulnAssessmentController extends Controller
 
     public function destroy(VulnAssessment $vulnAssessment)
     {
+        $this->authorize('delete', $vulnAssessment);
+
         $vulnAssessment->delete();
         return redirect()->route('vuln-assessments.index')
             ->with('success', 'Assessment deleted.');
@@ -688,6 +696,7 @@ class VulnAssessmentController extends Controller
                 $osName      = $osResult['os_name'];
                 $osFamily    = $osResult['os_family'];
                 $osConfidence= $osResult['os_confidence'];
+                $osKernel    = $osResult['os_kernel'];
 
                 // Collect per-host OS data for vuln_host_os upsert
                 if ($ip) {
@@ -697,6 +706,7 @@ class VulnAssessmentController extends Controller
                         'os_name'          => $osName,
                         'os_family'        => $osFamily,
                         'os_confidence'    => $osConfidence,
+                        'os_kernel'        => $osKernel,
                         'detection_sources'=> $osResult['detection_sources'],
                     ];
                 }
@@ -722,6 +732,7 @@ class VulnAssessmentController extends Controller
                         'os_name'            => $osName,
                         'os_family'          => $osFamily,
                         'os_confidence'      => $osConfidence,
+                        'os_kernel'          => $osKernel,
                         'vuln_category'      => $classification['category'],
                         'affected_component' => $classification['affected_component'],
                         'plugin_id'          => (string) ($item['pluginID'] ?? '0'),
@@ -799,6 +810,7 @@ class VulnAssessmentController extends Controller
                         'os_name'          => $osResult['os_name'],
                         'os_family'        => $osResult['os_family'],
                         'os_confidence'    => $osResult['os_confidence'],
+                        'os_kernel'        => $osResult['os_kernel'],
                         'detection_sources'=> $osResult['detection_sources'],
                     ];
                 }
@@ -819,6 +831,7 @@ class VulnAssessmentController extends Controller
                 'os_name'            => $osResult['os_name'],
                 'os_family'          => $osResult['os_family'],
                 'os_confidence'      => $osResult['os_confidence'],
+                'os_kernel'          => $osResult['os_kernel'],
                 'vuln_category'      => $classification['category'],
                 'affected_component' => $classification['affected_component'],
                 'plugin_id'          => $col($line, ['plugin id', 'plugin_id', 'pluginid']) ?: '0',
@@ -901,6 +914,7 @@ class VulnAssessmentController extends Controller
 
     public function osOverride(Request $request, VulnAssessment $vulnAssessment, VulnHostOs $hostOs)
     {
+        $this->authorize('manage', $vulnAssessment);
         abort_unless($hostOs->assessment_id === $vulnAssessment->id, 403);
 
         $data = $request->validate([

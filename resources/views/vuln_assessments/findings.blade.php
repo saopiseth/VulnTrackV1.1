@@ -171,6 +171,7 @@
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Vulnerability Name</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Host</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">OS / Application</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Kernel / Build</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Port</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Remediation</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center">Actions</th>
@@ -265,7 +266,7 @@
                             [$cbg, $ccol, $cicon] = \App\Models\VulnFinding::categoryStyle($fCat);
                         @endphp
 
-                        {{-- Auto-classified OS family badge only --}}
+                        {{-- OS family badge --}}
                         @if($osFam && $osFam !== 'Other')
                         <div style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:600;
                             background:{{ $osFamMeta['bg'] }};color:{{ $osFamMeta['color'] }};
@@ -278,12 +279,53 @@
                         <span style="color:#cbd5e1;font-size:.75rem">—</span>
                         @endif
 
+                        {{-- OS version (name already includes version, e.g. "Ubuntu 22.04") --}}
+                        @if($f->os_name)
+                        <div style="font-size:.68rem;color:#475569;margin-top:.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px"
+                             title="{{ $f->os_name }}">
+                            {{ $f->os_name }}
+                        </div>
+                        @endif
+
                         {{-- Vulnerability category icon only --}}
                         <div style="display:inline-flex;align-items:center;justify-content:center;
                             background:{{ $cbg }};color:{{ $ccol }};padding:.18rem .35rem;border-radius:20px;margin-top:.25rem"
                             title="{{ $fCat }}">
                             <i class="bi {{ $cicon }}" style="font-size:.72rem"></i>
                         </div>
+                    </td>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
+                        @if($f->os_kernel)
+                        @php
+                            switch ($osFam) {
+                                case 'Linux':
+                                case 'Unix':
+                                    $kMeta  = ['label'=>'kernel','icon'=>'bi-terminal','bg'=>'#d1fae5','color'=>'#065f46'];
+                                    $kValue = $f->os_kernel;
+                                    break;
+                                case 'Windows':
+                                    $kMeta  = ['label'=>'build','icon'=>'bi-windows','bg'=>'#dbeafe','color'=>'#1e40af'];
+                                    $kValue = preg_replace('/^build\s+/i', '', $f->os_kernel);
+                                    break;
+                                default:
+                                    $kMeta  = null;
+                                    $kValue = $f->os_kernel;
+                            }
+                        @endphp
+                        @if($kMeta)
+                        <span style="font-size:.62rem;font-weight:700;
+                            background:{{ $kMeta['bg'] }};color:{{ $kMeta['color'] }};
+                            padding:.05rem .35rem;border-radius:4px;margin-right:.25rem;
+                            text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">
+                            <i class="bi {{ $kMeta['icon'] }}" style="font-size:.6rem"></i>
+                            {{ $kMeta['label'] }}
+                        </span>
+                        @endif
+                        <span style="font-family:monospace;font-size:.75rem;color:#374151"
+                              title="{{ $f->os_kernel }}">{{ $kValue }}</span>
+                        @else
+                        <span style="color:#cbd5e1;font-size:.75rem">—</span>
+                        @endif
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;color:#64748b;font-size:.78rem;font-family:monospace">
                         {{ $f->port ?? '—' }}{{ $f->protocol ? '/'.$f->protocol : '' }}
