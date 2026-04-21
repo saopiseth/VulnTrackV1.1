@@ -3,7 +3,10 @@
     "allow": [
       "Bash(grep -r \"denyIfNotAdmin\\\\|authorize\\\\|policy\\\\|@can\\\\|@auth\" /c/xampp/htdocs/myproject/ProjectAss/app/Http/Controllers/*.php)",
       "Bash(xargs grep:*)",
-      "Bash(grep -n \"fillable\\\\|guarded\" /c/xampp/htdocs/myproject/ProjectAss/app/Models/*.php)"
+      "Bash(grep -n \"fillable\\\\|guarded\" /c/xampp/htdocs/myproject/ProjectAss/app/Models/*.php)",
+      "Read(//tmp/docx_extract/**)",
+      "Bash(python3 -c ':*)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

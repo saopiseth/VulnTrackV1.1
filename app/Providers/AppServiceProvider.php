@@ -2,15 +2,9 @@
 
 namespace App\Providers;
 
-use App\Models\AssetInventory;
-use App\Models\ProjectAssessment;
-use App\Models\ThreatIntelItem;
 use App\Models\User;
 use App\Models\Vulnerability;
 use App\Models\VulnAssessment;
-use App\Policies\AssetInventoryPolicy;
-use App\Policies\ProjectAssessmentPolicy;
-use App\Policies\ThreatIntelPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\VulnerabilityPolicy;
 use App\Policies\VulnAssessmentPolicy;
@@ -31,11 +25,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // ── Authorization policies ────────────────────────────
         Gate::policy(User::class,             UserPolicy::class);
-        Gate::policy(ProjectAssessment::class, ProjectAssessmentPolicy::class);
         Gate::policy(VulnAssessment::class,   VulnAssessmentPolicy::class);
         Gate::policy(Vulnerability::class,    VulnerabilityPolicy::class);
-        Gate::policy(AssetInventory::class,   AssetInventoryPolicy::class);
-        Gate::policy(ThreatIntelItem::class,  ThreatIntelPolicy::class);
 
         // ── Named rate limiters ───────────────────────────────
 
@@ -73,6 +64,21 @@ class AppServiceProvider extends ServiceProvider
         // File upload: 10 scan uploads per 5 minutes per user.
         RateLimiter::for('upload', function (Request $request) {
             return Limit::perMinutes(5, 10)->by('upload|' . ($request->user()?->id ?? $request->ip()));
+        });
+
+        // ── Agent API rate limiters ───────────────────────────────
+
+        // General API: 60 requests per minute keyed to the Bearer token (or IP
+        // as fallback). Keying by token means the limit applies per-agent, not
+        // per-IP, which is important for agents behind shared NAT.
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by($request->bearerToken() ?? $request->ip());
+        });
+
+        // Registration: 5 new registrations per 10 minutes per IP.
+        // Prevents an attacker from flooding the agents table with fake agents.
+        RateLimiter::for('agent.register', function (Request $request) {
+            return Limit::perMinutes(10, 5)->by('agent.register|' . $request->ip());
         });
 
         // Route model binding

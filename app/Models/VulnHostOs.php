@@ -14,6 +14,7 @@ class VulnHostOs extends Model
         'os_name', 'os_family', 'os_confidence', 'os_kernel', 'detection_sources',
         'asset_criticality', 'criticality_set_by', 'criticality_set_at',
         'system_name', 'system_owner',
+        'identified_scope', 'environment', 'location',
         'os_override', 'os_override_family', 'os_override_by', 'os_override_at', 'os_override_note',
         'os_history',
     ];
@@ -25,6 +26,21 @@ class VulnHostOs extends Model
         'criticality_set_at' => 'datetime',
         'asset_criticality'  => 'integer',
     ];
+
+    public static function scopeOptions(): array
+    {
+        return ['PCI', 'DMZ', 'Internal', 'External', 'Third-Party'];
+    }
+
+    public static function environmentOptions(): array
+    {
+        return ['PROD', 'UAT', 'STAGE'];
+    }
+
+    public static function locationOptions(): array
+    {
+        return ['DC', 'DR', 'Cloud'];
+    }
 
     /** Returns display metadata for each criticality level. */
     public static function criticalityLevels(): array

@@ -200,37 +200,18 @@
                     </a>
                 </li>
                 @endcan
-                <li class="nav-item">
-                    <a href="{{ route('assessments.index') }}" class="{{ request()->routeIs('assessments.*') ? 'active' : '' }}">
-                        <i class="bi bi-clipboard2-pulse-fill"></i> Assessments
-                    </a>
-                </li>
-            </ul>
-
-            <div class="sidebar-label mt-2">Asset Management</div>
-            <ul class="list-unstyled mb-0">
-                <li class="nav-item">
-                    <a href="{{ route('inventory.index') }}" class="{{ request()->routeIs('inventory.index') || request()->routeIs('inventory.show') || request()->routeIs('inventory.create') || request()->routeIs('inventory.edit') ? 'active' : '' }}">
-                        <i class="bi bi-hdd-network-fill"></i> Servers Asset Inventory
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('inventory.os-assets') }}" class="{{ request()->routeIs('inventory.os-assets') ? 'active' : '' }}">
-                        <i class="bi bi-cpu-fill"></i> OS Assets
-                    </a>
-                </li>
             </ul>
 
             <div class="sidebar-label mt-2">Vulnerability Management</div>
             <ul class="list-unstyled mb-0">
                 <li class="nav-item">
-                    <a href="{{ route('vuln-assessments.index') }}" class="{{ request()->routeIs('vuln-assessments.*') ? 'active' : '' }}">
-                        <i class="bi bi-bug-fill"></i> Vulnerability Tracking
+                    <a href="{{ route('assessment-scope.index') }}" class="{{ request()->routeIs('assessment-scope.*') ? 'active' : '' }}">
+                        <i class="bi bi-diagram-3-fill"></i> Assessment Scope
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('threat-intel.index') }}" class="{{ request()->routeIs('threat-intel.*') ? 'active' : '' }}">
-                        <i class="bi bi-newspaper"></i> Threat Intel Feed
+                    <a href="{{ route('vuln-assessments.index') }}" class="{{ request()->routeIs('vuln-assessments.*') ? 'active' : '' }}">
+                        <i class="bi bi-bug-fill"></i> Vulnerability Tracking
                     </a>
                 </li>
             </ul>
@@ -238,12 +219,12 @@
             <div class="sidebar-label mt-2">Account</div>
             <ul class="list-unstyled mb-0">
                 <li class="nav-item">
-                    <a href="#">
+                    <a href="{{ route('account.profile') }}" class="{{ request()->routeIs('account.profile') ? 'active' : '' }}">
                         <i class="bi bi-person-fill"></i> Profile
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#">
+                    <a href="{{ route('account.settings') }}" class="{{ request()->routeIs('account.settings') ? 'active' : '' }}">
                         <i class="bi bi-gear-fill"></i> Settings
                     </a>
                 </li>

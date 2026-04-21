@@ -4,14 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class VulnAssessment extends Model
 {
     protected $fillable = [
         'name', 'description', 'scan_date', 'period_start', 'period_end',
-        'environment', 'scanner_type', 'created_by',
+        'environment', 'scanner_type', 'scope_group_id', 'created_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            $model->uuid ??= (string) Str::uuid();
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
 
     protected $casts = [
         'scan_date'    => 'date',
@@ -22,6 +36,21 @@ class VulnAssessment extends Model
     public static function environments(): array
     {
         return ['Production', 'UAT', 'Internal', 'Development'];
+    }
+
+    public function scopeGroup(): BelongsTo
+    {
+        return $this->belongsTo(AssessmentScopeGroup::class, 'scope_group_id');
+    }
+
+    public function scopeEntries(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AssessmentScope::class,
+            'vuln_assessment_scope',
+            'vuln_assessment_id',
+            'assessment_scope_id'
+        );
     }
 
     public function creator(): BelongsTo

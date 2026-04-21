@@ -86,11 +86,11 @@
     $allIds = $assessments->pluck('id');
     $gStats = \App\Models\VulnTracked::whereIn('assessment_id', $allIds)
         ->selectRaw("
-            SUM(CASE WHEN tracking_status IN ('New','Pending') THEN 1 ELSE 0 END)  as active_total,
+            SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END)  as active_total,
             SUM(CASE WHEN tracking_status = 'Resolved'         THEN 1 ELSE 0 END)  as resolved_total
         ")->first();
     $gHosts = \App\Models\VulnTracked::whereIn('assessment_id', $allIds)
-        ->whereIn('tracking_status', ['New','Pending'])
+        ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
         ->distinct('ip_address')->count('ip_address');
 @endphp
 <div class="row g-2 mb-4">
@@ -147,12 +147,12 @@
         $tracked = \App\Models\VulnTracked::where('assessment_id', $a->id)
             ->whereIn('severity', ['Critical','High','Medium','Low'])
             ->selectRaw("
-                SUM(CASE WHEN tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as active,
                 SUM(CASE WHEN tracking_status = 'Resolved'         THEN 1 ELSE 0 END) as resolved,
-                SUM(CASE WHEN severity='Critical' AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as c,
-                SUM(CASE WHEN severity='High'     AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as h,
-                SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as m,
-                SUM(CASE WHEN severity='Low'      AND tracking_status IN ('New','Pending') THEN 1 ELSE 0 END) as l
+                SUM(CASE WHEN severity='Critical' AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as c,
+                SUM(CASE WHEN severity='High'     AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as h,
+                SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as m,
+                SUM(CASE WHEN severity='Low'      AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as l
             ")->first();
 
         $activeCount   = (int)($tracked->active   ?? 0);
@@ -160,7 +160,7 @@
         $pctClosed     = ($activeCount + $resolvedCount) > 0
                             ? round($resolvedCount / ($activeCount + $resolvedCount) * 100) : 0;
         $uniqueHosts   = \App\Models\VulnTracked::where('assessment_id', $a->id)
-            ->whereIn('tracking_status', ['New','Pending'])
+            ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
             ->distinct('ip_address')->count('ip_address');
 
         $sevTotal = max(1, ($tracked->c + $tracked->h + $tracked->m + $tracked->l));
@@ -286,6 +286,49 @@
                           border:none;font-size:.8rem;padding:.35rem .9rem;text-align:center">
                     <i class="bi bi-arrow-right-circle me-1"></i>Open
                 </a>
+
+                {{-- Report dropdown --}}
+                <div class="dropdown">
+                    <button class="btn btn-sm dropdown-toggle"
+                            data-bs-toggle="dropdown" aria-expanded="false"
+                            style="border-radius:8px;border:1px solid #e2e8f0;color:#374151;
+                                   background:#fff;padding:.35rem .65rem;font-size:.8rem;font-weight:600">
+                        <i class="bi bi-file-earmark-text me-1"></i>Report
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="border-radius:12px;border:1px solid #e2e8f0;min-width:170px;padding:.4rem">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2"
+                               href="{{ route('vuln-assessments.report.pdf', $a) }}"
+                               style="border-radius:8px;font-size:.82rem;padding:.45rem .75rem">
+                                <span style="width:26px;height:26px;border-radius:7px;background:#fef2f2;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                    <i class="bi bi-file-earmark-pdf-fill" style="color:#dc2626;font-size:.85rem"></i>
+                                </span>
+                                Download PDF
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2"
+                               href="{{ route('vuln-assessments.report.word', $a) }}"
+                               style="border-radius:8px;font-size:.82rem;padding:.45rem .75rem">
+                                <span style="width:26px;height:26px;border-radius:7px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                    <i class="bi bi-file-earmark-word-fill" style="color:#1d4ed8;font-size:.85rem"></i>
+                                </span>
+                                Download Word
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2"
+                               href="{{ route('vuln-assessments.report.excel', $a) }}"
+                               style="border-radius:8px;font-size:.82rem;padding:.45rem .75rem">
+                                <span style="width:26px;height:26px;border-radius:7px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                    <i class="bi bi-file-earmark-spreadsheet-fill" style="color:#16a34a;font-size:.85rem"></i>
+                                </span>
+                                Download Excel
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
                 <form method="POST" action="{{ route('vuln-assessments.destroy', $a) }}"
                       class="d-inline"
                       onsubmit="return confirm('Delete this assessment and all its data?')">

@@ -47,20 +47,89 @@
         justify-content:center; font-size:1.1rem; flex-shrink:0; }
 </style>
 
-<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+{{-- ── Page header ─────────────────────────────────────────────── --}}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <div>
-        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-1">
-            <li class="breadcrumb-item"><a href="{{ route('vuln-assessments.index') }}">Vulnerability Tracking</a></li>
-            <li class="breadcrumb-item"><a href="{{ route('vuln-assessments.show', $assessment) }}">{{ $assessment->name }}</a></li>
-            <li class="breadcrumb-item active">Findings</li>
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-1" style="font-size:.73rem">
+            <li class="breadcrumb-item"><a href="{{ route('vuln-assessments.index') }}" style="color:#94a3b8;text-decoration:none">VA Assessments</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('vuln-assessments.show', $assessment) }}" style="color:#94a3b8;text-decoration:none">{{ Str::limit($assessment->name,40) }}</a></li>
+            <li class="breadcrumb-item active" style="color:#64748b">Findings</li>
         </ol></nav>
-        <h4>{{ $assessment->name }} — Findings</h4>
+        <h5 style="margin:0;font-weight:700;color:#0f172a">{{ $assessment->name }}</h5>
     </div>
     <a href="{{ route('vuln-assessments.show', $assessment) }}" class="btn btn-sm"
-        style="border:1.5px solid rgb(152,194,10);border-radius:9px;color:rgb(118,151,7);background:#fff;font-weight:500">
-        <i class="bi bi-arrow-left me-1"></i> Back to Overview
+        style="border:1.5px solid var(--lime);border-radius:9px;color:var(--lime-dark);background:#fff;font-weight:600;font-size:.81rem;padding:.38rem .9rem">
+        <i class="bi bi-arrow-left me-1"></i>Overview
     </a>
 </div>
+
+{{-- ── Scan context banner ──────────────────────────────────────── --}}
+@if($baseline || $latestScan)
+@php
+    $sameFile = $baseline && $latestScan && $baseline->id === $latestScan->id;
+@endphp
+<div style="background:#fff;border:1px solid #e8f5c2;border-radius:12px;margin-bottom:1.1rem;overflow:hidden">
+    <div style="display:grid;grid-template-columns:{{ $sameFile ? '1fr' : '1fr auto 1fr' }};align-items:stretch">
+
+        {{-- Baseline --}}
+        @if($baseline)
+        <div style="padding:.85rem 1.2rem;{{ !$sameFile ? 'border-right:1px solid #e8f5c2' : '' }}">
+            <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+                         color:var(--lime-dark);margin-bottom:.3rem;display:flex;align-items:center;gap:.3rem">
+                <i class="bi bi-flag-fill"></i>Baseline Scan
+            </div>
+            <div style="font-weight:700;color:#0f172a;font-size:.84rem;white-space:nowrap;overflow:hidden;
+                         text-overflow:ellipsis;max-width:320px" title="{{ $baseline->filename }}">
+                {{ $baseline->filename }}
+            </div>
+            <div style="display:flex;gap:.85rem;margin-top:.25rem;font-size:.7rem;color:#64748b;flex-wrap:wrap">
+                <span><i class="bi bi-list-check me-1" style="color:#94a3b8"></i>{{ $baseline->finding_count }} findings</span>
+                <span><i class="bi bi-hdd-network me-1" style="color:#94a3b8"></i>{{ $baseline->host_count }} hosts</span>
+                <span><i class="bi bi-calendar3 me-1" style="color:#94a3b8"></i>{{ $baseline->created_at->format('d M Y') }}</span>
+            </div>
+        </div>
+        @endif
+
+        {{-- Arrow divider (only when 2 scans are different) --}}
+        @if(!$sameFile && $baseline && $latestScan)
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                     padding:.75rem 1.1rem;background:#f8fafc;border-right:1px solid #e8f5c2;min-width:70px">
+            @php
+                $diffFindings = $latestScan->finding_count - $baseline->finding_count;
+                $diffColor = $diffFindings > 0 ? '#dc2626' : ($diffFindings < 0 ? '#059669' : '#94a3b8');
+                $diffIcon  = $diffFindings > 0 ? 'bi-arrow-up-short' : ($diffFindings < 0 ? 'bi-arrow-down-short' : 'bi-dash');
+            @endphp
+            <i class="bi bi-arrow-right" style="color:#cbd5e1;font-size:1rem;margin-bottom:.2rem"></i>
+            @if($diffFindings !== 0)
+            <span style="font-size:.68rem;font-weight:700;color:{{ $diffColor }};white-space:nowrap">
+                <i class="bi {{ $diffIcon }}"></i>{{ abs($diffFindings) }}
+            </span>
+            @endif
+        </div>
+        @endif
+
+        {{-- Latest (only when different from baseline) --}}
+        @if($latestScan && !$sameFile)
+        <div style="padding:.85rem 1.2rem;background:#f8fbff">
+            <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+                         color:#1e40af;margin-bottom:.3rem;display:flex;align-items:center;gap:.3rem">
+                <i class="bi bi-file-earmark-bar-graph-fill"></i>Latest Scan
+            </div>
+            <div style="font-weight:700;color:#0f172a;font-size:.84rem;white-space:nowrap;overflow:hidden;
+                         text-overflow:ellipsis;max-width:320px" title="{{ $latestScan->filename }}">
+                {{ $latestScan->filename }}
+            </div>
+            <div style="display:flex;gap:.85rem;margin-top:.25rem;font-size:.7rem;color:#64748b;flex-wrap:wrap">
+                <span><i class="bi bi-list-check me-1" style="color:#94a3b8"></i>{{ $latestScan->finding_count }} findings</span>
+                <span><i class="bi bi-hdd-network me-1" style="color:#94a3b8"></i>{{ $latestScan->host_count }} hosts</span>
+                <span><i class="bi bi-calendar3 me-1" style="color:#94a3b8"></i>{{ $latestScan->created_at->format('d M Y') }}</span>
+            </div>
+        </div>
+        @endif
+
+    </div>
+</div>
+@endif
 
 @if(session('success'))
 <div class="alert alert-success alert-dismissible fade show" style="border-radius:10px;font-size:.875rem">
@@ -69,19 +138,57 @@
 </div>
 @endif
 
-{{-- Tracking Status Filter Tabs (New / Pending / Resolved / All) --}}
-@php
-@endphp
-
+{{-- Tracking Status Filter Tabs (New / Unresolved / Open / Reopened / Resolved / All) --}}
 @php
     $trackingScope = match($trackingFilter) {
-        'new'      => ['New'],
-        'pending'  => ['Pending'],
-        'resolved' => ['Resolved'],
-        'all'      => ['New','Pending','Resolved'],
-        default    => ['New','Pending'],
+        'new'        => ['New'],
+        'unresolved' => ['Unresolved'],
+        'open'       => ['Open'],
+        'reopened'   => ['Reopened'],
+        'resolved'   => ['Resolved'],
+        'all'        => ['New','Open','Unresolved','Reopened','Resolved'],
+        default      => ['New','Open','Unresolved','Reopened'],   // active
     };
 @endphp
+
+{{-- Tracking Status Filter Tabs --}}
+@php
+    $tsStyles = [
+        'active'      => ['label'=>'Active',      'key'=>null,         'bg'=>'#0f172a','color'=>'#fff',     'border'=>'#0f172a',  'icon'=>'bi-activity'],
+        'new'         => ['label'=>'New',          'key'=>'new',        'bg'=>'#fee2e2','color'=>'#991b1b',  'border'=>'#fca5a5',  'icon'=>'bi-plus-circle-fill'],
+        'unresolved'  => ['label'=>'Unresolved',   'key'=>'unresolved', 'bg'=>'#fef3c7','color'=>'#92400e',  'border'=>'#fcd34d',  'icon'=>'bi-arrow-repeat'],
+        'reopened'    => ['label'=>'Reopened',     'key'=>'reopened',   'bg'=>'#ffedd5','color'=>'#c2410c',  'border'=>'#fdba74',  'icon'=>'bi-arrow-counterclockwise'],
+        'open'        => ['label'=>'Open',         'key'=>'open',       'bg'=>'#fef9c3','color'=>'#854d0e',  'border'=>'#fde047',  'icon'=>'bi-shield-exclamation'],
+        'resolved'    => ['label'=>'Resolved',     'key'=>'resolved',   'bg'=>'#d1fae5','color'=>'#065f46',  'border'=>'#6ee7b7',  'icon'=>'bi-check-circle-fill'],
+        'all'         => ['label'=>'All',          'key'=>'all',        'bg'=>'#f1f5f9','color'=>'#475569',  'border'=>'#e2e8f0',  'icon'=>'bi-list-ul'],
+    ];
+    $isActive = !$trackingFilter || $trackingFilter === '';
+@endphp
+<div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
+    <span style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Track:</span>
+    @foreach($tsStyles as $tsKey => $ts)
+    @php
+        $tsCnt = match($tsKey) {
+            'active'     => collect(\App\Models\VulnTracked::openStatuses())->sum(fn($s) => $trackingCounts[$s] ?? 0),
+            'all'        => $trackingCounts->sum(),
+            default      => $trackingCounts[$ts['label']] ?? 0,
+        };
+        $tsActive = ($tsKey === 'active' && $isActive) || ($trackingFilter === $ts['key'] && $ts['key'] !== null);
+        $tsUrl    = $ts['key']
+            ? route('vuln-assessments.findings', array_merge([$assessment], request()->only(['rem_status','search','ip']), ['tracking'=>$ts['key']]))
+            : route('vuln-assessments.findings', array_merge([$assessment], request()->only(['rem_status','search','ip'])));
+    @endphp
+    @if($tsCnt > 0 || $tsKey === 'active' || $tsKey === 'all')
+    <a href="{{ $tsUrl }}" class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
+        background:{{ $tsActive ? $ts['color'] : $ts['bg'] }};
+        color:{{ $tsActive ? '#fff' : $ts['color'] }};
+        border:1.5px solid {{ $ts['border'] }}">
+        <i class="bi {{ $ts['icon'] }} me-1"></i>
+        {{ $ts['label'] }}@if($tsKey !== 'active') <span style="opacity:.8">({{ $tsCnt }})</span>@endif
+    </a>
+    @endif
+    @endforeach
+</div>
 
 {{-- Remediation Status Filter --}}
 @php
@@ -97,7 +204,7 @@
     <span style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Status:</span>
 
     {{-- All --}}
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['tracking','search','ip']))) }}"
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], request()->only(['tracking','search','ip']))) }}"
        class="btn btn-sm" style="border-radius:8px;font-weight:600;font-size:.78rem;
         background:{{ !$remStatusFilter ? '#0f172a' : '#fff' }};
         color:{{ !$remStatusFilter ? '#fff' : '#64748b' }};
@@ -106,7 +213,7 @@
     </a>
 
     {{-- Unresolved (Open + In Progress combined) --}}
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['tracking','search','ip']), ['rem_status'=>'unresolved'])) }}"
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], request()->only(['tracking','search','ip']), ['rem_status'=>'unresolved'])) }}"
        class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
         background:{{ $remStatusFilter==='unresolved' ? '#991b1b' : '#fee2e2' }};
         color:{{ $remStatusFilter==='unresolved' ? '#fff' : '#991b1b' }};
@@ -117,7 +224,7 @@
 
     {{-- Per-status tabs --}}
     @foreach($remStatusStyles as $st => $style)
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment->id], request()->only(['tracking','search','ip']), ['rem_status'=>$st])) }}"
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], request()->only(['tracking','search','ip']), ['rem_status'=>$st])) }}"
        class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
         background:{{ $remStatusFilter===$st ? $style['color'] : $style['bg'] }};
         color:{{ $remStatusFilter===$st ? '#fff' : $style['color'] }};
@@ -149,7 +256,7 @@
                 <i class="bi bi-funnel me-1"></i>Filter
             </button>
             @if(request()->hasAny(['search','ip','rem_status']))
-            <a href="{{ route('vuln-assessments.findings', [$assessment->id]) }}"
+            <a href="{{ route('vuln-assessments.findings', [$assessment]) }}"
                class="btn btn-sm" style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">
                <i class="bi bi-x me-1"></i>Clear All
             </a>
@@ -171,8 +278,6 @@
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Vulnerability Name</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Host</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">OS / Application</th>
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Kernel / Build</th>
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Port</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Remediation</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center">Actions</th>
                 </tr>
@@ -293,42 +398,6 @@
                             title="{{ $fCat }}">
                             <i class="bi {{ $cicon }}" style="font-size:.72rem"></i>
                         </div>
-                    </td>
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
-                        @if($f->os_kernel)
-                        @php
-                            switch ($osFam) {
-                                case 'Linux':
-                                case 'Unix':
-                                    $kMeta  = ['label'=>'kernel','icon'=>'bi-terminal','bg'=>'#d1fae5','color'=>'#065f46'];
-                                    $kValue = $f->os_kernel;
-                                    break;
-                                case 'Windows':
-                                    $kMeta  = ['label'=>'build','icon'=>'bi-windows','bg'=>'#dbeafe','color'=>'#1e40af'];
-                                    $kValue = preg_replace('/^build\s+/i', '', $f->os_kernel);
-                                    break;
-                                default:
-                                    $kMeta  = null;
-                                    $kValue = $f->os_kernel;
-                            }
-                        @endphp
-                        @if($kMeta)
-                        <span style="font-size:.62rem;font-weight:700;
-                            background:{{ $kMeta['bg'] }};color:{{ $kMeta['color'] }};
-                            padding:.05rem .35rem;border-radius:4px;margin-right:.25rem;
-                            text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">
-                            <i class="bi {{ $kMeta['icon'] }}" style="font-size:.6rem"></i>
-                            {{ $kMeta['label'] }}
-                        </span>
-                        @endif
-                        <span style="font-family:monospace;font-size:.75rem;color:#374151"
-                              title="{{ $f->os_kernel }}">{{ $kValue }}</span>
-                        @else
-                        <span style="color:#cbd5e1;font-size:.75rem">—</span>
-                        @endif
-                    </td>
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;color:#64748b;font-size:.78rem;font-family:monospace">
-                        {{ $f->port ?? '—' }}{{ $f->protocol ? '/'.$f->protocol : '' }}
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $remClass }}" style="font-size:.68rem">{{ $remStatus }}</span>
@@ -622,7 +691,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="10" style="text-align:center;padding:3rem;color:#94a3b8">
+                    <td colspan="9" style="text-align:center;padding:3rem;color:#94a3b8">
                         <i class="bi bi-bug" style="font-size:2rem;display:block;margin-bottom:.75rem;opacity:.4"></i>
                         No findings match the current filters.
                     </td>

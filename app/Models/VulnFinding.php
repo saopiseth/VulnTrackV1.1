@@ -11,7 +11,7 @@ class VulnFinding extends Model
         'scan_id', 'assessment_id', 'ip_address', 'hostname', 'os_detected',
         'os_name', 'os_family', 'os_confidence', 'os_kernel',
         'vuln_category', 'affected_component',
-        'plugin_id', 'cve', 'severity', 'vuln_name',
+        'plugin_id', 'cve', 'cvss_score', 'severity', 'vuln_name',
         'description', 'remediation_text', 'port', 'protocol',
         'plugin_output', 'scan_timestamp',
     ];

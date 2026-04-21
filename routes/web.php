@@ -1,13 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AssessmentScopeController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ProjectAssessmentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VulnerabilityController;
 use App\Http\Controllers\VulnAssessmentController;
-use App\Http\Controllers\AssetInventoryController;
-use App\Http\Controllers\ThreatIntelController;
 
 // ─── Redirect root to login ───────────────────────────────────
 Route::get('/', fn() => redirect()->route('login'));
@@ -33,14 +32,26 @@ Route::get('/forgot-password', fn() => view('auth.login'))->name('password.reque
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', fn() => view('dashboard'))->name('dashboard');
 
-    Route::resource('assessments', ProjectAssessmentController::class);
-    Route::get('/assessments/{assessment}/report', [ProjectAssessmentController::class, 'report'])->name('assessments.report');
     Route::resource('users', UserController::class);
 
     Route::get('/vulnerabilities', [VulnerabilityController::class, 'index'])->name('vulnerabilities.index');
     Route::post('/vulnerabilities/upload', [VulnerabilityController::class, 'upload'])->name('vulnerabilities.upload');
     Route::patch('/vulnerabilities/{vulnerability}/status', [VulnerabilityController::class, 'updateStatus'])->name('vulnerabilities.status');
     Route::delete('/vulnerabilities/{vulnerability}', [VulnerabilityController::class, 'destroy'])->name('vulnerabilities.destroy');
+
+    // Assessment Scope Groups
+    Route::get('/assessment-scope',                                                               [AssessmentScopeController::class, 'index'])->name('assessment-scope.index');
+    Route::post('/assessment-scope',                                                              [AssessmentScopeController::class, 'store'])->name('assessment-scope.store');
+    Route::get('/assessment-scope/{assessmentScopeGroup}',                                        [AssessmentScopeController::class, 'show'])->name('assessment-scope.show');
+    Route::patch('/assessment-scope/{assessmentScopeGroup}',                                      [AssessmentScopeController::class, 'update'])->name('assessment-scope.update');
+    Route::delete('/assessment-scope/{assessmentScopeGroup}',                                     [AssessmentScopeController::class, 'destroy'])->name('assessment-scope.destroy');
+    // Assessment Scope Items
+    Route::post('/assessment-scope/{assessmentScopeGroup}/items',                                 [AssessmentScopeController::class, 'storeItem'])->name('assessment-scope.items.store');
+    Route::patch('/assessment-scope/{assessmentScopeGroup}/items/{item}',                         [AssessmentScopeController::class, 'updateItem'])->name('assessment-scope.items.update');
+    Route::delete('/assessment-scope/{assessmentScopeGroup}/items/{item}',                        [AssessmentScopeController::class, 'destroyItem'])->name('assessment-scope.items.destroy');
+    Route::post('/assessment-scope/{assessmentScopeGroup}/import',                                [AssessmentScopeController::class, 'importBatch'])->name('assessment-scope.import');
+    Route::get('/assessment-scope/{assessmentScopeGroup}/export',                                 [AssessmentScopeController::class, 'export'])->name('assessment-scope.export');
+    Route::get('/assessment-scope/{assessmentScopeGroup}/items-json',                             [AssessmentScopeController::class, 'itemsJson'])->name('assessment-scope.items.json');
 
     // Vulnerability Assessment module
     Route::get('/vuln-assessments',                                         [VulnAssessmentController::class, 'index'])->name('vuln-assessments.index');
@@ -54,22 +65,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/vuln-assessments/{vulnAssessment}/os-override/{hostOs}',  [VulnAssessmentController::class, 'osOverride'])->name('vuln-assessments.os-override');
     Route::post('/vuln-assessments/{vulnAssessment}/reclassify',            [VulnAssessmentController::class, 'reclassify'])->name('vuln-assessments.reclassify');
     Route::delete('/vuln-assessments/{vulnAssessment}',                     [VulnAssessmentController::class, 'destroy'])->name('vuln-assessments.destroy');
+    Route::patch('/vuln-assessments/{vulnAssessment}/scope-group',          [VulnAssessmentController::class, 'updateScopeGroup'])->name('vuln-assessments.scope-group.update');
+    Route::get('/vuln-assessments/{vulnAssessment}/report/pdf',             [VulnAssessmentController::class, 'reportPdf'])->name('vuln-assessments.report.pdf');
+    Route::get('/vuln-assessments/{vulnAssessment}/report/word',            [VulnAssessmentController::class, 'reportWord'])->name('vuln-assessments.report.word');
+    Route::get('/vuln-assessments/{vulnAssessment}/report/excel',           [VulnAssessmentController::class, 'reportExcel'])->name('vuln-assessments.report.excel');
 
-    // Asset Inventory module
-    Route::get('/inventory/scan-data',              [AssetInventoryController::class, 'scanData'])->name('inventory.scan-data');
-    Route::post('/inventory/classify',              [AssetInventoryController::class, 'classify'])->name('inventory.classify');
-    Route::get('/inventory/os-assets',                        [AssetInventoryController::class, 'osAssets'])->name('inventory.os-assets');
-    Route::post('/inventory/os-override/{hostOs}',           [AssetInventoryController::class, 'osOverride'])->name('inventory.os-override');
-    Route::post('/inventory/os-assets/{hostOs}/criticality', [AssetInventoryController::class, 'setCriticality'])->name('inventory.os-assets.criticality');
-    Route::get('/inventory/os-assets/{hostOs}/apps',         [AssetInventoryController::class, 'hostApps'])->name('inventory.os-assets.apps');
-    Route::resource('inventory', AssetInventoryController::class);
 
-    // Threat Intel Feed
-    Route::get('/threat-intel',                  [ThreatIntelController::class, 'index'])->name('threat-intel.index');
-    Route::post('/threat-intel/import',          [ThreatIntelController::class, 'import'])->name('threat-intel.import');
-    Route::post('/threat-intel',                 [ThreatIntelController::class, 'store'])->name('threat-intel.store');
-    Route::patch('/threat-intel/{item}/status',  [ThreatIntelController::class, 'updateStatus'])->name('threat-intel.status');
-    Route::delete('/threat-intel/{item}',        [ThreatIntelController::class, 'destroy'])->name('threat-intel.destroy');
+    // Account
+    Route::get('/account/profile',           [AccountController::class, 'profile'])->name('account.profile');
+    Route::patch('/account/profile',         [AccountController::class, 'updateProfile'])->name('account.profile.update');
+    Route::patch('/account/password',        [AccountController::class, 'updatePassword'])->name('account.password.update');
+    Route::get('/account/settings',          [AccountController::class, 'settings'])->name('account.settings');
+    Route::patch('/account/settings',        [AccountController::class, 'updateSettings'])->name('account.settings.update');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/logout',  [AuthController::class, 'logout']);

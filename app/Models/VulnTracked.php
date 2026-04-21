@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\VulnTrackingService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,7 +14,7 @@ class VulnTracked extends Model
     protected $fillable = [
         'assessment_id',
         'ip_address', 'hostname',
-        'plugin_id', 'cve',
+        'plugin_id', 'cve', 'cvss_score',
         'vuln_name', 'description', 'remediation_text',
         'severity', 'port', 'protocol',
         'vuln_category', 'affected_component',
@@ -27,12 +28,62 @@ class VulnTracked extends Model
         'first_seen_at' => 'datetime',
         'last_seen_at'  => 'datetime',
         'resolved_at'   => 'datetime',
+        'cvss_score'    => 'float',
     ];
 
+    // ── Status constants ──────────────────────────────────────────────────────
+
+    const STATUS_NEW        = 'New';
+    const STATUS_OPEN       = 'Open';        // baseline — first scan only
+    const STATUS_UNRESOLVED = 'Unresolved';  // confirmed present in a subsequent scan
+    const STATUS_REOPENED   = 'Reopened';    // was Resolved, reappeared
+    const STATUS_RESOLVED   = 'Resolved';
+
+    /** All valid tracking_status values. */
     public static function statuses(): array
     {
-        return ['New', 'Pending', 'Resolved'];
+        return [
+            self::STATUS_NEW,
+            self::STATUS_OPEN,
+            self::STATUS_UNRESOLVED,
+            self::STATUS_REOPENED,
+            self::STATUS_RESOLVED,
+        ];
     }
+
+    /** Statuses that are semantically "open" (active / unresolved). */
+    public static function openStatuses(): array
+    {
+        return VulnTrackingService::OPEN_STATUSES;
+    }
+
+    /** Returns true when this finding is still active. */
+    public function isOpen(): bool
+    {
+        return in_array($this->tracking_status, self::openStatuses(), true);
+    }
+
+    /** Returns true when this finding has been resolved (closed). */
+    public function isResolved(): bool
+    {
+        return $this->tracking_status === self::STATUS_RESOLVED;
+    }
+
+    /** Returns [bg, color, icon] for the tracking_status badge in views. */
+    public static function statusStyle(string $status): array
+    {
+        return match ($status) {
+            self::STATUS_NEW        => ['#fee2e2', '#991b1b', 'bi-plus-circle-fill'],
+            self::STATUS_OPEN       => ['#fef9c3', '#854d0e', 'bi-shield-exclamation'],
+            self::STATUS_UNRESOLVED => ['#fef3c7', '#92400e', 'bi-arrow-repeat'],
+            self::STATUS_REOPENED   => ['#ffedd5', '#c2410c', 'bi-arrow-counterclockwise'],
+            self::STATUS_RESOLVED   => ['#d1fae5', '#065f46', 'bi-check-circle-fill'],
+            'Pending'               => ['#fef9c3', '#854d0e', 'bi-arrow-repeat'], // legacy
+            default                 => ['#f1f5f9', '#475569', 'bi-question-circle'],
+        };
+    }
+
+    // ── Relationships ─────────────────────────────────────────────────────────
 
     public function assessment(): BelongsTo
     {
@@ -59,16 +110,5 @@ class VulnTracked extends Model
         return $this->belongsTo(VulnRemediation::class, 'assessment_id', 'assessment_id')
             ->where('plugin_id', $this->plugin_id)
             ->where('ip_address', $this->ip_address);
-    }
-
-    /** Returns [bg, color, icon] for tracking_status badge */
-    public static function statusStyle(string $status): array
-    {
-        return match ($status) {
-            'New'      => ['#fee2e2', '#991b1b', 'bi-asterisk'],
-            'Pending'  => ['#fef9c3', '#854d0e', 'bi-arrow-repeat'],
-            'Resolved' => ['#d1fae5', '#065f46', 'bi-check-circle-fill'],
-            default    => ['#f1f5f9', '#475569', 'bi-question-circle'],
-        };
     }
 }
