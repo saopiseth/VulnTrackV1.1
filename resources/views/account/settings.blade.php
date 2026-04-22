@@ -20,7 +20,114 @@
 </div>
 @endif
 
+@php
+    $logoPath    = \App\Models\SiteSetting::get('logo_path');
+    $companyName = \App\Models\SiteSetting::get('company_name', 'Security Assessment');
+@endphp
+
 <div class="row g-4">
+
+    {{-- ── Company Name (admin only) ── --}}
+    @if(Auth::user()->isAdministrator())
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body p-4">
+                <h6 class="mb-1" style="color:#0f172a;font-weight:700">
+                    <i class="bi bi-building me-2" style="color:rgb(152,194,10)"></i>Company Name
+                </h6>
+                <p class="mb-4" style="color:#64748b;font-size:.85rem">
+                    Displayed in the sidebar next to the logo.
+                </p>
+                <form method="POST" action="{{ route('account.company-name.update') }}" class="d-flex gap-2 align-items-start flex-wrap">
+                    @csrf @method('PATCH')
+                    <div style="flex:1;min-width:200px;max-width:360px">
+                        <input type="text" name="company_name"
+                            class="form-control @error('company_name') is-invalid @enderror"
+                            value="{{ old('company_name', $companyName) }}"
+                            placeholder="e.g. Acme Corp"
+                            maxlength="80"
+                            style="border-radius:9px;font-size:.875rem">
+                        @error('company_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <button type="submit" class="btn btn-sm"
+                        style="background:rgb(152,194,10);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.5rem 1.1rem;font-size:.85rem;white-space:nowrap">
+                        <i class="bi bi-check-lg me-1"></i>Save
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ── App Logo (admin only) ── --}}
+    @if(Auth::user()->isAdministrator())
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body p-4">
+                <h6 class="mb-1" style="color:#0f172a;font-weight:700">
+                    <i class="bi bi-image-fill me-2" style="color:rgb(152,194,10)"></i>Application Logo
+                </h6>
+                <p class="mb-4" style="color:#64748b;font-size:.85rem">
+                    Displayed in the sidebar. PNG, JPG, SVG or WebP — max 2 MB.
+                </p>
+
+                <div class="d-flex align-items-center gap-4 flex-wrap">
+                    {{-- Current logo preview --}}
+                    <div style="width:72px;height:72px;border-radius:14px;border:2px solid #e8f5c2;
+                        background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                        @if($logoPath)
+                            <img src="{{ Storage::url($logoPath) }}" alt="Current logo"
+                                 style="width:64px;height:64px;object-fit:contain;border-radius:10px">
+                        @else
+                            <img src="{{ asset('favicon.ico') }}" alt="Default logo"
+                                 style="width:40px;height:40px;object-fit:contain;opacity:.5">
+                        @endif
+                    </div>
+
+                    <div style="flex:1;min-width:200px">
+                        <form method="POST" action="{{ route('account.logo.upload') }}"
+                              enctype="multipart/form-data" id="logo-form">
+                            @csrf
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                <label style="cursor:pointer">
+                                    <input type="file" name="logo" id="logo-input" accept="image/*"
+                                           style="display:none" onchange="previewLogo(this)">
+                                    <span class="btn btn-sm"
+                                        style="border:1.5px solid rgb(152,194,10);border-radius:9px;color:rgb(118,151,7);
+                                               background:#fff;font-weight:600;font-size:.82rem;padding:.4rem .9rem">
+                                        <i class="bi bi-upload me-1"></i>Choose File
+                                    </span>
+                                </label>
+                                <span id="logo-filename" style="font-size:.78rem;color:#94a3b8">No file chosen</span>
+                                <button type="submit" id="logo-submit" class="btn btn-sm" disabled
+                                    style="background:rgb(152,194,10);color:#fff;border-radius:9px;font-weight:600;
+                                           border:none;padding:.4rem .9rem;font-size:.82rem">
+                                    <i class="bi bi-check-lg me-1"></i>Upload
+                                </button>
+                            </div>
+                            @error('logo')
+                            <div style="font-size:.78rem;color:#dc2626;margin-top:.4rem">{{ $message }}</div>
+                            @enderror
+                        </form>
+
+                        @if($logoPath)
+                        <form method="POST" action="{{ route('account.logo.delete') }}" class="mt-2"
+                              onsubmit="return confirm('Remove custom logo and restore default?')">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="btn btn-sm"
+                                style="border:1px solid #fca5a5;color:#dc2626;background:#fff8f8;
+                                       border-radius:8px;font-size:.78rem;font-weight:600">
+                                <i class="bi bi-trash me-1"></i>Remove Logo
+                            </button>
+                        </form>
+                        @endif
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- ── Security Settings ── --}}
     <div class="col-lg-7">
@@ -112,5 +219,19 @@
     toggle.addEventListener('change', () => {
         hiddenInput.value = toggle.checked ? '1' : '0';
     });
+
+    function previewLogo(input) {
+        const name   = input.files[0]?.name ?? 'No file chosen';
+        document.getElementById('logo-filename').textContent = name;
+        document.getElementById('logo-submit').disabled = !input.files.length;
+        if (input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const preview = document.querySelector('#logo-form').closest('.card-body').querySelector('img');
+                if (preview) { preview.src = e.target.result; preview.style.opacity = '1'; }
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
 </script>
 @endpush

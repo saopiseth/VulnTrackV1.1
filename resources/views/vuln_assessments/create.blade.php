@@ -173,6 +173,29 @@
     </div>
 </div>
 
+{{-- ── SLA Policy ── --}}
+@if($slaPolicies->isNotEmpty())
+<div class="form-card">
+    <h6><i class="bi bi-stopwatch-fill me-2"></i>SLA Policy</h6>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Remediation SLA</label>
+            <select name="sla_policy_id" class="form-select" style="border-radius:9px;font-size:.875rem">
+                <option value="">— Use default or none —</option>
+                @foreach($slaPolicies as $sp)
+                <option value="{{ $sp->id }}" {{ old('sla_policy_id') == $sp->id ? 'selected' : '' }}>
+                    {{ $sp->name }}{{ $sp->is_default ? ' (Default)' : '' }}
+                </option>
+                @endforeach
+            </select>
+            <div style="font-size:.76rem;color:#94a3b8;margin-top:.35rem">
+                Sets remediation deadlines per severity on the findings page.
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- ── Actions ── --}}
 <div class="d-flex justify-content-end gap-2">
     <a href="{{ route('vuln-assessments.index') }}" class="btn btn-sm"

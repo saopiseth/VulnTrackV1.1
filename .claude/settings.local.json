@@ -6,7 +6,9 @@
       "Bash(grep -n \"fillable\\\\|guarded\" /c/xampp/htdocs/myproject/ProjectAss/app/Models/*.php)",
       "Read(//tmp/docx_extract/**)",
       "Bash(python3 -c ':*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(grep -n 'slaPolicy\\\\|slaCounts\\\\|userGroups\\\\|$sla ')",
+      "Bash(php -r ' *)"
     ]
   }
 }

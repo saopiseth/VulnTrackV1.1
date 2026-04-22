@@ -45,6 +45,20 @@
     .sev-banner-low      { background:#f1f5f9; border:1px solid #cbd5e1; }
     .sev-banner-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center;
         justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .row-selected { background:rgb(240,248,210) !important; }
+    .group-popover .popover-header { background:rgb(232,244,195); color:rgb(100,140,5); font-size:.82rem; border-bottom:1px solid rgb(200,225,120); }
+    .group-popover .popover-body { padding:.65rem .85rem; }
+    .bulk-bar {
+        position:fixed; bottom:1.25rem; z-index:1050;
+        left:calc(var(--sidebar-width, 260px) + 1.5rem); right:1.5rem;
+        background:#0f172a; color:#fff; border-radius:12px;
+        padding:.65rem 1.25rem; display:none; align-items:center; gap:.75rem;
+        box-shadow:0 8px 32px rgba(0,0,0,.35); flex-wrap:wrap;
+    }
+    .bulk-bar.visible { display:flex; }
+    @media (max-width:991.98px) {
+        .bulk-bar { left:1rem; right:1rem; }
+    }
 </style>
 
 {{-- ── Page header ─────────────────────────────────────────────── --}}
@@ -57,79 +71,18 @@
         </ol></nav>
         <h5 style="margin:0;font-weight:700;color:#0f172a">{{ $assessment->name }}</h5>
     </div>
-    <a href="{{ route('vuln-assessments.show', $assessment) }}" class="btn btn-sm"
-        style="border:1.5px solid var(--lime);border-radius:9px;color:var(--lime-dark);background:#fff;font-weight:600;font-size:.81rem;padding:.38rem .9rem">
-        <i class="bi bi-arrow-left me-1"></i>Overview
-    </a>
-</div>
-
-{{-- ── Scan context banner ──────────────────────────────────────── --}}
-@if($baseline || $latestScan)
-@php
-    $sameFile = $baseline && $latestScan && $baseline->id === $latestScan->id;
-@endphp
-<div style="background:#fff;border:1px solid #e8f5c2;border-radius:12px;margin-bottom:1.1rem;overflow:hidden">
-    <div style="display:grid;grid-template-columns:{{ $sameFile ? '1fr' : '1fr auto 1fr' }};align-items:stretch">
-
-        {{-- Baseline --}}
-        @if($baseline)
-        <div style="padding:.85rem 1.2rem;{{ !$sameFile ? 'border-right:1px solid #e8f5c2' : '' }}">
-            <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
-                         color:var(--lime-dark);margin-bottom:.3rem;display:flex;align-items:center;gap:.3rem">
-                <i class="bi bi-flag-fill"></i>Baseline Scan
-            </div>
-            <div style="font-weight:700;color:#0f172a;font-size:.84rem;white-space:nowrap;overflow:hidden;
-                         text-overflow:ellipsis;max-width:320px" title="{{ $baseline->filename }}">
-                {{ $baseline->filename }}
-            </div>
-            <div style="display:flex;gap:.85rem;margin-top:.25rem;font-size:.7rem;color:#64748b;flex-wrap:wrap">
-                <span><i class="bi bi-list-check me-1" style="color:#94a3b8"></i>{{ $baseline->finding_count }} findings</span>
-                <span><i class="bi bi-hdd-network me-1" style="color:#94a3b8"></i>{{ $baseline->host_count }} hosts</span>
-                <span><i class="bi bi-calendar3 me-1" style="color:#94a3b8"></i>{{ $baseline->created_at->format('d M Y') }}</span>
-            </div>
-        </div>
-        @endif
-
-        {{-- Arrow divider (only when 2 scans are different) --}}
-        @if(!$sameFile && $baseline && $latestScan)
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-                     padding:.75rem 1.1rem;background:#f8fafc;border-right:1px solid #e8f5c2;min-width:70px">
-            @php
-                $diffFindings = $latestScan->finding_count - $baseline->finding_count;
-                $diffColor = $diffFindings > 0 ? '#dc2626' : ($diffFindings < 0 ? '#059669' : '#94a3b8');
-                $diffIcon  = $diffFindings > 0 ? 'bi-arrow-up-short' : ($diffFindings < 0 ? 'bi-arrow-down-short' : 'bi-dash');
-            @endphp
-            <i class="bi bi-arrow-right" style="color:#cbd5e1;font-size:1rem;margin-bottom:.2rem"></i>
-            @if($diffFindings !== 0)
-            <span style="font-size:.68rem;font-weight:700;color:{{ $diffColor }};white-space:nowrap">
-                <i class="bi {{ $diffIcon }}"></i>{{ abs($diffFindings) }}
-            </span>
-            @endif
-        </div>
-        @endif
-
-        {{-- Latest (only when different from baseline) --}}
-        @if($latestScan && !$sameFile)
-        <div style="padding:.85rem 1.2rem;background:#f8fbff">
-            <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
-                         color:#1e40af;margin-bottom:.3rem;display:flex;align-items:center;gap:.3rem">
-                <i class="bi bi-file-earmark-bar-graph-fill"></i>Latest Scan
-            </div>
-            <div style="font-weight:700;color:#0f172a;font-size:.84rem;white-space:nowrap;overflow:hidden;
-                         text-overflow:ellipsis;max-width:320px" title="{{ $latestScan->filename }}">
-                {{ $latestScan->filename }}
-            </div>
-            <div style="display:flex;gap:.85rem;margin-top:.25rem;font-size:.7rem;color:#64748b;flex-wrap:wrap">
-                <span><i class="bi bi-list-check me-1" style="color:#94a3b8"></i>{{ $latestScan->finding_count }} findings</span>
-                <span><i class="bi bi-hdd-network me-1" style="color:#94a3b8"></i>{{ $latestScan->host_count }} hosts</span>
-                <span><i class="bi bi-calendar3 me-1" style="color:#94a3b8"></i>{{ $latestScan->created_at->format('d M Y') }}</span>
-            </div>
-        </div>
-        @endif
-
+    <div class="d-flex gap-2">
+        <a href="{{ route('vuln-assessments.progress', $assessment) }}" class="btn btn-sm"
+            style="background:var(--lime);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.38rem .9rem;font-size:.81rem">
+            <i class="bi bi-graph-up-arrow me-1"></i>View Progress
+        </a>
+        <a href="{{ route('vuln-assessments.show', $assessment) }}" class="btn btn-sm"
+            style="border:1.5px solid var(--lime);border-radius:9px;color:var(--lime-dark);background:#fff;font-weight:600;font-size:.81rem;padding:.38rem .9rem">
+            <i class="bi bi-arrow-left me-1"></i>Overview
+        </a>
     </div>
 </div>
-@endif
+
 
 @if(session('success'))
 <div class="alert alert-success alert-dismissible fade show" style="border-radius:10px;font-size:.875rem">
@@ -138,57 +91,6 @@
 </div>
 @endif
 
-{{-- Tracking Status Filter Tabs (New / Unresolved / Open / Reopened / Resolved / All) --}}
-@php
-    $trackingScope = match($trackingFilter) {
-        'new'        => ['New'],
-        'unresolved' => ['Unresolved'],
-        'open'       => ['Open'],
-        'reopened'   => ['Reopened'],
-        'resolved'   => ['Resolved'],
-        'all'        => ['New','Open','Unresolved','Reopened','Resolved'],
-        default      => ['New','Open','Unresolved','Reopened'],   // active
-    };
-@endphp
-
-{{-- Tracking Status Filter Tabs --}}
-@php
-    $tsStyles = [
-        'active'      => ['label'=>'Active',      'key'=>null,         'bg'=>'#0f172a','color'=>'#fff',     'border'=>'#0f172a',  'icon'=>'bi-activity'],
-        'new'         => ['label'=>'New',          'key'=>'new',        'bg'=>'#fee2e2','color'=>'#991b1b',  'border'=>'#fca5a5',  'icon'=>'bi-plus-circle-fill'],
-        'unresolved'  => ['label'=>'Unresolved',   'key'=>'unresolved', 'bg'=>'#fef3c7','color'=>'#92400e',  'border'=>'#fcd34d',  'icon'=>'bi-arrow-repeat'],
-        'reopened'    => ['label'=>'Reopened',     'key'=>'reopened',   'bg'=>'#ffedd5','color'=>'#c2410c',  'border'=>'#fdba74',  'icon'=>'bi-arrow-counterclockwise'],
-        'open'        => ['label'=>'Open',         'key'=>'open',       'bg'=>'#fef9c3','color'=>'#854d0e',  'border'=>'#fde047',  'icon'=>'bi-shield-exclamation'],
-        'resolved'    => ['label'=>'Resolved',     'key'=>'resolved',   'bg'=>'#d1fae5','color'=>'#065f46',  'border'=>'#6ee7b7',  'icon'=>'bi-check-circle-fill'],
-        'all'         => ['label'=>'All',          'key'=>'all',        'bg'=>'#f1f5f9','color'=>'#475569',  'border'=>'#e2e8f0',  'icon'=>'bi-list-ul'],
-    ];
-    $isActive = !$trackingFilter || $trackingFilter === '';
-@endphp
-<div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
-    <span style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Track:</span>
-    @foreach($tsStyles as $tsKey => $ts)
-    @php
-        $tsCnt = match($tsKey) {
-            'active'     => collect(\App\Models\VulnTracked::openStatuses())->sum(fn($s) => $trackingCounts[$s] ?? 0),
-            'all'        => $trackingCounts->sum(),
-            default      => $trackingCounts[$ts['label']] ?? 0,
-        };
-        $tsActive = ($tsKey === 'active' && $isActive) || ($trackingFilter === $ts['key'] && $ts['key'] !== null);
-        $tsUrl    = $ts['key']
-            ? route('vuln-assessments.findings', array_merge([$assessment], request()->only(['rem_status','search','ip']), ['tracking'=>$ts['key']]))
-            : route('vuln-assessments.findings', array_merge([$assessment], request()->only(['rem_status','search','ip'])));
-    @endphp
-    @if($tsCnt > 0 || $tsKey === 'active' || $tsKey === 'all')
-    <a href="{{ $tsUrl }}" class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
-        background:{{ $tsActive ? $ts['color'] : $ts['bg'] }};
-        color:{{ $tsActive ? '#fff' : $ts['color'] }};
-        border:1.5px solid {{ $ts['border'] }}">
-        <i class="bi {{ $ts['icon'] }} me-1"></i>
-        {{ $ts['label'] }}@if($tsKey !== 'active') <span style="opacity:.8">({{ $tsCnt }})</span>@endif
-    </a>
-    @endif
-    @endforeach
-</div>
 
 {{-- Remediation Status Filter --}}
 @php
@@ -210,16 +112,6 @@
         color:{{ !$remStatusFilter ? '#fff' : '#64748b' }};
         border:1.5px solid {{ !$remStatusFilter ? '#0f172a' : '#e2e8f0' }}">
         All <span style="opacity:.75">({{ $remStatusCounts->sum() }})</span>
-    </a>
-
-    {{-- Unresolved (Open + In Progress combined) --}}
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], request()->only(['tracking','search','ip']), ['rem_status'=>'unresolved'])) }}"
-       class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
-        background:{{ $remStatusFilter==='unresolved' ? '#991b1b' : '#fee2e2' }};
-        color:{{ $remStatusFilter==='unresolved' ? '#fff' : '#991b1b' }};
-        border:1.5px solid #fca5a5">
-        <i class="bi bi-exclamation-triangle-fill me-1"></i>
-        Unresolved <span style="opacity:.8">({{ $unresolvedTotal }})</span>
     </a>
 
     {{-- Per-status tabs --}}
@@ -271,14 +163,18 @@
         <table class="table" style="margin:0;font-size:.82rem">
             <thead class="lime-head">
                 <tr>
+                    <th style="padding:.65rem .85rem;width:36px">
+                        <input type="checkbox" id="chk-all" style="accent-color:var(--lime-dark);width:15px;height:15px;cursor:pointer">
+                    </th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">#</th>
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Status</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Severity</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Plugin / CVE</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Vulnerability Name</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Host</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">System Name</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">OS / Application</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Remediation</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Assigned To</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center">Actions</th>
                 </tr>
             </thead>
@@ -294,23 +190,14 @@
 
                     // Tracking status badge
                     [$tsBg, $tsColor, $tsIcon] = \App\Models\VulnTracked::statusStyle($f->tracking_status);
+
                 @endphp
                 <tr style="border-color:#f1f5f9" id="row-{{ $f->id }}">
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;color:#94a3b8;font-size:.75rem">{{ $rowNum++ }}</td>
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;white-space:nowrap">
-                        <span style="display:inline-flex;align-items:center;gap:.28rem;font-size:.7rem;font-weight:700;
-                            background:{{ $tsBg }};color:{{ $tsColor }};padding:.15rem .55rem;border-radius:20px">
-                            <i class="bi {{ $tsIcon }}" style="font-size:.68rem"></i>{{ $f->tracking_status }}
-                        </span>
-                        <div style="font-size:.65rem;color:#94a3b8;margin-top:.15rem">
-                            @if($f->tracking_status === 'Resolved' && $f->resolved_at)
-                                Fixed {{ $f->resolved_at->format('d M Y') }}
-                            @else
-                                Since {{ $f->first_seen_at->format('d M Y') }}<br>
-                                Last {{ $f->last_seen_at->format('d M Y') }}
-                            @endif
-                        </div>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;width:36px">
+                        <input type="checkbox" class="row-chk" value="{{ $f->id }}"
+                            style="accent-color:var(--lime-dark);width:15px;height:15px;cursor:pointer">
                     </td>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;color:#94a3b8;font-size:.75rem">{{ $rowNum++ }}</td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $sevClass }}">{{ $f->severity }}</span>
                     </td>
@@ -328,6 +215,15 @@
                         <div style="font-family:monospace;font-weight:600;color:#0f172a;font-size:.8rem">{{ $f->ip_address }}</div>
                         @if($f->hostname)
                         <div style="font-size:.72rem;color:#64748b">{{ $f->hostname }}</div>
+                        @endif
+                    </td>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;max-width:150px">
+                        @if($f->system_name)
+                            <div style="font-weight:600;color:#0f172a;font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->system_name }}">
+                                <i class="bi bi-hdd-network" style="color:#94a3b8;font-size:.72rem;margin-right:.25rem"></i>{{ $f->system_name }}
+                            </div>
+                        @else
+                            <span style="color:#cbd5e1;font-size:.75rem">—</span>
                         @endif
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
@@ -410,6 +306,38 @@
                         </div>
                         @endif
                     </td>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
+                        @if($rem?->assignedGroup)
+                            @php
+                                $memberHtml = '<div style="min-width:140px">';
+                                foreach ($rem->assignedGroup->members as $m) {
+                                    $memberHtml .= '<div style="font-size:.8rem;color:#0f172a;padding:.18rem 0">' . e($m->name) . '</div>';
+                                }
+                                if ($rem->assignedGroup->members->isEmpty()) {
+                                    $memberHtml .= '<div style="font-size:.78rem;color:#94a3b8">No members yet</div>';
+                                }
+                                $memberHtml .= '</div>';
+                            @endphp
+                            <span class="group-badge-hover" tabindex="0"
+                                data-bs-toggle="popover"
+                                data-bs-trigger="hover focus"
+                                data-bs-placement="left"
+                                data-bs-html="true"
+                                data-bs-title="{!! htmlspecialchars('<i class=\"bi bi-people-fill me-1\" style=\"color:rgb(152,194,10)\"></i>' . $rem->assignedGroup->name, ENT_QUOTES) !!}"
+                                data-bs-content="{!! htmlspecialchars($memberHtml, ENT_QUOTES) !!}"
+                                style="display:inline-flex;align-items:center;gap:.3rem;background:rgb(232,244,195);color:rgb(100,140,5);font-size:.7rem;font-weight:700;padding:.22rem .65rem;border-radius:20px;cursor:pointer;border:1px solid rgb(200,225,120)">
+                                <i class="bi bi-people-fill" style="font-size:.65rem"></i>
+                                {{ $rem->assignedGroup->name }}
+                                @if($rem->assignedGroup->members->isNotEmpty())
+                                <span style="background:rgb(152,194,10);color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800">
+                                    {{ $rem->assignedGroup->members->count() }}
+                                </span>
+                                @endif
+                            </span>
+                        @else
+                            <span style="color:#cbd5e1;font-size:.75rem">—</span>
+                        @endif
+                    </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;text-align:center">
                         <div class="d-flex justify-content-center gap-1">
                             <button class="btn btn-sm" style="border-radius:8px;border:1px solid #e2e8f0;color:#64748b;padding:.22rem .55rem;font-size:.74rem"
@@ -460,11 +388,6 @@
                                         <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Assigned To</label>
                                         <input type="text" name="assigned_to" class="form-control form-control-sm" style="border-radius:8px"
                                             value="{{ $rem?->assigned_to }}" placeholder="Name or team">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Due Date</label>
-                                        <input type="date" name="due_date" class="form-control form-control-sm" style="border-radius:8px"
-                                            value="{{ $rem?->due_date?->format('Y-m-d') }}">
                                     </div>
                                     <div class="mb-1">
                                         <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Comments</label>
@@ -691,7 +614,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="9" style="text-align:center;padding:3rem;color:#94a3b8">
+                    <td colspan="10" style="text-align:center;padding:3rem;color:#94a3b8">
                         <i class="bi bi-bug" style="font-size:2rem;display:block;margin-bottom:.75rem;opacity:.4"></i>
                         No findings match the current filters.
                     </td>
@@ -710,10 +633,120 @@
     @endif
 </div>
 
+{{-- ── Bulk Assign Bar ──────────────────────────────────────────── --}}
+<form method="POST" id="bulkForm"
+      action="{{ route('vuln-assessments.remediation.bulk-update', $assessment) }}">
+    @csrf @method('PATCH')
+    <input type="hidden" name="finding_ids" id="bulkIds">
+
+    <div class="bulk-bar" id="bulkBar">
+        <span style="font-size:.82rem;font-weight:600;white-space:nowrap">
+            <i class="bi bi-check2-square me-1" style="color:rgb(152,194,10)"></i>
+            <span id="bulkCount">0</span> selected
+        </span>
+
+        <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:180px">
+            <label style="font-size:.78rem;color:#94a3b8;white-space:nowrap">Assign to:</label>
+            <select name="assigned_group_id" class="form-select form-select-sm"
+                style="border-radius:8px;font-size:.8rem;background:#1e293b;color:#fff;border-color:#334155;flex:1">
+                <option value="">— No Group —</option>
+                @foreach($userGroups as $g)
+                <option value="{{ $g->id }}">{{ $g->name }}</option>
+                @endforeach
+                <option value="__clear__">✕ Clear Group</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-sm"
+            style="background:rgb(152,194,10);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.38rem 1rem;white-space:nowrap">
+            <i class="bi bi-people-fill me-1"></i>Assign Group
+        </button>
+
+        <button type="button" id="bulkCancel"
+            style="background:none;border:1px solid #475569;border-radius:8px;color:#94a3b8;padding:.38rem .75rem;font-size:.8rem;cursor:pointer;white-space:nowrap">
+            Cancel
+        </button>
+    </div>
+</form>
+
 @endsection
 
 @push('scripts')
 <script>
+// ── Group popovers ──────────────────────────────────────────────
+document.querySelectorAll('.group-badge-hover').forEach(function (el) {
+    new bootstrap.Popover(el, {
+        trigger: 'hover focus',
+        html: true,
+        placement: 'left',
+        customClass: 'group-popover'
+    });
+});
+
+// ── Multi-select & bulk assign ──────────────────────────────────
+(function () {
+    var chkAll   = document.getElementById('chk-all');
+    var bulkBar  = document.getElementById('bulkBar');
+    var bulkIds  = document.getElementById('bulkIds');
+    var bulkCount = document.getElementById('bulkCount');
+
+    if (!bulkBar || !bulkIds || !bulkCount) return;
+
+    function getChecked() {
+        return Array.prototype.slice.call(document.querySelectorAll('.row-chk:checked'));
+    }
+
+    function updateBar() {
+        var checked = getChecked();
+        bulkCount.textContent = checked.length;
+        if (checked.length > 0) {
+            bulkBar.classList.add('visible');
+            bulkIds.value = checked.map(function(c){ return c.value; }).join(',');
+        } else {
+            bulkBar.classList.remove('visible');
+            bulkIds.value = '';
+        }
+    }
+
+    function setRowHighlight(chk) {
+        var row = chk.closest('tr');
+        if (row) row.classList.toggle('row-selected', chk.checked);
+    }
+
+    if (chkAll) {
+        chkAll.addEventListener('change', function () {
+            document.querySelectorAll('.row-chk').forEach(function(c) {
+                c.checked = chkAll.checked;
+                setRowHighlight(c);
+            });
+            updateBar();
+        });
+    }
+
+    document.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('row-chk')) return;
+        setRowHighlight(e.target);
+        var all  = document.querySelectorAll('.row-chk');
+        var chkd = getChecked();
+        if (chkAll) {
+            chkAll.indeterminate = chkd.length > 0 && chkd.length < all.length;
+            chkAll.checked = chkd.length > 0 && chkd.length === all.length;
+        }
+        updateBar();
+    });
+
+    var cancelBtn = document.getElementById('bulkCancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function () {
+            document.querySelectorAll('.row-chk').forEach(function(c) {
+                c.checked = false; setRowHighlight(c);
+            });
+            if (chkAll) { chkAll.checked = false; chkAll.indeterminate = false; }
+            updateBar();
+        });
+    }
+})();
+
 function copyOutput(id) {
     const el = document.getElementById('output-' + id);
     if (!el) return;

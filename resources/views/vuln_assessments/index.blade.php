@@ -56,6 +56,15 @@
         display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
     }
     .sev-bar { display:flex; height:5px; border-radius:10px; overflow:hidden; margin-top:.35rem; }
+
+    .donut-wrap { position:relative; width:72px; height:72px; flex-shrink:0; }
+    .donut-wrap canvas { display:block; }
+    .donut-center {
+        position:absolute; inset:0; display:flex; flex-direction:column;
+        align-items:center; justify-content:center; pointer-events:none;
+    }
+    .donut-center .pct  { font-size:.72rem; font-weight:800; color:#0f172a; line-height:1; }
+    .donut-center .lbl  { font-size:.5rem;  font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.3px; margin-top:.1rem; }
 </style>
 
 {{-- Page header --}}
@@ -148,34 +157,50 @@
             ->whereIn('severity', ['Critical','High','Medium','Low'])
             ->selectRaw("
                 SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as active,
-                SUM(CASE WHEN tracking_status = 'Resolved'         THEN 1 ELSE 0 END) as resolved,
+                SUM(CASE WHEN tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
                 SUM(CASE WHEN severity='Critical' AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as c,
                 SUM(CASE WHEN severity='High'     AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as h,
                 SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as m,
                 SUM(CASE WHEN severity='Low'      AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as l
             ")->first();
 
+        // Remediation breakdown (all tracking statuses)
+        $remBreak = \App\Models\VulnTracked::where('vuln_tracked.assessment_id', $a->id)
+            ->whereIn('vuln_tracked.severity', ['Critical','High','Medium','Low'])
+            ->leftJoin('vuln_remediations', function($j) use ($a) {
+                $j->on('vuln_remediations.plugin_id',  '=', 'vuln_tracked.plugin_id')
+                  ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
+                  ->where('vuln_remediations.assessment_id', '=', $a->id);
+            })
+            ->selectRaw("
+                SUM(CASE WHEN COALESCE(vuln_remediations.status,'Open') = 'Open'          THEN 1 ELSE 0 END) as rem_open,
+                SUM(CASE WHEN vuln_remediations.status = 'In Progress'                    THEN 1 ELSE 0 END) as rem_in_progress,
+                SUM(CASE WHEN vuln_remediations.status = 'Resolved'                       THEN 1 ELSE 0 END) as rem_resolved,
+                SUM(CASE WHEN vuln_remediations.status = 'Accepted Risk'                  THEN 1 ELSE 0 END) as rem_accepted
+            ")->first();
+
+        $remOpen       = (int)($remBreak->rem_open        ?? 0);
+        $remInProgress = (int)($remBreak->rem_in_progress ?? 0);
+        $remResolved   = (int)($remBreak->rem_resolved    ?? 0);
+        $remAccepted   = (int)($remBreak->rem_accepted    ?? 0);
+        $remTotal      = $remOpen + $remInProgress + $remResolved + $remAccepted;
+        $pctClosed     = $remTotal > 0 ? round(($remResolved + $remAccepted) / $remTotal * 100) : 0;
+
         $activeCount   = (int)($tracked->active   ?? 0);
         $resolvedCount = (int)($tracked->resolved ?? 0);
-        $pctClosed     = ($activeCount + $resolvedCount) > 0
-                            ? round($resolvedCount / ($activeCount + $resolvedCount) * 100) : 0;
         $uniqueHosts   = \App\Models\VulnTracked::where('assessment_id', $a->id)
             ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
             ->distinct('ip_address')->count('ip_address');
-
-        $sevTotal = max(1, ($tracked->c + $tracked->h + $tracked->m + $tracked->l));
-        $barC = $tracked->c > 0 ? round($tracked->c / $sevTotal * 100) : 0;
-        $barH = $tracked->h > 0 ? round($tracked->h / $sevTotal * 100) : 0;
-        $barM = $tracked->m > 0 ? round($tracked->m / $sevTotal * 100) : 0;
-        $barL = max(0, 100 - $barC - $barH - $barM);
 
         $accentColor = $tracked->c > 0 ? '#dc2626'
             : ($tracked->h > 0 ? '#ea580c'
             : ($tracked->m > 0 ? '#d97706'
             : ($tracked->l > 0 ? '#64748b' : 'var(--lime)')));
+
+        $chartId = 'donut-' . $a->id;
     @endphp
     <div class="col-md-6 col-xl-4">
-        <div class="assess-card" style="border-left: 4px solid {{ $accentColor }}">
+        <div class="assess-card">
 
             {{-- Card body --}}
             <div class="assess-card-body">
@@ -212,58 +237,62 @@
                 </div>
 
                 {{-- Findings block --}}
-                @if($activeCount > 0)
-                <div>
-                    <div class="d-flex align-items-center justify-content-between mb-1">
-                        <span style="font-size:.68rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.4px">
-                            Active findings
-                        </span>
-                        <span style="font-size:.8rem;font-weight:800;color:{{ $accentColor }}">
-                            {{ number_format($activeCount) }}
-                        </span>
-                    </div>
+                @if($remTotal > 0)
+                <div class="d-flex align-items-center gap-3">
 
-                    <div class="d-flex gap-1 flex-wrap mb-2">
-                        @if($tracked->c > 0)
-                        <span class="sev-pill sev-c"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>C:{{ $tracked->c }}</span>
-                        @endif
-                        @if($tracked->h > 0)
-                        <span class="sev-pill sev-h"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>H:{{ $tracked->h }}</span>
-                        @endif
-                        @if($tracked->m > 0)
-                        <span class="sev-pill sev-m"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>M:{{ $tracked->m }}</span>
-                        @endif
-                        @if($tracked->l > 0)
-                        <span class="sev-pill sev-l"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>L:{{ $tracked->l }}</span>
-                        @endif
-                        @if($uniqueHosts > 0)
-                        <span style="font-size:.68rem;color:#1e40af;background:#eff6ff;border-radius:20px;
-                                     padding:.18rem .5rem;font-weight:600">
-                            <i class="bi bi-hdd-network" style="font-size:.6rem"></i> {{ $uniqueHosts }} host{{ $uniqueHosts !== 1 ? 's' : '' }}
-                        </span>
-                        @endif
-                    </div>
-
-                    {{-- Severity bar --}}
-                    <div class="sev-bar">
-                        @if($barC > 0)<div style="width:{{$barC}}%;background:#dc2626"></div>@endif
-                        @if($barH > 0)<div style="width:{{$barH}}%;background:#ea580c"></div>@endif
-                        @if($barM > 0)<div style="width:{{$barM}}%;background:#d97706"></div>@endif
-                        @if($barL > 0)<div style="width:{{$barL}}%;background:#94a3b8"></div>@endif
-                    </div>
-
-                    {{-- Closure progress --}}
-                    @if($resolvedCount > 0)
-                    <div style="margin-top:.7rem">
-                        <div class="d-flex justify-content-between" style="font-size:.68rem;color:#94a3b8;margin-bottom:.2rem">
-                            <span>Remediation closure</span>
-                            <span style="font-weight:700;color:var(--lime-dark)">{{ $pctClosed }}%</span>
-                        </div>
-                        <div style="height:4px;background:#e8f5c2;border-radius:10px;overflow:hidden">
-                            <div style="height:100%;width:{{ $pctClosed }}%;background:var(--lime);border-radius:10px"></div>
+                    {{-- Doughnut chart --}}
+                    <div class="donut-wrap">
+                        <canvas id="{{ $chartId }}" width="72" height="72"
+                            data-open="{{ $remOpen }}"
+                            data-progress="{{ $remInProgress }}"
+                            data-resolved="{{ $remResolved }}"
+                            data-accepted="{{ $remAccepted }}">
+                        </canvas>
+                        <div class="donut-center">
+                            <span class="pct">{{ $pctClosed }}%</span>
+                            <span class="lbl">closed</span>
                         </div>
                     </div>
-                    @endif
+
+                    {{-- Legend + severity pills --}}
+                    <div style="flex:1;min-width:0">
+                        {{-- Remediation legend --}}
+                        <div class="d-flex flex-wrap gap-1 mb-2">
+                            @if($remResolved > 0)
+                            <span style="font-size:.65rem;font-weight:700;background:#d1fae5;color:#065f46;border-radius:20px;padding:.12rem .48rem">
+                                <i class="bi bi-check-circle-fill" style="font-size:.55rem"></i> {{ $remResolved }} Resolved
+                            </span>
+                            @endif
+                            @if($remInProgress > 0)
+                            <span style="font-size:.65rem;font-weight:700;background:#fef9c3;color:#854d0e;border-radius:20px;padding:.12rem .48rem">
+                                <i class="bi bi-arrow-repeat" style="font-size:.55rem"></i> {{ $remInProgress }} In Progress
+                            </span>
+                            @endif
+                            @if($remAccepted > 0)
+                            <span style="font-size:.65rem;font-weight:700;background:#f1f5f9;color:#475569;border-radius:20px;padding:.12rem .48rem">
+                                <i class="bi bi-shield-check" style="font-size:.55rem"></i> {{ $remAccepted }} Accepted
+                            </span>
+                            @endif
+                            @if($remOpen > 0)
+                            <span style="font-size:.65rem;font-weight:700;background:#fee2e2;color:#991b1b;border-radius:20px;padding:.12rem .48rem">
+                                <i class="bi bi-circle-fill" style="font-size:.55rem"></i> {{ $remOpen }} Open
+                            </span>
+                            @endif
+                        </div>
+
+                        {{-- Severity pills --}}
+                        <div class="d-flex gap-1 flex-wrap">
+                            @if($tracked->c > 0)<span class="sev-pill sev-c"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>C:{{ $tracked->c }}</span>@endif
+                            @if($tracked->h > 0)<span class="sev-pill sev-h"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>H:{{ $tracked->h }}</span>@endif
+                            @if($tracked->m > 0)<span class="sev-pill sev-m"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>M:{{ $tracked->m }}</span>@endif
+                            @if($tracked->l > 0)<span class="sev-pill sev-l"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>L:{{ $tracked->l }}</span>@endif
+                            @if($uniqueHosts > 0)
+                            <span style="font-size:.68rem;color:#1e40af;background:#eff6ff;border-radius:20px;padding:.18rem .5rem;font-weight:600">
+                                <i class="bi bi-hdd-network" style="font-size:.6rem"></i> {{ $uniqueHosts }}h
+                            </span>
+                            @endif
+                        </div>
+                    </div>
                 </div>
 
                 @elseif($a->scans->count() > 0)
@@ -368,4 +397,36 @@
 @if($assessments->hasPages())
 <div class="d-flex justify-content-center mt-4">{{ $assessments->links() }}</div>
 @endif
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.querySelectorAll('[id^="donut-"]').forEach(canvas => {
+    const open       = parseInt(canvas.dataset.open)       || 0;
+    const progress   = parseInt(canvas.dataset.progress)   || 0;
+    const resolved   = parseInt(canvas.dataset.resolved)   || 0;
+    const accepted   = parseInt(canvas.dataset.accepted)   || 0;
+    const total      = open + progress + resolved + accepted;
+    if (!total) return;
+
+    new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [resolved, progress, accepted, open],
+                backgroundColor: ['#059669', '#d97706', '#94a3b8', '#dc2626'],
+                borderWidth: 0,
+                hoverOffset: 3,
+            }]
+        },
+        options: {
+            cutout: '72%',
+            animation: { duration: 600 },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            events: [],
+        }
+    });
+});
+</script>
+@endpush
 @endsection

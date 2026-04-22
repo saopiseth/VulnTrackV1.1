@@ -3,8 +3,11 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AssessmentScopeController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\SlaPolicyController;
+use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\VulnerabilityController;
 use App\Http\Controllers\VulnAssessmentController;
 
@@ -30,9 +33,12 @@ Route::get('/forgot-password', fn() => view('auth.login'))->name('password.reque
 
 // ─── Authenticated routes ─────────────────────────────────────
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', fn() => view('dashboard'))->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::resource('users', UserController::class);
+    Route::resource('user-groups', UserGroupController::class);
+
+    Route::resource('sla-policies', SlaPolicyController::class)->except(['show']);
 
     Route::get('/vulnerabilities', [VulnerabilityController::class, 'index'])->name('vulnerabilities.index');
     Route::post('/vulnerabilities/upload', [VulnerabilityController::class, 'upload'])->name('vulnerabilities.upload');
@@ -59,8 +65,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/vuln-assessments',                                        [VulnAssessmentController::class, 'store'])->name('vuln-assessments.store');
     Route::get('/vuln-assessments/{vulnAssessment}',                        [VulnAssessmentController::class, 'show'])->name('vuln-assessments.show');
     Route::get('/vuln-assessments/{vulnAssessment}/findings',               [VulnAssessmentController::class, 'findings'])->name('vuln-assessments.findings');
+    Route::get('/vuln-assessments/{vulnAssessment}/progress',               [VulnAssessmentController::class, 'progress'])->name('vuln-assessments.progress');
     Route::post('/vuln-assessments/{vulnAssessment}/upload',                [VulnAssessmentController::class, 'uploadScan'])->name('vuln-assessments.upload');
     Route::patch('/vuln-assessments/{vulnAssessment}/remediations/{remediation}', [VulnAssessmentController::class, 'updateRemediation'])->name('vuln-assessments.remediation.update');
+    Route::patch('/vuln-assessments/{vulnAssessment}/remediations-bulk',          [VulnAssessmentController::class, 'bulkUpdateRemediation'])->name('vuln-assessments.remediation.bulk-update');
     Route::get('/vuln-assessments/{vulnAssessment}/os-assets',              [VulnAssessmentController::class, 'osAssets'])->name('vuln-assessments.os-assets');
     Route::post('/vuln-assessments/{vulnAssessment}/os-override/{hostOs}',  [VulnAssessmentController::class, 'osOverride'])->name('vuln-assessments.os-override');
     Route::post('/vuln-assessments/{vulnAssessment}/reclassify',            [VulnAssessmentController::class, 'reclassify'])->name('vuln-assessments.reclassify');
@@ -77,6 +85,9 @@ Route::middleware('auth')->group(function () {
     Route::patch('/account/password',        [AccountController::class, 'updatePassword'])->name('account.password.update');
     Route::get('/account/settings',          [AccountController::class, 'settings'])->name('account.settings');
     Route::patch('/account/settings',        [AccountController::class, 'updateSettings'])->name('account.settings.update');
+    Route::post('/account/logo',             [AccountController::class, 'uploadLogo'])->name('account.logo.upload');
+    Route::delete('/account/logo',           [AccountController::class, 'deleteLogo'])->name('account.logo.delete');
+    Route::patch('/account/company-name',    [AccountController::class, 'updateCompanyName'])->name('account.company-name.update');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/logout',  [AuthController::class, 'logout']);

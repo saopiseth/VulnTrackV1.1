@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\AssessmentScope;
 use App\Models\AssessmentScopeGroup;
+use App\Models\SlaPolicy;
+use App\Models\UserGroup;
 use App\Models\VulnAssessment;
 use App\Models\VulnFinding;
 use App\Models\VulnHostOs;
 use App\Models\VulnRemediation;
 use App\Models\VulnScan;
 use App\Models\VulnTracked;
-use App\Models\VulnTrackedHistory;
 use App\Services\OsDetector;
 use App\Services\VulnClassifier;
 use App\Services\VulnTrackingService;
@@ -32,21 +33,28 @@ class VulnAssessmentController extends Controller
     public function create()
     {
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
+        $slaPolicies = SlaPolicy::orderByDesc('is_default')->orderBy('name')->get();
 
-        return view('vuln_assessments.create', compact('scopeGroups'));
+        return view('vuln_assessments.create', compact('scopeGroups', 'slaPolicies'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'         => ['required', 'string', 'max:255'],
-            'description'  => ['nullable', 'string'],
-            'period_start' => ['nullable', 'date'],
-            'period_end'   => ['nullable', 'date', 'after_or_equal:period_start'],
-            'environment'  => ['nullable', 'in:Production,UAT,Internal,Development'],
-            'scanner_type' => ['nullable', 'string', 'max:255'],
+            'name'           => ['required', 'string', 'max:255'],
+            'description'    => ['nullable', 'string'],
+            'period_start'   => ['nullable', 'date'],
+            'period_end'     => ['nullable', 'date', 'after_or_equal:period_start'],
+            'environment'    => ['nullable', 'in:Production,UAT,Internal,Development'],
+            'scanner_type'   => ['nullable', 'string', 'max:255'],
             'scope_group_id' => ['nullable', 'integer', 'exists:assessment_scope_groups,id'],
+            'sla_policy_id'  => ['nullable', 'integer', 'exists:sla_policies,id'],
         ]);
+
+        // Auto-apply default SLA if none selected
+        if (empty($data['sla_policy_id'])) {
+            $data['sla_policy_id'] = SlaPolicy::where('is_default', true)->value('id');
+        }
 
         $data['created_by'] = Auth::id();
         $assessment = VulnAssessment::create($data);
@@ -166,20 +174,22 @@ class VulnAssessmentController extends Controller
 
         $comparison   = null;
 
-        // ── Scan-level comparison (vuln_tracked_history for latest scan) ───
+        // ── Comparison: current vuln_tracked state vs baseline ────────────
+        // Only meaningful when a non-baseline scan exists.
+        // Read directly from vuln_tracked (not history) so all scans are covered.
+        //   Persistent = Open | Unresolved  (in baseline, still present)
+        //   New        = New  | Reopened    (never in baseline, or returned after fix)
+        //   Resolved   = Resolved           (was present, now gone)
         $hostComparison = null;
         if ($latestScan) {
+            $base = VulnTracked::where('assessment_id', $assessment->id)
+                        ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low']);
+
             $comparison = [
-                'new'        => VulnTracked::where('assessment_id', $assessment->id)
-                                    ->where('tracking_status', 'New')
-                                    ->where('first_scan_id', $latestScan->id)->count(),
-                'resolved'   => VulnTrackedHistory::where('scan_id', $latestScan->id)
-                                    ->where('event_type', 'resolved')->count(),
-                'persistent' => VulnTrackedHistory::where('scan_id', $latestScan->id)
-                                    ->whereIn('event_type', ['still_present', 'status_changed'])->count(),
+                'persistent' => (clone $base)->whereIn('tracking_status', ['Open', 'Unresolved'])->count(),
+                'new'        => (clone $base)->whereIn('tracking_status', ['New', 'Reopened'])->count(),
+                'resolved'   => (clone $base)->where('tracking_status', 'Resolved')->count(),
             ];
-        } elseif ($baseline) {
-            $comparison = null;
         }
 
         // Host-level comparison (baseline vs latest)
@@ -261,7 +271,27 @@ class VulnAssessmentController extends Controller
         // ── Base query: vuln_tracked (ALL scans, cumulative) ─────────────
         $query = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
-            ->select('vuln_tracked.*');
+            ->select('vuln_tracked.*', 'vf.plugin_output');
+
+        // Join latest finding to get plugin_output
+        $query->leftJoin('vuln_findings as vf', function ($join) use ($assessment) {
+            $join->on('vf.plugin_id',    '=', 'vuln_tracked.plugin_id')
+                 ->on('vf.ip_address',   '=', 'vuln_tracked.ip_address')
+                 ->on('vf.scan_id',      '=', 'vuln_tracked.last_scan_id')
+                 ->where('vf.assessment_id', '=', $assessment->id);
+        });
+
+        // Subquery join: get system_name from assessment_scopes for this assessment, by IP
+        $scopeSub = DB::table('assessment_scopes as s')
+            ->join('vuln_assessment_scope as vas', 'vas.assessment_scope_id', '=', 's.id')
+            ->where('vas.vuln_assessment_id', $assessment->id)
+            ->select('s.ip_address', 's.system_name');
+
+        $query->leftJoinSub($scopeSub, 'scope_ip', function ($join) {
+            $join->on('scope_ip.ip_address', '=', 'vuln_tracked.ip_address');
+        });
+
+        $query->addSelect('scope_ip.system_name');
 
         // Join remediations for remediation-status filtering
         $query->leftJoin('vuln_remediations', function ($join) use ($assessment) {
@@ -332,20 +362,13 @@ class VulnAssessmentController extends Controller
 
         // ── Remediations keyed for display ────────────────────────────────
         $remediations = VulnRemediation::where('assessment_id', $assessment->id)
+            ->with('assignedGroup.members')
             ->get()
             ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
 
-        // ── Tracking status counts (for filter tabs) ──────────────────────
-        $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
-            ->whereIn('severity', $displaySeverities)
-            ->selectRaw('tracking_status, COUNT(*) as cnt')
-            ->groupBy('tracking_status')
-            ->pluck('cnt', 'tracking_status');
-
-        // ── Remediation status counts ─────────────────────────────────────
+        // ── Remediation status counts (all tracking statuses included) ───────
         $remStatusCounts = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
-            ->whereIn('vuln_tracked.tracking_status', VulnTracked::openStatuses())
             ->leftJoin('vuln_remediations', function ($join) use ($assessment) {
                 $join->on('vuln_remediations.plugin_id',  '=', 'vuln_tracked.plugin_id')
                      ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
@@ -355,10 +378,42 @@ class VulnAssessmentController extends Controller
             ->groupBy('rem_status')
             ->pluck('cnt', 'rem_status');
 
+        // ── Tracking status counts (for filter tab badges) ───────────────────
+        $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
+            ->whereIn('severity', $displaySeverities)
+            ->selectRaw('tracking_status, COUNT(*) as cnt')
+            ->groupBy('tracking_status')
+            ->pluck('cnt', 'tracking_status');
+
+        $userGroups = UserGroup::orderBy('name')->get();
+        $slaPolicy  = $assessment->slaPolicy
+                   ?? SlaPolicy::where('is_default', true)->first();
+
+        // ── SLA status counts across all findings (not just current page) ───
+        $slaCounts = null;
+        if ($slaPolicy) {
+            $allTracked = VulnTracked::where('assessment_id', $assessment->id)
+                ->whereIn('severity', $displaySeverities)
+                ->get(['severity', 'first_seen_at', 'tracking_status', 'resolved_at']);
+
+            $slaCounts = ['on-track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
+            foreach ($allTracked as $t) {
+                [$status] = $slaPolicy->slaStatus(
+                    $t->severity,
+                    \Carbon\Carbon::parse($t->first_seen_at),
+                    $t->tracking_status === 'Resolved',
+                    $t->resolved_at ? \Carbon\Carbon::parse($t->resolved_at) : null
+                );
+                if (isset($slaCounts[$status])) {
+                    $slaCounts[$status]++;
+                }
+            }
+        }
+
         return view('vuln_assessments.findings', compact(
             'assessment', 'baseline', 'latestScan', 'findings', 'remediations',
-            'trackingCounts', 'trackingFilter',
-            'remStatusCounts', 'remStatusFilter'
+            'trackingFilter', 'trackingCounts',
+            'remStatusCounts', 'remStatusFilter', 'userGroups', 'slaPolicy', 'slaCounts'
         ));
     }
 
@@ -492,20 +547,99 @@ class VulnAssessmentController extends Controller
 
     public function updateRemediation(Request $request, VulnAssessment $vulnAssessment, VulnRemediation $remediation)
     {
-        $this->authorize('update', $vulnAssessment);
+        $this->authorize('manage', $vulnAssessment);
         abort_unless($remediation->assessment_id === $vulnAssessment->id, 403);
 
         $data = $request->validate([
-            'status'      => ['required', 'in:Open,In Progress,Resolved,Accepted Risk'],
-            'assigned_to' => ['nullable', 'string', 'max:255'],
-            'due_date'    => ['nullable', 'date'],
-            'comments'    => ['nullable', 'string'],
+            'status'            => ['required', 'in:Open,In Progress,Resolved,Accepted Risk'],
+            'assigned_to'       => ['nullable', 'string', 'max:255'],
+            'assigned_group_id' => ['nullable', 'integer', 'exists:user_groups,id'],
+            'due_date'          => ['nullable', 'date'],
+            'comments'          => ['nullable', 'string'],
         ]);
 
         $data['updated_by'] = Auth::id();
         $remediation->update($data);
 
         return back()->with('success', 'Remediation updated.');
+    }
+
+    public function bulkUpdateRemediation(Request $request, VulnAssessment $vulnAssessment)
+    {
+        $this->authorize('manage', $vulnAssessment);
+
+        $data = $request->validate([
+            'finding_ids'       => ['required', 'string'],
+            'status'            => ['nullable', 'in:Open,In Progress,Resolved,Accepted Risk'],
+            'assigned_group_id' => ['nullable', 'string'],
+            'due_date'          => ['nullable', 'date'],
+            'comments'          => ['nullable', 'string'],
+        ]);
+
+        $ids = array_filter(array_map('intval', explode(',', $data['finding_ids'])));
+        if (empty($ids)) {
+            return back()->with('error', 'No findings selected.');
+        }
+
+        // Use SLA policy if defined on assessment; otherwise fall back to manual due_date
+        $slaPolicy = $vulnAssessment->slaPolicy;
+
+        // Build the base update payload — only include fields that were supplied
+        $update = ['updated_by' => Auth::id()];
+
+        if (!empty($data['status'])) {
+            $update['status'] = $data['status'];
+        }
+
+        if (!empty($data['assigned_group_id'])) {
+            $update['assigned_group_id'] = $data['assigned_group_id'] === '__clear__'
+                ? null
+                : (int) $data['assigned_group_id'];
+        }
+
+        if (!$slaPolicy && !empty($data['due_date'])) {
+            $update['due_date'] = $data['due_date'];
+        }
+
+        // Fetch tracked rows — include severity + first_seen_at for SLA calculation
+        $tracked = \App\Models\VulnTracked::whereIn('id', $ids)
+            ->where('assessment_id', $vulnAssessment->id)
+            ->get(['id', 'plugin_id', 'ip_address', 'severity', 'first_seen_at']);
+
+        $count = 0;
+        foreach ($tracked as $t) {
+            $rem = VulnRemediation::firstOrCreate(
+                [
+                    'assessment_id' => $vulnAssessment->id,
+                    'plugin_id'     => $t->plugin_id,
+                    'ip_address'    => $t->ip_address,
+                ],
+                ['status' => 'Open']
+            );
+
+            $payload = $update;
+
+            if ($slaPolicy) {
+                $days = $slaPolicy->daysForSeverity($t->severity);
+                if ($days !== null) {
+                    $payload['due_date'] = \Carbon\Carbon::parse($t->first_seen_at)
+                        ->addDays($days)
+                        ->toDateString();
+                }
+            }
+
+            // Append comments rather than overwrite
+            if (!empty($data['comments'])) {
+                $existing = $rem->comments ? $rem->comments . "\n\n" : '';
+                $payload['comments'] = $existing . trim($data['comments']);
+            }
+
+            $rem->update($payload);
+            $count++;
+        }
+
+        $note = $slaPolicy ? ' with SLA-calculated due dates' : '';
+        return back()->with('success', "Remediation updated for {$count} finding(s){$note}.");
     }
 
     /**
@@ -1040,5 +1174,67 @@ class VulnAssessmentController extends Controller
         }
 
         return back()->with('success', 'OS override saved.');
+    }
+
+    // ── Progress ──────────────────────────────────────────────────────────────
+    public function progress(VulnAssessment $vulnAssessment)
+    {
+        $assessment = $vulnAssessment;
+        $scans      = $assessment->scans()->orderBy('id')->get();
+
+        abort_unless($scans->isNotEmpty(), 404);
+
+        $severities = ['Critical', 'High', 'Medium', 'Low'];
+
+        // Per-scan severity counts (one query per scan — typically < 10 scans)
+        $scanLabels     = [];
+        $severityTrend  = array_fill_keys($severities, []);
+
+        foreach ($scans as $scan) {
+            $prefix = $scan->is_baseline ? 'Baseline' : 'Scan #' . $scan->id;
+            $scanLabels[] = $prefix . ' (' . $scan->created_at->format('d M Y') . ')';
+
+            $counts = VulnFinding::where('scan_id', $scan->id)
+                ->whereIn('severity', $severities)
+                ->selectRaw('severity, COUNT(*) as cnt')
+                ->groupBy('severity')
+                ->pluck('cnt', 'severity');
+
+            foreach ($severities as $sev) {
+                $severityTrend[$sev][] = (int) ($counts[$sev] ?? 0);
+            }
+        }
+
+        // Current tracking status distribution
+        $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
+            ->whereIn('severity', $severities)
+            ->selectRaw('tracking_status, COUNT(*) as cnt')
+            ->groupBy('tracking_status')
+            ->pluck('cnt', 'tracking_status');
+
+        // Remediation status distribution
+        $remCounts = VulnRemediation::where('assessment_id', $assessment->id)
+            ->selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')
+            ->pluck('cnt', 'status');
+
+        // Severity distribution (current state from vuln_tracked)
+        $currentSevCounts = VulnTracked::where('assessment_id', $assessment->id)
+            ->whereIn('severity', $severities)
+            ->selectRaw('severity, COUNT(*) as cnt')
+            ->groupBy('severity')
+            ->pluck('cnt', 'severity');
+
+        // Summary totals
+        $totalTracked = $trackingCounts->sum();
+        $totalResolved = (int) ($trackingCounts[VulnTracked::STATUS_RESOLVED] ?? 0);
+        $totalOpen     = $totalTracked - $totalResolved;
+
+        return view('vuln_assessments.progress', compact(
+            'assessment', 'scans',
+            'scanLabels', 'severityTrend',
+            'trackingCounts', 'remCounts', 'currentSevCounts',
+            'totalTracked', 'totalResolved', 'totalOpen'
+        ));
     }
 }

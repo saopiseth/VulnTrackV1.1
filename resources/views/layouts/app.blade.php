@@ -178,11 +178,23 @@
 
     {{-- Sidebar --}}
     <aside class="sidebar" id="sidebar">
+        @php
+            $logoPath    = \App\Models\SiteSetting::get('logo_path');
+            $companyName = \App\Models\SiteSetting::get('company_name', 'Security Assessment');
+        @endphp
         <div class="sidebar-brand">
-            <div class="brand-icon" style="background:none;padding:0;overflow:hidden">
-                <img src="{{ asset('favicon.ico') }}" alt="Wing Bank" style="width:38px;height:38px;object-fit:contain;border-radius:10px">
+            <div class="brand-icon" style="background:none;padding:0;overflow:hidden;flex-shrink:0">
+                @if($logoPath)
+                    <img src="{{ \Illuminate\Support\Facades\Storage::url($logoPath) }}" alt="Logo"
+                         style="width:38px;height:38px;object-fit:contain;border-radius:10px">
+                @else
+                    <img src="{{ asset('favicon.ico') }}" alt="Logo"
+                         style="width:38px;height:38px;object-fit:contain;border-radius:10px">
+                @endif
             </div>
-            <span class="brand-name">Security Assessment</span>
+            <span class="brand-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                {{ $companyName }}
+            </span>
         </div>
 
         <nav class="sidebar-nav">
@@ -195,8 +207,13 @@
                 </li>
                 @can('viewAny', App\Models\User::class)
                 <li class="nav-item">
-                    <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.*') ? 'active' : '' }}">
+                    <a href="{{ route('users.index') }}" class="{{ request()->routeIs('users.index','users.show','users.create','users.edit') ? 'active' : '' }}">
                         <i class="bi bi-people-fill"></i> Users
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('user-groups.index') }}" class="{{ request()->routeIs('user-groups.*') ? 'active' : '' }}">
+                        <i class="bi bi-collection-fill"></i> User Groups
                     </a>
                 </li>
                 @endcan
@@ -212,6 +229,11 @@
                 <li class="nav-item">
                     <a href="{{ route('vuln-assessments.index') }}" class="{{ request()->routeIs('vuln-assessments.*') ? 'active' : '' }}">
                         <i class="bi bi-bug-fill"></i> Vulnerability Tracking
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ route('sla-policies.index') }}" class="{{ request()->routeIs('sla-policies.*') ? 'active' : '' }}">
+                        <i class="bi bi-stopwatch-fill"></i> SLA Policies
                     </a>
                 </li>
             </ul>

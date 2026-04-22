@@ -12,7 +12,7 @@ class VulnAssessment extends Model
 {
     protected $fillable = [
         'name', 'description', 'scan_date', 'period_start', 'period_end',
-        'environment', 'scanner_type', 'scope_group_id', 'created_by',
+        'environment', 'scanner_type', 'scope_group_id', 'sla_policy_id', 'created_by',
     ];
 
     protected static function booted(): void
@@ -36,6 +36,11 @@ class VulnAssessment extends Model
     public static function environments(): array
     {
         return ['Production', 'UAT', 'Internal', 'Development'];
+    }
+
+    public function slaPolicy(): BelongsTo
+    {
+        return $this->belongsTo(SlaPolicy::class, 'sla_policy_id');
     }
 
     public function scopeGroup(): BelongsTo

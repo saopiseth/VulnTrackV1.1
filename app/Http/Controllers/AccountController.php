@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 
 class AccountController extends Controller
@@ -66,5 +68,51 @@ class AccountController extends Controller
         $user->update(['mfa_enabled' => $request->boolean('mfa_enabled')]);
 
         return back()->with('success', 'Settings saved.');
+    }
+
+    public function updateCompanyName(Request $request)
+    {
+        abort_unless(Auth::user()?->isAdministrator(), 403);
+
+        $request->validate([
+            'company_name' => ['required', 'string', 'max:80'],
+        ]);
+
+        SiteSetting::set('company_name', trim($request->company_name));
+
+        return back()->with('success', 'Company name updated.');
+    }
+
+    public function uploadLogo(Request $request)
+    {
+        abort_unless(Auth::user()?->isAdministrator(), 403);
+
+        $request->validate([
+            'logo' => ['required', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+        ]);
+
+        // Delete old logo if exists
+        $old = SiteSetting::get('logo_path');
+        if ($old) {
+            Storage::disk('public')->delete($old);
+        }
+
+        $path = $request->file('logo')->store('logos', 'public');
+        SiteSetting::set('logo_path', $path);
+
+        return back()->with('success', 'Logo updated successfully.');
+    }
+
+    public function deleteLogo()
+    {
+        abort_unless(Auth::user()?->isAdministrator(), 403);
+
+        $path = SiteSetting::get('logo_path');
+        if ($path) {
+            Storage::disk('public')->delete($path);
+            SiteSetting::set('logo_path', null);
+        }
+
+        return back()->with('success', 'Logo removed. Default icon restored.');
     }
 }

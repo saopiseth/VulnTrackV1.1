@@ -54,7 +54,7 @@
 </style>
 
 {{-- ── Hero header ── --}}
-<div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);border-radius:14px;
+<div style="background:linear-gradient(135deg,#f8fafc 0%,#f0f7e6 100%);border:1px solid #e8f5c2;border-radius:14px;
             padding:1.4rem 1.75rem;margin-bottom:1.25rem">
 
     {{-- Breadcrumb --}}
@@ -63,19 +63,19 @@
             <li class="breadcrumb-item">
                 <a href="{{ route('vuln-assessments.index') }}" style="color:#94a3b8;text-decoration:none">VA Assessments</a>
             </li>
-            <li class="breadcrumb-item active" style="color:#e2e8f0">{{ Str::limit($assessment->name, 50) }}</li>
+            <li class="breadcrumb-item active" style="color:#374151">{{ Str::limit($assessment->name, 50) }}</li>
         </ol>
     </nav>
 
     <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
         <div style="min-width:0">
             <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                <h4 style="color:#f8fafc;margin:0;font-size:1.25rem;font-weight:700">{{ $assessment->name }}</h4>
+                <h4 style="color:#0f172a;margin:0;font-size:1.25rem;font-weight:700">{{ $assessment->name }}</h4>
                 @if($assessment->environment)
                 <span class="badge-env env-{{ strtolower($assessment->environment) }}">{{ $assessment->environment }}</span>
                 @endif
             </div>
-            <div class="d-flex flex-wrap gap-3" style="font-size:.78rem;color:#94a3b8">
+            <div class="d-flex flex-wrap gap-3" style="font-size:.78rem;color:#64748b">
                 @if($assessment->period_start || $assessment->period_end)
                 <span><i class="bi bi-calendar3 me-1"></i>{{ $assessment->period_start?->format('d M Y') ?? '—' }} – {{ $assessment->period_end?->format('d M Y') ?? '—' }}</span>
                 @endif
@@ -83,7 +83,7 @@
                 <span><i class="bi bi-cloud-upload me-1"></i>{{ $assessment->scans->count() }} scan{{ $assessment->scans->count() !== 1 ? 's' : '' }}</span>
             </div>
             @if($assessment->description)
-            <div style="margin-top:.55rem;font-size:.8rem;color:#cbd5e1;line-height:1.55;max-width:560px">
+            <div style="margin-top:.55rem;font-size:.8rem;color:#475569;line-height:1.55;max-width:560px">
                 {{ Str::limit($assessment->description, 150) }}
             </div>
             @endif
@@ -98,49 +98,11 @@
                 <i class="bi bi-table me-1"></i>Findings
             </a>
             @endif
-            @if($osHostCount > 0)
-            <a href="{{ route('vuln-assessments.os-assets', $assessment) }}" class="btn btn-sm"
-                style="background:#334155;color:#e2e8f0;border-radius:8px;font-weight:500;border:none;
-                       padding:.4rem .95rem;font-size:.81rem">
-                <i class="bi bi-cpu me-1"></i>OS Assets
-            </a>
-            @endif
-            @if($activeScan)
-            <div class="dropdown">
-                <button class="btn btn-sm dropdown-toggle"
-                    style="background:#334155;color:#e2e8f0;border-radius:8px;font-weight:500;border:none;
-                           padding:.4rem .95rem;font-size:.81rem"
-                    data-bs-toggle="dropdown">
-                    <i class="bi bi-tags-fill me-1"></i>Classify
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end" style="font-size:.83rem;min-width:220px;border-radius:10px;border:1px solid #e8f5c2">
-                    <li>
-                        <form method="POST" action="{{ route('vuln-assessments.reclassify', $assessment) }}">
-                            @csrf
-                            <button type="submit" class="dropdown-item" style="padding:.55rem 1rem">
-                                <i class="bi bi-magic me-2" style="color:var(--lime)"></i>Auto-classify unclassified
-                            </button>
-                        </form>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <form method="POST" action="{{ route('vuln-assessments.reclassify', $assessment) }}"
-                              onsubmit="return confirm('Re-classify ALL? This will overwrite manual categories.')">
-                            @csrf
-                            <input type="hidden" name="force" value="1">
-                            <button type="submit" class="dropdown-item" style="padding:.55rem 1rem">
-                                <i class="bi bi-arrow-repeat me-2 text-danger"></i>Re-classify all
-                            </button>
-                        </form>
-                    </li>
-                </ul>
-            </div>
-            @endif
             {{-- Report dropdown --}}
             <div class="dropdown">
                 <button class="btn btn-sm dropdown-toggle"
                         data-bs-toggle="dropdown" aria-expanded="false"
-                        style="background:#334155;color:#e2e8f0;border-radius:8px;font-weight:500;border:none;
+                        style="background:#e2e8f0;color:#374151;border-radius:8px;font-weight:500;border:none;
                                padding:.4rem .95rem;font-size:.81rem">
                     <i class="bi bi-file-earmark-text me-1"></i>Report
                 </button>
@@ -192,7 +154,7 @@
             </div>
 
             <button class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal"
-                style="background:#334155;color:#e2e8f0;border-radius:8px;font-weight:500;border:none;
+                style="background:#e2e8f0;color:#374151;border-radius:8px;font-weight:500;border:none;
                        padding:.4rem .95rem;font-size:.81rem">
                 <i class="bi bi-upload me-1"></i>Upload
             </button>
@@ -260,21 +222,18 @@
 
 {{-- ── Pill tabs ── --}}
 <div class="pill-nav" role="tablist">
-    <button class="p-tab active" data-bs-toggle="tab" data-bs-target="#tab-overview" role="tab">
-        <i class="bi bi-grid-1x2 me-1"></i>Overview
-    </button>
     @if($comparison)
-    <button class="p-tab" data-bs-toggle="tab" data-bs-target="#tab-comparison" role="tab">
+    <button class="p-tab active" data-bs-toggle="tab" data-bs-target="#tab-comparison" role="tab">
         <i class="bi bi-arrow-left-right me-1"></i>Comparison
     </button>
     @endif
     @if($topIps->count() || $assessment->scope_group_id)
-    <button class="p-tab" data-bs-toggle="tab" data-bs-target="#tab-os" role="tab">
+    <button class="p-tab{{ !$comparison ? ' active' : '' }}" data-bs-toggle="tab" data-bs-target="#tab-os" role="tab">
         <i class="bi bi-hdd-network me-1"></i>Vulnerable Hosts
         @if($topIps->count())<span class="cnt">{{ $topIps->count() }}</span>@endif
     </button>
     @endif
-    <button class="p-tab" data-bs-toggle="tab" data-bs-target="#tab-scans" role="tab">
+    <button class="p-tab{{ !$comparison && !$topIps->count() && !$assessment->scope_group_id ? ' active' : '' }}" data-bs-toggle="tab" data-bs-target="#tab-scans" role="tab">
         <i class="bi bi-cloud-upload me-1"></i>Scans
         <span class="cnt">{{ $assessment->scans->count() }}</span>
     </button>
@@ -282,153 +241,12 @@
 
 <div class="tab-content">
 
-{{-- ══════════════════════════════════════════════════════════════
-     TAB: Overview
-══════════════════════════════════════════════════════════════ --}}
-<div class="tab-pane fade show active" id="tab-overview" role="tabpanel">
-
-    {{-- ── Zone 1: Assessment meta strip ──────────────────────────── --}}
-    <div class="va-card mb-3" style="padding:.85rem 1.35rem">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem 1.5rem;align-items:start">
-
-            <div>
-                <div style="font-size:.62rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.2rem">
-                    <i class="bi bi-person me-1"></i>Created By
-                </div>
-                <div style="font-weight:600;color:#0f172a;font-size:.86rem">{{ $assessment->creator?->name ?? '—' }}</div>
-            </div>
-
-            <div>
-                <div style="font-size:.62rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.2rem">
-                    <i class="bi bi-calendar3 me-1"></i>Assessment Period
-                </div>
-                <div style="font-weight:500;color:#374151;font-size:.84rem">
-                    {{ $assessment->period_start?->format('d M Y') ?? '—' }}
-                    @if($assessment->period_start || $assessment->period_end) &nbsp;–&nbsp; @endif
-                    {{ $assessment->period_end?->format('d M Y') ?? '' }}
-                </div>
-            </div>
-
-            <div>
-                <div style="font-size:.62rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.2rem">
-                    <i class="bi bi-layers me-1"></i>Scans
-                </div>
-                <div style="font-weight:600;color:#0f172a;font-size:.86rem">
-                    {{ $assessment->scans->count() }} scan{{ $assessment->scans->count() !== 1 ? 's' : '' }} uploaded
-                </div>
-                @if($baseline && $latestScan && $baseline->id !== $latestScan->id)
-                <div style="font-size:.7rem;color:#94a3b8;margin-top:.1rem">
-                    Baseline → {{ $latestScan->created_at->format('d M Y') }}
-                </div>
-                @endif
-            </div>
-
-            @if($assessment->description)
-            <div style="grid-column:1/-1">
-                <div style="font-size:.62rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.2rem">
-                    <i class="bi bi-chat-left-text me-1"></i>Description
-                </div>
-                <div style="font-size:.82rem;color:#475569;line-height:1.55">{{ $assessment->description }}</div>
-            </div>
-            @endif
-
-        </div>
-    </div>
-
-    {{-- ── Zone 2: Remediation Progress (full-width horizontal) ─────── --}}
-    @if($remStats && $remStats->total > 0)
-    @php
-        $pctResolved = round($remStats->resolved_by_scan / max(1,$remStats->total) * 100);
-        $pctAccepted = round($remStats->accepted          / max(1,$remStats->total) * 100);
-        $pctClosed   = min(100, $pctResolved + $pctAccepted);
-        $activeTotal = $remStats->open_count + $remStats->in_progress + $remStats->accepted;
-    @endphp
-    <div class="va-card mb-3" style="padding:0;overflow:hidden">
-
-        {{-- Top label bar --}}
-        <div style="padding:.6rem 1.4rem;border-bottom:1px solid #e8f5c2;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
-                          color:var(--lime-dark);display:flex;align-items:center;gap:.35rem">
-                <i class="bi bi-check2-circle"></i>Remediation Progress
-            </span>
-            <span style="font-size:.75rem;color:#94a3b8">
-                <span style="font-weight:800;color:var(--lime-dark);font-size:.95rem">{{ $pctClosed }}%</span>
-                &nbsp;closure &nbsp;·&nbsp; {{ $remStats->resolved_by_scan + $remStats->accepted }} / {{ $remStats->total }} vulnerabilities closed
-            </span>
-        </div>
-
-        {{-- Progress bar --}}
-        <div style="height:6px;background:#f1f5f9;display:flex">
-            <div style="height:100%;width:{{ $pctResolved }}%;background:#059669;transition:width .5s"></div>
-            <div style="height:100%;width:{{ $pctAccepted }}%;background:#94a3b8"></div>
-        </div>
-
-        {{-- 5-column stat row --}}
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid #f1f5f9">
-            @foreach([
-                ['lbl'=>'Resolved',    'sub'=>'confirmed by scan', 'val'=>$remStats->resolved_by_scan,'bg'=>'#f0fdf4','col'=>'#15803d','sub_col'=>'#166534','border'=>'#bbf7d0','icon'=>'bi-patch-check-fill'],
-                ['lbl'=>'In Progress', 'sub'=>'team working on it','val'=>$remStats->in_progress,     'bg'=>'#fffbeb','col'=>'#b45309','sub_col'=>'#92400e','border'=>'#fde68a','icon'=>'bi-arrow-repeat'],
-                ['lbl'=>'Open',        'sub'=>'no action taken',   'val'=>$remStats->open_count,      'bg'=>'#fff8f8','col'=>'#dc2626','sub_col'=>'#991b1b','border'=>'#fecaca','icon'=>'bi-exclamation-circle-fill'],
-                ['lbl'=>'Accepted',    'sub'=>'risk accepted',     'val'=>$remStats->accepted,        'bg'=>'#f8fafc','col'=>'#64748b','sub_col'=>'#475569','border'=>'#e2e8f0','icon'=>'bi-shield-check'],
-                ['lbl'=>'Total',       'sub'=>'tracked findings',  'val'=>$remStats->total,           'bg'=>'#fff',   'col'=>'#0f172a','sub_col'=>'#64748b','border'=>'transparent','icon'=>'bi-database'],
-            ] as $idx => $rs)
-            <div style="padding:1rem 1.2rem;background:{{ $rs['bg'] }};text-align:center;
-                         border-left:{{ $idx > 0 ? '1px solid '.$rs['border'] : 'none' }}">
-                <div style="display:flex;align-items:center;justify-content:center;gap:.3rem;
-                              font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
-                              color:{{ $rs['sub_col'] }};margin-bottom:.35rem">
-                    <i class="bi {{ $rs['icon'] }}"></i>{{ $rs['lbl'] }}
-                </div>
-                <div style="font-size:1.9rem;font-weight:900;color:{{ $rs['col'] }};line-height:1">{{ $rs['val'] }}</div>
-                <div style="font-size:.65rem;color:{{ $rs['sub_col'] }};margin-top:.2rem;opacity:.8">{{ $rs['sub'] }}</div>
-            </div>
-            @endforeach
-        </div>
-
-        {{-- Active severity breakdown row --}}
-        @if($activeTotal > 0)
-        <div style="padding:.55rem 1.4rem;background:#fafafa;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-            <span style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">
-                Active by severity:
-            </span>
-            @foreach([
-                ['lbl'=>'Critical','val'=>$remStats->active_critical,'bg'=>'#fee2e2','col'=>'#991b1b','bar'=>'#dc2626'],
-                ['lbl'=>'High',    'val'=>$remStats->active_high,    'bg'=>'#ffedd5','col'=>'#9a3412','bar'=>'#ea580c'],
-                ['lbl'=>'Medium',  'val'=>$remStats->active_medium,  'bg'=>'#fef9c3','col'=>'#854d0e','bar'=>'#d97706'],
-                ['lbl'=>'Low',     'val'=>$remStats->active_low,     'bg'=>'#f1f5f9','col'=>'#475569','bar'=>'#94a3b8'],
-            ] as $sv)
-            @if($sv['val'] > 0)
-            <div style="display:flex;align-items:center;gap:.4rem">
-                <span style="background:{{ $sv['bg'] }};color:{{ $sv['col'] }};border-radius:6px;
-                              padding:.18rem .65rem;font-size:.75rem;font-weight:800">
-                    {{ $sv['val'] }}
-                </span>
-                <span style="font-size:.72rem;color:#64748b;font-weight:600">{{ $sv['lbl'] }}</span>
-            </div>
-            @endif
-            @endforeach
-
-            <div style="flex:1;min-width:120px;max-width:260px;margin-left:.5rem">
-                <div style="height:5px;border-radius:20px;background:#e2e8f0;overflow:hidden;display:flex;gap:1px">
-                    @foreach([[$remStats->active_critical,'#dc2626'],[$remStats->active_high,'#ea580c'],[$remStats->active_medium,'#d97706'],[$remStats->active_low,'#94a3b8']] as [$v,$c])
-                    @if($v > 0)<div style="flex:{{ $v }};background:{{ $c }};height:100%"></div>@endif
-                    @endforeach
-                </div>
-            </div>
-        </div>
-        @endif
-
-    </div>
-    @endif
-
-
-</div>
 
 {{-- ══════════════════════════════════════════════════════════════
      TAB: Comparison
 ══════════════════════════════════════════════════════════════ --}}
 @if($comparison)
-<div class="tab-pane fade" id="tab-comparison" role="tabpanel">
+<div class="tab-pane fade show active" id="tab-comparison" role="tabpanel">
 @php
     $netChange  = $comparison['new'] - $comparison['resolved'];
     $netLabel   = $netChange > 0 ? "+{$netChange} more" : ($netChange < 0 ? abs($netChange).' fewer' : 'no change');
@@ -436,55 +254,6 @@
     $netBg      = $netChange > 0 ? '#fee2e2' : ($netChange < 0 ? '#d1fae5' : '#f1f5f9');
     $netIcon    = $netChange > 0 ? 'bi-arrow-up-right' : ($netChange < 0 ? 'bi-arrow-down-right' : 'bi-dash');
 @endphp
-
-    {{-- ── Scan banner ────────────────────────────────────────────── --}}
-    <div class="va-card mb-3" style="padding:0;overflow:hidden">
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch">
-
-            {{-- Baseline --}}
-            <div style="padding:1.1rem 1.35rem;border-right:1px solid #e8f5c2">
-                <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
-                             color:var(--lime-dark);margin-bottom:.45rem">
-                    <i class="bi bi-flag-fill me-1"></i>Baseline
-                </div>
-                <div style="font-weight:700;color:#0f172a;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px"
-                     title="{{ $baseline->filename }}">
-                    {{ Str::limit($baseline->filename, 38) }}
-                </div>
-                <div class="d-flex gap-3 mt-1" style="font-size:.73rem;color:#64748b">
-                    <span><i class="bi bi-list-check me-1"></i>{{ $baseline->finding_count }} findings</span>
-                    <span><i class="bi bi-calendar3 me-1"></i>{{ $baseline->created_at->format('d M Y') }}</span>
-                </div>
-            </div>
-
-            {{-- Net change pill --}}
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-                         padding:1rem 1.5rem;background:#f8fafc;border-right:1px solid #e8f5c2;min-width:110px">
-                <i class="bi bi-arrow-right" style="font-size:1.1rem;color:#cbd5e1;margin-bottom:.3rem"></i>
-                <span style="font-size:.72rem;font-weight:700;padding:.22rem .7rem;border-radius:20px;
-                              background:{{ $netBg }};color:{{ $netColor }};white-space:nowrap">
-                    <i class="bi {{ $netIcon }} me-1"></i>{{ $netLabel }}
-                </span>
-                <span style="font-size:.62rem;color:#94a3b8;margin-top:.25rem">vs baseline</span>
-            </div>
-
-            {{-- Latest --}}
-            <div style="padding:1.1rem 1.35rem">
-                <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
-                             color:#1e40af;margin-bottom:.45rem">
-                    <i class="bi bi-file-earmark-bar-graph-fill me-1"></i>Latest Scan
-                </div>
-                <div style="font-weight:700;color:#0f172a;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px"
-                     title="{{ $latestScan->filename }}">
-                    {{ Str::limit($latestScan->filename, 38) }}
-                </div>
-                <div class="d-flex gap-3 mt-1" style="font-size:.73rem;color:#64748b">
-                    <span><i class="bi bi-list-check me-1"></i>{{ $latestScan->finding_count }} findings</span>
-                    <span><i class="bi bi-calendar3 me-1"></i>{{ $latestScan->created_at->format('d M Y') }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
 
     {{-- ── Vulnerability delta cards ───────────────────────────────── --}}
     <div class="row g-3 mb-3">
@@ -559,86 +328,6 @@
         </div>
     </div>
 
-    {{-- ── Host / IP tracking ──────────────────────────────────────── --}}
-    @if($hostComparison)
-    <div class="va-card mb-3">
-        <div class="section-label"><i class="bi bi-hdd-network"></i>Host / IP Tracking</div>
-
-        {{-- Host count strip --}}
-        <div class="row g-2 mb-3">
-            @foreach([
-                ['lbl'=>'Baseline Hosts', 'val'=>$hostComparison['baseline_count'], 'icon'=>'bi-flag',          'bg'=>'#eff6ff','border'=>'#bfdbfe','col'=>'#1e40af'],
-                ['lbl'=>'Latest Hosts',   'val'=>$hostComparison['latest_count'],   'icon'=>'bi-hdd-network',   'bg'=>'#f0fdf4','border'=>'#86efac','col'=>'#166534'],
-                ['lbl'=>'New IPs',        'val'=>$hostComparison['new'],            'icon'=>'bi-plus-circle',   'bg'=>'#fff8f8','border'=>'#fca5a5','col'=>'#991b1b'],
-                ['lbl'=>'Removed IPs',    'val'=>$hostComparison['removed'],        'icon'=>'bi-dash-circle',   'bg'=>'#f0fdf4','border'=>'#86efac','col'=>'#166534'],
-                ['lbl'=>'Unchanged IPs',  'val'=>$hostComparison['persistent'],     'icon'=>'bi-arrow-repeat',  'bg'=>'#fffbeb','border'=>'#fcd34d','col'=>'#92400e'],
-            ] as $hc)
-            <div class="col-6 col-md">
-                <div style="background:{{ $hc['bg'] }};border:1px solid {{ $hc['border'] }};border-radius:10px;
-                             padding:.8rem .9rem;display:flex;align-items:center;gap:.65rem">
-                    <div style="width:32px;height:32px;border-radius:8px;background:{{ $hc['border'] }};flex-shrink:0;
-                                 display:flex;align-items:center;justify-content:center">
-                        <i class="bi {{ $hc['icon'] }}" style="color:{{ $hc['col'] }};font-size:.82rem"></i>
-                    </div>
-                    <div>
-                        <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:{{ $hc['col'] }}">{{ $hc['lbl'] }}</div>
-                        <div style="font-size:1.45rem;font-weight:800;color:{{ $hc['col'] }};line-height:1.15">{{ $hc['val'] }}</div>
-                    </div>
-                </div>
-            </div>
-            @endforeach
-        </div>
-
-        {{-- IP chip lists side by side --}}
-        @if($hostComparison['new_ips']->isNotEmpty() || $hostComparison['removed_ips']->isNotEmpty())
-        <div class="row g-3">
-            @if($hostComparison['new_ips']->isNotEmpty())
-            <div class="{{ $hostComparison['removed_ips']->isNotEmpty() ? 'col-md-6' : 'col-12' }}">
-                <div style="background:#fff8f8;border:1px solid #fca5a5;border-radius:10px;padding:.85rem 1rem">
-                    <div style="font-size:.7rem;font-weight:700;color:#991b1b;margin-bottom:.6rem;display:flex;align-items:center;gap:.35rem">
-                        <i class="bi bi-plus-circle-fill"></i>
-                        New IPs in latest scan
-                        <span style="background:#fee2e2;color:#991b1b;border-radius:20px;padding:.05rem .45rem;font-size:.62rem;margin-left:.2rem">{{ $hostComparison['new_ips']->count() }}</span>
-                    </div>
-                    <div class="d-flex flex-wrap gap-1">
-                        @foreach($hostComparison['new_ips'] as $ip)
-                        <span style="font-family:monospace;font-size:.75rem;background:#fff;color:#991b1b;
-                                     border-radius:6px;padding:.18rem .55rem;border:1px solid #fca5a5;font-weight:600">{{ $ip }}</span>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-            @endif
-            @if($hostComparison['removed_ips']->isNotEmpty())
-            <div class="{{ $hostComparison['new_ips']->isNotEmpty() ? 'col-md-6' : 'col-12' }}">
-                <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:.85rem 1rem">
-                    <div style="font-size:.7rem;font-weight:700;color:#166534;margin-bottom:.6rem;display:flex;align-items:center;gap:.35rem">
-                        <i class="bi bi-dash-circle-fill"></i>
-                        IPs removed since baseline
-                        <span style="background:#dcfce7;color:#166534;border-radius:20px;padding:.05rem .45rem;font-size:.62rem;margin-left:.2rem">{{ $hostComparison['removed_ips']->count() }}</span>
-                    </div>
-                    <div class="d-flex flex-wrap gap-1">
-                        @foreach($hostComparison['removed_ips'] as $ip)
-                        <span style="font-family:monospace;font-size:.75rem;background:#fff;color:#166534;
-                                     border-radius:6px;padding:.18rem .55rem;border:1px solid #86efac;font-weight:600">{{ $ip }}</span>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-            @endif
-        </div>
-        @endif
-    </div>
-    @endif
-
-    {{-- ── View findings CTA ───────────────────────────────────────── --}}
-    <div class="d-flex justify-content-center mt-1">
-        <a href="{{ route('vuln-assessments.findings', $assessment) }}" class="btn"
-            style="background:var(--lime);color:#fff;border-radius:10px;font-weight:600;border:none;
-                   padding:.55rem 1.85rem;font-size:.88rem;box-shadow:0 2px 8px rgba(118,151,7,.25)">
-            <i class="bi bi-table me-2"></i>View Full Findings Table
-        </a>
-    </div>
 
 </div>
 @endif
@@ -647,7 +336,7 @@
      TAB: Vulnerable Hosts
 ══════════════════════════════════════════════════════════════ --}}
 @if($topIps->count() || $assessment->scope_group_id)
-<div class="tab-pane fade" id="tab-os" role="tabpanel">
+<div class="tab-pane fade{{ !$comparison ? ' show active' : '' }}" id="tab-os" role="tabpanel">
 
     {{-- ── Scope Group picker ──────────────────────────────────────── --}}
     <div class="va-card mb-3" style="padding:1rem 1.25rem">
