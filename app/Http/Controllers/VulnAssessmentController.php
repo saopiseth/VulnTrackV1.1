@@ -1225,8 +1225,32 @@ class VulnAssessmentController extends Controller
             ->groupBy('severity')
             ->pluck('cnt', 'severity');
 
+        // Per-scan × remediation status trend (x = scan, lines = rem status)
+        $remStatuses = ['Open', 'In Progress', 'Resolved', 'Accepted Risk'];
+
+        // For each scan: count findings joined with their current remediation status
+        $scanRemTrend = array_fill_keys($remStatuses, []);
+
+        foreach ($scans as $scan) {
+            $counts = DB::table('vuln_findings as vf')
+                ->where('vf.scan_id', $scan->id)
+                ->whereIn('vf.severity', $severities)
+                ->leftJoin('vuln_remediations as vr', function ($join) use ($assessment) {
+                    $join->on('vr.plugin_id',      '=', 'vf.plugin_id')
+                         ->on('vr.ip_address',     '=', 'vf.ip_address')
+                         ->where('vr.assessment_id', '=', $assessment->id);
+                })
+                ->selectRaw("COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt")
+                ->groupBy('rem_status')
+                ->pluck('cnt', 'rem_status');
+
+            foreach ($remStatuses as $status) {
+                $scanRemTrend[$status][] = (int) ($counts[$status] ?? 0);
+            }
+        }
+
         // Summary totals
-        $totalTracked = $trackingCounts->sum();
+        $totalTracked  = $trackingCounts->sum();
         $totalResolved = (int) ($trackingCounts[VulnTracked::STATUS_RESOLVED] ?? 0);
         $totalOpen     = $totalTracked - $totalResolved;
 
@@ -1234,6 +1258,7 @@ class VulnAssessmentController extends Controller
             'assessment', 'scans',
             'scanLabels', 'severityTrend',
             'trackingCounts', 'remCounts', 'currentSevCounts',
+            'scanRemTrend', 'remStatuses',
             'totalTracked', 'totalResolved', 'totalOpen'
         ));
     }

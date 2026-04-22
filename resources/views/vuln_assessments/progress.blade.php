@@ -126,6 +126,14 @@
         </div>
     </div>
 
+    {{-- ── Severity Trend per Remediation ────────────────────────────── --}}
+    <div class="col-12">
+        <div class="chart-card">
+            <div class="chart-title"><i class="bi bi-layers-fill"></i>Severity Trend per Remediation</div>
+            <canvas id="sevRemChart" style="max-height:320px"></canvas>
+        </div>
+    </div>
+
     {{-- ── Scan History ─────────────────────────────────────────────── --}}
     <div class="col-12">
         <div class="va-card" style="padding:1.25rem">
@@ -245,6 +253,45 @@
         options: {
             responsive: true, maintainAspectRatio: true,
             plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // ── 5. Severity Trend per Remediation (line, x = scan date) ────
+    var scanRemTrend   = {!! json_encode($scanRemTrend) !!};
+    var remStatusList  = {!! json_encode($remStatuses) !!};
+    var remStatusColors = {
+        'Open':          '#dc2626',
+        'In Progress':   '#ca8a04',
+        'Resolved':      '#059669',
+        'Accepted Risk': '#64748b'
+    };
+
+    new Chart(document.getElementById('sevRemChart'), {
+        type: 'line',
+        data: {
+            labels: scanLabels,
+            datasets: remStatusList.map(function (status) {
+                var color = remStatusColors[status] || '#94a3b8';
+                return {
+                    label: status,
+                    data: scanRemTrend[status] || [],
+                    borderColor: color,
+                    backgroundColor: color.replace(')', ', 0.1)').replace('rgb', 'rgba'),
+                    borderWidth: 2.5,
+                    pointRadius: 4,
+                    tension: .35,
+                    fill: false
+                };
+            })
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { position: 'top' } },
             scales: {
                 y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
                 x: { grid: { display: false } }

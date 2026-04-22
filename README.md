@@ -1,59 +1,192 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Security Assessment Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A web-based vulnerability assessment and management platform built with Laravel 12. Designed for security teams to track vulnerabilities across assessment scopes, manage remediation workflows, assign work to user groups, and monitor progress over time.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Vulnerability Management
+- Upload Nessus scan results and automatically track findings across multiple scans
+- Baseline vs. subsequent scan comparison with automatic status transitions (New → Open → Unresolved → Resolved → Reopened)
+- Per-finding severity classification: Critical, High, Medium, Low
+- OS family detection and vulnerability categorisation
+- Plugin output viewer per finding
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Assessment Scope
+- Define assessment scope groups with IP addresses, hostnames, system names, criticality levels, environments, and locations
+- Link scope entries to assessments for system-name resolution on findings
 
-## Learning Laravel
+### Remediation Workflow
+- Per-finding remediation records: status, assigned-to, due date, comments, evidence
+- Bulk assign findings to user groups from the findings table
+- SLA policy enforcement with due-date tracking
+- Remediation status breakdown: Open / In Progress / Resolved / Accepted Risk
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### User & Group Management
+- Role-based access: Administrator and Assessor
+- User groups for team-based remediation assignment
+- Per-group member management
+- Optional MFA (email OTP) per user
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Progress Tracking
+- Per-assessment progress page with Chart.js visualisations:
+  - Severity trend line chart across scan uploads
+  - Remediation status doughnut chart
+  - Current severity breakdown bar chart
+- Scan history timeline with finding and host counts
 
-## Laravel Sponsors
+### Reporting
+- Export assessment reports to PDF, Word, and Excel
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+---
 
-### Premium Partners
+## Tech Stack
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+| Layer | Technology |
+|---|---|
+| Framework | Laravel 12 |
+| PHP | 8.2 |
+| Database | SQLite (local) / MySQL 8 (production) |
+| Cache / Queue / Session | Redis (production) |
+| Frontend | Bootstrap 5.3, Bootstrap Icons, Chart.js 4 |
+| PDF generation | barryvdh/laravel-dompdf |
+| Web server | Nginx (Docker) |
+| Containerisation | Docker + Docker Compose |
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Local Development Setup
 
-## Code of Conduct
+### Requirements
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- PHP 8.2+
+- Composer 2
+- SQLite (bundled with PHP)
+- Node.js (optional, for Vite asset compilation)
 
-## Security Vulnerabilities
+### Steps
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+# 1. Clone the repository
+git clone https://github.com/your-org/security-assessment.git
+cd security-assessment
+
+# 2. Install PHP dependencies
+composer install
+
+# 3. Copy environment file
+cp .env.example .env
+
+# 4. Generate application key
+php artisan key:generate
+
+# 5. Run migrations
+php artisan migrate
+
+# 6. Create the first admin user
+php artisan tinker
+```
+
+Inside tinker:
+
+```php
+\App\Models\User::create([
+    'name'        => 'Admin',
+    'email'       => 'admin@example.com',
+    'password'    => bcrypt('password'),
+    'role'        => 'administrator',
+    'mfa_enabled' => false,
+]);
+exit
+```
+
+```bash
+# 7. Start the development server
+php artisan serve
+```
+
+Visit `http://localhost:8000`.
+
+---
+
+## Production Deployment (Docker)
+
+A full Docker-based production setup is included. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for the complete step-by-step guide covering:
+
+- Docker Compose services (app, webserver, db, redis, queue, scheduler)
+- Environment configuration
+- SSL / HTTPS with Let's Encrypt
+- Database backup and restore
+- Zero-downtime updates
+- Troubleshooting
+
+**Quick start:**
+
+```bash
+cp .env.production .env
+# Fill in APP_KEY, DB_PASSWORD, REDIS_PASSWORD, APP_URL
+
+docker compose build --no-cache
+docker compose up -d
+docker compose exec app php artisan migrate --force
+```
+
+---
+
+## Project Structure
+
+```
+app/
+├── Http/
+│   ├── Controllers/        # VulnAssessmentController, UserController, etc.
+│   ├── Middleware/
+│   └── Requests/
+├── Models/                 # VulnAssessment, VulnTracked, VulnFinding, UserGroup, etc.
+├── Policies/               # Gate policies per model
+└── Services/               # VulnTrackingService, OsDetector, VulnClassifier
+
+resources/views/
+├── layouts/app.blade.php   # Sidebar layout
+├── vuln_assessments/       # Findings, progress, show, create
+├── users/                  # User management
+└── user-groups/            # Group management
+
+docker/
+├── nginx/app.conf          # Nginx site config
+├── php/php.ini             # PHP production settings
+├── php/opcache.ini         # OPcache config
+├── mysql/my.cnf            # MySQL tuning
+└── entrypoint.sh           # Container startup script
+```
+
+---
+
+## User Roles
+
+| Role | Permissions |
+|---|---|
+| **Administrator** | Full access — manage users, groups, assessments, findings, settings |
+| **Assessor** | View, create, edit assessments and findings — no delete, no user management |
+
+---
+
+## Key Artisan Commands
+
+```bash
+# Clear and rebuild all caches
+php artisan optimize:clear
+php artisan optimize
+
+# Run queue worker
+php artisan queue:work --tries=3
+
+# Run scheduled tasks
+php artisan schedule:run
+```
+
+---
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Private — all rights reserved.
