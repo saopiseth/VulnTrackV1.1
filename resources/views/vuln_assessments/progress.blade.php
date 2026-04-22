@@ -105,7 +105,7 @@
     {{-- ── Severity Trend Line Chart ────────────────────────────────── --}}
     <div class="col-12">
         <div class="chart-card">
-            <div class="chart-title"><i class="bi bi-graph-up-arrow"></i>Severity Trend per Scan</div>
+            <div class="chart-title">Severity Trend per Scan</div>
             <canvas id="severityTrendChart" style="max-height:320px"></canvas>
         </div>
     </div>
@@ -113,7 +113,7 @@
     {{-- ── Remediation Status Pie Chart ────────────────────────────── --}}
     <div class="col-12 col-md-5">
         <div class="chart-card">
-            <div class="chart-title"><i class="bi bi-pie-chart-fill"></i>Remediation Status</div>
+            <div class="chart-title">Remediation Status</div>
             <canvas id="remChart" style="max-height:260px"></canvas>
         </div>
     </div>
@@ -121,7 +121,7 @@
     {{-- ── Current Severity Breakdown Bar ─────────────────────────── --}}
     <div class="col-12 col-md-7">
         <div class="chart-card">
-            <div class="chart-title"><i class="bi bi-bar-chart-steps"></i>Current Severity Breakdown</div>
+            <div class="chart-title">Current Severity Breakdown</div>
             <canvas id="sevBreakChart" style="max-height:260px"></canvas>
         </div>
     </div>
@@ -129,8 +129,16 @@
     {{-- ── Severity Trend per Remediation ────────────────────────────── --}}
     <div class="col-12">
         <div class="chart-card">
-            <div class="chart-title"><i class="bi bi-layers-fill"></i>Severity Trend per Remediation</div>
+            <div class="chart-title">Severity Trend per Remediation</div>
             <canvas id="sevRemChart" style="max-height:320px"></canvas>
+        </div>
+    </div>
+
+    {{-- ── Vulnerability Status by Group ─────────────────────────────── --}}
+    <div class="col-12">
+        <div class="chart-card">
+            <div class="chart-title">Vulnerability Status by Group</div>
+            <canvas id="groupStatusChart" style="max-height:320px"></canvas>
         </div>
     </div>
 
@@ -138,7 +146,7 @@
     <div class="col-12">
         <div class="va-card" style="padding:1.25rem">
             <div style="font-size:.82rem;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem">
-                <i class="bi bi-clock-history" style="color:var(--lime-dark)"></i> Scan History
+                Scan History
             </div>
             @foreach($scans as $scan)
             <div class="scan-row">
@@ -298,6 +306,48 @@
             }
         }
     });
+    // ── 6. Vulnerability Status by Group (grouped bar) ──────────────
+    var groupNames    = {!! json_encode($groupNames) !!};
+    var groupStatData = {!! json_encode($groupStatData) !!};
+
+    if (groupNames.length > 0) {
+        new Chart(document.getElementById('groupStatusChart'), {
+            type: 'bar',
+            data: {
+                labels: groupNames,
+                datasets: remStatusList.map(function (status) {
+                    return {
+                        label: status,
+                        data: groupStatData[status] || [],
+                        backgroundColor: remStatusColors[status] || '#94a3b8'
+                    };
+                })
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            footer: function (items) {
+                                var total = items.reduce(function (s, i) { return s + i.parsed.y; }, 0);
+                                return 'Total: ' + total;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { stacked: true, grid: { display: false } },
+                    y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } }
+                }
+            }
+        });
+    } else {
+        document.getElementById('groupStatusChart').closest('.chart-card').innerHTML +=
+            '<p style="text-align:center;color:#94a3b8;font-size:.82rem;margin-top:1rem">No group assignments yet.</p>';
+        document.getElementById('groupStatusChart').style.display = 'none';
+    }
 })();
 </script>
 @endpush

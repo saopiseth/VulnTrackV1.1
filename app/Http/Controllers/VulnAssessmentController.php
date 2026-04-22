@@ -1249,6 +1249,25 @@ class VulnAssessmentController extends Controller
             }
         }
 
+        // Vulnerability status by user group
+        // Rows: [group_name, status, count] — includes "Unassigned" bucket
+        $groupStatusRaw = VulnRemediation::where('vuln_remediations.assessment_id', $assessment->id)
+            ->leftJoin('user_groups as ug', 'ug.id', '=', 'vuln_remediations.assigned_group_id')
+            ->selectRaw("COALESCE(ug.name, 'Unassigned') as group_name, vuln_remediations.status, COUNT(*) as cnt")
+            ->groupBy('group_name', 'vuln_remediations.status')
+            ->orderBy('group_name')
+            ->get();
+
+        $groupNames   = $groupStatusRaw->pluck('group_name')->unique()->values()->toArray();
+        $groupStatData = array_fill_keys($remStatuses, []);
+
+        foreach ($remStatuses as $status) {
+            foreach ($groupNames as $group) {
+                $row = $groupStatusRaw->first(fn($r) => $r->group_name === $group && $r->status === $status);
+                $groupStatData[$status][] = $row ? (int) $row->cnt : 0;
+            }
+        }
+
         // Summary totals
         $totalTracked  = $trackingCounts->sum();
         $totalResolved = (int) ($trackingCounts[VulnTracked::STATUS_RESOLVED] ?? 0);
@@ -1259,6 +1278,7 @@ class VulnAssessmentController extends Controller
             'scanLabels', 'severityTrend',
             'trackingCounts', 'remCounts', 'currentSevCounts',
             'scanRemTrend', 'remStatuses',
+            'groupNames', 'groupStatData',
             'totalTracked', 'totalResolved', 'totalOpen'
         ));
     }

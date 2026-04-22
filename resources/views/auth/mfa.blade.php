@@ -15,7 +15,9 @@
 
             {{-- Brand --}}
             <div class="d-flex align-items-center gap-3" style="position:relative;z-index:2">
-                <img src="{{ asset('favicon.ico') }}" alt="Wing Bank" style="width:42px;height:42px;border-radius:10px;object-fit:contain;background:#fff;padding:4px">
+                <div style="width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center">
+                    <i class="bi bi-shield-lock-fill" style="font-size:1.4rem;color:#fff"></i>
+                </div>
                 <span style="color:#fff;font-size:1.1rem;font-weight:700">Security Assessment</span>
             </div>
 
@@ -43,7 +45,9 @@
 
                 {{-- Mobile brand --}}
                 <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
-                    <img src="{{ asset('favicon.ico') }}" alt="Wing Bank" style="width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;padding:3px;border:1px solid #e2e8f0">
+                    <div style="width:36px;height:36px;border-radius:8px;background:rgb(240,248,210);display:flex;align-items:center;justify-content:center;border:1px solid rgb(200,225,120)">
+                        <i class="bi bi-shield-lock-fill" style="font-size:1.1rem;color:rgb(118,151,7)"></i>
+                    </div>
                     <span style="font-size:1rem;font-weight:700;color:#1a2e05">Security Assessment</span>
                 </div>
 
