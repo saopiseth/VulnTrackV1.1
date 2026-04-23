@@ -57,75 +57,44 @@ A web-based vulnerability assessment and management platform built with Laravel 
 
 ---
 
-## Local Development (XAMPP / php artisan serve)
+## Getting Started (Docker)
 
 ### Requirements
-- PHP 8.2+ with extensions: pdo_mysql, mbstring, gd, zip, bcmath
-- Composer 2
-- MySQL 8 or SQLite
+- [Docker Engine 24+](https://docs.docker.com/get-docker/)
+- [Docker Compose v2](https://docs.docker.com/compose/install/)
 
-### Steps
+### 1 — Clone the repository
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/saopiseth/VulnTrackV1.0.git
-cd security-assessment
-
-# 2. Install PHP dependencies
-composer install
-
-# 3. Copy and configure environment
-cp .env.example .env
-# Edit .env: set DB_*, MAIL_*, APP_URL
-
-# 4. Generate application key
-php artisan key:generate
-
-# 5. Run migrations
-php artisan migrate
-
-# 6. Create storage symlink
-php artisan storage:link
-
-# 7. Create the first admin user
-php artisan tinker
+cd VulnTrackV1.0
 ```
 
-Inside tinker:
-
-```php
-\App\Models\User::create([
-    'name'        => 'Admin',
-    'email'       => 'admin@example.com',
-    'password'    => bcrypt('StrongPassword123!'),
-    'role'        => 'administrator',
-    'mfa_enabled' => false,
-]);
-exit
-```
+### 2 — Configure environment
 
 ```bash
-# 8. Start the development server
-php artisan serve
+cp .env.docker .env.docker
 ```
 
-Visit `http://localhost:8000`.
-
----
-
-## Docker Quick Start (localhost)
+Open `.env.docker` and set `APP_KEY`. Generate one with:
 
 ```bash
-# 1. Generate an APP_KEY and paste it into .env.docker
-php artisan key:generate --show
+docker run --rm php:8.2-cli php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
+```
 
-# 2. Copy the template
-cp .env.docker .env.docker   # already exists — just fill APP_KEY above
+Paste the output into `APP_KEY=` in `.env.docker`. All other defaults work out of the box for local use.
 
-# 3. Build and start
+### 3 — Build and start
+
+```bash
 docker compose up -d --build
+```
 
-# 4. Create first admin user
+This starts four containers — **app** (PHP-FPM + queue + scheduler via Supervisor), **nginx**, **db** (MySQL 8), and **redis**. Migrations run automatically on first boot.
+
+### 4 — Create the first admin user
+
+```bash
 docker compose exec app php artisan tinker --execute="
 \App\Models\User::create([
     'name'        => 'Admin',
@@ -135,6 +104,10 @@ docker compose exec app php artisan tinker --execute="
     'mfa_enabled' => false,
 ]);"
 ```
+
+### 5 — Open the app
+
+Visit **http://localhost** and sign in with the credentials above.
 
 Open **http://localhost** — done.
 
