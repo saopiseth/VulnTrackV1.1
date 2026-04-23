@@ -8,7 +8,7 @@
             {{-- Heading --}}
             <div style="margin-bottom:2rem">
                 <div style="width:48px;height:48px;border-radius:13px;background:rgb(240,248,210);display:flex;align-items:center;justify-content:center;margin-bottom:1.25rem">
-                    <i class="bi bi-box-arrow-in-right" style="font-size:1.4rem;color:rgb(118,151,7)"></i>
+                    <i class="bi bi-box-arrow-in-right" style="font-size:1.4rem;color:var(--primary-dark)"></i>
                 </div>
                 <h2 style="font-size:1.65rem;font-weight:800;color:#0f172a;margin:0 0 .35rem">Sign in</h2>
                 <p style="font-size:.875rem;color:#64748b;margin:0">
@@ -19,7 +19,7 @@
             {{-- Alerts --}}
             @if(session('success'))
                 <div class="alert d-flex align-items-center gap-2 mb-3"
-                     style="background:rgb(240,248,210);color:rgb(118,151,7);border:1px solid rgb(200,225,120);border-radius:10px;font-size:.875rem">
+                     style="background:rgb(240,248,210);color:var(--primary-dark);border:1px solid var(--primary-light);border-radius:10px;font-size:.875rem">
                     <i class="bi bi-check-circle-fill flex-shrink-0"></i> {{ session('success') }}
                 </div>
             @endif
@@ -88,9 +88,9 @@
             <div class="auth-divider">secure login</div>
 
             {{-- Security note --}}
-            <div style="display:flex;align-items:flex-start;gap:.6rem;background:rgb(240,248,210);border:1px solid rgb(200,225,120);border-radius:10px;padding:.85rem 1rem">
-                <i class="bi bi-shield-check-fill flex-shrink-0" style="color:rgb(118,151,7);margin-top:2px"></i>
-                <span style="font-size:.78rem;color:rgb(80,105,4);line-height:1.6">
+            <div style="display:flex;align-items:flex-start;gap:.6rem;background:rgb(240,248,210);border:1px solid var(--primary-light);border-radius:10px;padding:.85rem 1rem">
+                <i class="bi bi-shield-check-fill flex-shrink-0" style="color:var(--primary-dark);margin-top:2px"></i>
+                <span style="font-size:.78rem;color:var(--primary-dark);line-height:1.6">
                     Your sign-in is protected by <strong>email-based two-factor authentication</strong>. A verification code will be sent to your inbox.
                 </span>
             </div>

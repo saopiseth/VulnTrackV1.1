@@ -7,7 +7,7 @@
 
         {{-- Left decorative panel --}}
         <div class="col-lg-5 d-none d-lg-flex flex-column justify-content-between align-items-start p-5"
-             style="background:linear-gradient(145deg,rgb(118,151,7),rgb(80,105,4));position:relative;overflow:hidden">
+             style="background:linear-gradient(145deg,var(--primary-dark),var(--primary-dark));position:relative;overflow:hidden">
 
             {{-- Decorative circles --}}
             <div style="position:absolute;width:400px;height:400px;border-radius:50%;background:rgba(255,255,255,.06);top:-100px;right:-100px"></div>
@@ -45,15 +45,15 @@
 
                 {{-- Mobile brand --}}
                 <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
-                    <div style="width:36px;height:36px;border-radius:8px;background:rgb(240,248,210);display:flex;align-items:center;justify-content:center;border:1px solid rgb(200,225,120)">
-                        <i class="bi bi-shield-lock-fill" style="font-size:1.1rem;color:rgb(118,151,7)"></i>
+                    <div style="width:36px;height:36px;border-radius:8px;background:rgb(240,248,210);display:flex;align-items:center;justify-content:center;border:1px solid var(--primary-light)">
+                        <i class="bi bi-shield-lock-fill" style="font-size:1.1rem;color:var(--primary-dark)"></i>
                     </div>
                     <span style="font-size:1rem;font-weight:700;color:#1a2e05">Security Assessment</span>
                 </div>
 
                 {{-- Icon --}}
                 <div style="width:60px;height:60px;border-radius:16px;background:rgb(240,248,210);display:flex;align-items:center;justify-content:center;margin-bottom:1.5rem">
-                    <i class="bi bi-envelope-check-fill" style="font-size:1.6rem;color:rgb(118,151,7)"></i>
+                    <i class="bi bi-envelope-check-fill" style="font-size:1.6rem;color:var(--primary-dark)"></i>
                 </div>
 
                 <h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-bottom:.4rem">Check your email</h2>
@@ -63,7 +63,7 @@
 
                 {{-- Alerts --}}
                 @if(session('success'))
-                    <div class="alert d-flex align-items-center gap-2 mb-3" style="background:rgb(240,248,210);color:rgb(118,151,7);border:1px solid rgb(200,225,120);border-radius:10px;font-size:.875rem">
+                    <div class="alert d-flex align-items-center gap-2 mb-3" style="background:rgb(240,248,210);color:var(--primary-dark);border:1px solid var(--primary-light);border-radius:10px;font-size:.875rem">
                         <i class="bi bi-check-circle-fill"></i> {{ session('success') }}
                     </div>
                 @endif
@@ -95,7 +95,7 @@
                     </div>
 
                     <button type="submit" class="btn w-100 mb-3"
-                        style="background:rgb(152,194,10);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:.95rem;padding:.75rem;box-shadow:0 4px 12px rgba(152,194,10,.35)">
+                        style="background:var(--primary);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:.95rem;padding:.75rem;box-shadow:0 4px 12px rgba(var(--primary-rgb),.35)">
                         <i class="bi bi-shield-check me-2"></i>Verify & Sign In
                     </button>
                 </form>
@@ -104,13 +104,13 @@
                 <form method="POST" action="{{ route('mfa.resend') }}">
                     @csrf
                     <button type="submit" class="btn w-100"
-                        style="border:1.5px solid rgb(152,194,10);border-radius:10px;color:rgb(118,151,7);font-weight:600;font-size:.875rem;padding:.65rem;background:#fff">
+                        style="border:1.5px solid var(--primary);border-radius:10px;color:var(--primary-dark);font-weight:600;font-size:.875rem;padding:.65rem;background:#fff">
                         <i class="bi bi-arrow-clockwise me-1"></i>Resend Code
                     </button>
                 </form>
 
                 <p class="text-center mt-4" style="font-size:.82rem;color:#94a3b8">
-                    <a href="{{ route('login') }}" style="color:rgb(118,151,7);font-weight:600;text-decoration:none">
+                    <a href="{{ route('login') }}" style="color:var(--primary-dark);font-weight:600;text-decoration:none">
                         <i class="bi bi-arrow-left me-1"></i>Back to sign in
                     </a>
                 </p>

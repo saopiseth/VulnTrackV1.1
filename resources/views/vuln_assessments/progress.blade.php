@@ -3,7 +3,7 @@
 
 @section('content')
 <style>
-    :root { --lime: rgb(152,194,10); --lime-dark: rgb(118,151,7); --lime-light: rgb(240,248,210); --lime-muted: rgb(232,244,195); }
+    :root { --lime: var(--primary); --lime-dark: var(--primary-dark); --lime-light: rgb(240,248,210); --lime-muted: rgb(232,244,195); }
     .va-card { background:#fff; border:1px solid #e8f5c2; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
     .stat-card {
         background:#fff; border:1px solid #e2e8f0; border-radius:14px;

@@ -9,7 +9,7 @@
         <p class="mb-0">Named scope groups — each group holds the in-scope assets for an assessment</p>
     </div>
     <button class="btn btn-primary" onclick="openCreate()"
-            style="background:rgb(152,194,10);border-color:rgb(152,194,10);border-radius:10px;font-size:.875rem;font-weight:600">
+            style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
         <i class="bi bi-plus-lg me-1"></i> New Scope Group
     </button>
 </div>
@@ -27,7 +27,7 @@
         <div style="font-weight:600;color:#374151;margin-bottom:.35rem">No scope groups yet</div>
         <div style="font-size:.85rem;margin-bottom:1rem">Create a named scope group to start defining in-scope assets.</div>
         <button class="btn btn-primary" onclick="openCreate()"
-                style="background:rgb(152,194,10);border-color:rgb(152,194,10);border-radius:10px;font-size:.875rem;font-weight:600">
+                style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
             <i class="bi bi-plus-lg me-1"></i> New Scope Group
         </button>
     </div>
@@ -41,12 +41,12 @@
                 <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
                     <div class="d-flex align-items-center gap-2" style="min-width:0">
                         <div style="width:40px;height:40px;border-radius:11px;background:rgb(232,244,195);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                            <i class="bi bi-diagram-3-fill" style="color:rgb(118,151,7)"></i>
+                            <i class="bi bi-diagram-3-fill" style="color:var(--primary-dark)"></i>
                         </div>
                         <div style="min-width:0">
                             <a href="{{ route('assessment-scope.show', $group) }}"
                                style="font-weight:700;color:#0f172a;font-size:.95rem;text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
-                               onmouseover="this.style.color='rgb(118,151,7)'" onmouseout="this.style.color='#0f172a'">
+                               onmouseover="this.style.color='var(--primary-dark)'" onmouseout="this.style.color='#0f172a'">
                                 {{ $group->name }}
                             </a>
                             <div style="font-size:.75rem;color:#94a3b8">{{ $group->created_at->format('d M Y') }}</div>
@@ -87,7 +87,7 @@
                         <strong style="color:#0f172a">{{ $group->items_count }}</strong> asset{{ $group->items_count == 1 ? '' : 's' }}
                     </span>
                     <a href="{{ route('assessment-scope.show', $group) }}" class="btn btn-sm"
-                       style="background:rgb(232,244,195);color:rgb(118,151,7);border:none;border-radius:8px;font-size:.78rem;font-weight:600">
+                       style="background:rgb(232,244,195);color:var(--primary-dark);border:none;border-radius:8px;font-size:.78rem;font-weight:600">
                         View Assets <i class="bi bi-arrow-right ms-1"></i>
                     </a>
                 </div>
@@ -128,7 +128,7 @@
                     <button type="button" class="btn" data-bs-dismiss="modal"
                             style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
                     <button type="submit" class="btn"
-                            style="background:rgb(152,194,10);color:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
+                            style="background:var(--primary);color:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
                         <i class="bi bi-plus-lg me-1"></i> Create Group
                     </button>
                 </div>

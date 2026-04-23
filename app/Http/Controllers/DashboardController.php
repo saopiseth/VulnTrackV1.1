@@ -7,10 +7,43 @@ use App\Models\User;
 use App\Models\VulnAssessment;
 use App\Models\VulnRemediation;
 use App\Models\VulnTracked;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
+    const DEFAULT_WIDGETS = [
+        ['id' => 'stat_assessments',   'label' => 'Total Assessments',      'icon' => 'bi-clipboard2-pulse-fill', 'size' => 'stat'],
+        ['id' => 'stat_findings',      'label' => 'Open Findings',           'icon' => 'bi-bug-fill',              'size' => 'stat'],
+        ['id' => 'stat_remediated',    'label' => 'Remediated',              'icon' => 'bi-patch-check-fill',      'size' => 'stat'],
+        ['id' => 'stat_users',         'label' => 'Users',                   'icon' => 'bi-people-fill',           'size' => 'stat'],
+        ['id' => 'severity_breakdown', 'label' => 'Findings by Severity',    'icon' => 'bi-bar-chart-fill',        'size' => 'wide'],
+        ['id' => 'remediation_status', 'label' => 'Remediation Status',      'icon' => 'bi-clipboard2-check-fill', 'size' => 'wide'],
+        ['id' => 'recent_assessments', 'label' => 'Recent Assessments',      'icon' => 'bi-clock-history',         'size' => 'wide'],
+        ['id' => 'sla_status',         'label' => 'SLA Status',              'icon' => 'bi-stopwatch-fill',        'size' => 'narrow'],
+        ['id' => 'top_vulns',          'label' => 'Top Vulnerabilities',     'icon' => 'bi-exclamation-octagon-fill','size' => 'narrow'],
+        ['id' => 'quick_actions',      'label' => 'Quick Actions',           'icon' => 'bi-lightning-fill',        'size' => 'narrow'],
+    ];
+
+    public function saveLayout(Request $request)
+    {
+        $request->validate([
+            'layout'          => ['required', 'array'],
+            'layout.*.id'     => ['required', 'string'],
+            'layout.*.visible'=> ['required', 'boolean'],
+        ]);
+
+        $validIds = collect(self::DEFAULT_WIDGETS)->pluck('id')->all();
+        $layout = collect($request->layout)
+            ->filter(fn($w) => in_array($w['id'], $validIds))
+            ->values()
+            ->all();
+
+        Auth::user()->update(['dashboard_layout' => $layout]);
+
+        return response()->json(['ok' => true]);
+    }
+
     public function index()
     {
         $displaySeverities = ['Critical', 'High', 'Medium', 'Low'];
@@ -95,6 +128,26 @@ class DashboardController extends Controller
             ->limit(6)
             ->get();
 
+        // ── Widget layout ────────────────────────────────────────────────────
+        $savedLayout = Auth::user()->dashboard_layout ?? [];
+        $savedIds    = collect($savedLayout)->pluck('id')->all();
+
+        // Merge saved order + visibility with defaults (add new widgets at end)
+        $allDefaults = collect(self::DEFAULT_WIDGETS);
+        $merged = collect($savedLayout)->map(function ($saved) use ($allDefaults) {
+            $def = $allDefaults->firstWhere('id', $saved['id']);
+            return $def ? array_merge($def, ['visible' => (bool)($saved['visible'] ?? true)]) : null;
+        })->filter();
+
+        // Append any new default widgets not yet in saved layout
+        $allDefaults->each(function ($def) use ($savedIds, &$merged) {
+            if (!in_array($def['id'], $savedIds)) {
+                $merged->push(array_merge($def, ['visible' => true]));
+            }
+        });
+
+        $widgets = $merged->values()->all();
+
         return view('dashboard', compact(
             'totalUsers', 'totalAssessments',
             'openFindings', 'criticalHighOpen',
@@ -103,7 +156,8 @@ class DashboardController extends Controller
             'openRemCount', 'acceptedCount', 'totalRem', 'resolvedPct',
             'slaBreached', 'defaultSla',
             'recentAssessments', 'sevByAssessment',
-            'topVulns'
+            'topVulns',
+            'widgets'
         ));
     }
 }

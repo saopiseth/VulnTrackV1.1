@@ -31,7 +31,7 @@
             <i class="bi bi-file-earmark-spreadsheet me-1"></i> Import
         </button>
         <button class="btn btn-primary" onclick="openAdd()"
-                style="background:rgb(152,194,10);border-color:rgb(152,194,10);border-radius:10px;font-size:.875rem;font-weight:600">
+                style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
             <i class="bi bi-plus-lg me-1"></i> Add Asset
         </button>
     </div>
@@ -176,7 +176,7 @@
                     <button type="button" class="btn" data-bs-dismiss="modal"
                             style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
                     <button type="submit" class="btn"
-                            style="background:rgb(152,194,10);color:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
+                            style="background:var(--primary);color:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
                         <i class="bi bi-plus-lg me-1"></i> Add Asset
                     </button>
                 </div>
@@ -225,10 +225,10 @@
                     <div id="dropzone"
                          style="border:2px dashed #e2e8f0;border-radius:14px;padding:3rem;text-align:center;cursor:pointer;transition:all .2s"
                          onclick="document.getElementById('fileInput').click()"
-                         ondragover="event.preventDefault();this.style.borderColor='rgb(152,194,10)'"
+                         ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
                          ondragleave="this.style.borderColor='#e2e8f0'"
                          ondrop="handleDrop(event)">
-                        <i class="bi bi-file-earmark-spreadsheet" style="font-size:2.5rem;color:rgb(152,194,10);display:block;margin-bottom:.75rem"></i>
+                        <i class="bi bi-file-earmark-spreadsheet" style="font-size:2.5rem;color:var(--primary);display:block;margin-bottom:.75rem"></i>
                         <div style="font-weight:600;color:#0f172a;margin-bottom:.25rem">Drop your file here or click to browse</div>
                         <div style="font-size:.82rem;color:#94a3b8">Supports .xlsx, .xls, .csv — max 5 MB</div>
                     </div>
@@ -237,7 +237,7 @@
                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                             <div style="font-size:.8rem;font-weight:700;color:#374151">Expected columns:</div>
                             <button type="button" onclick="downloadTemplate()"
-                                    style="background:rgb(152,194,10);color:#fff;border:none;border-radius:8px;font-size:.78rem;font-weight:600;padding:.3rem .85rem;cursor:pointer">
+                                    style="background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:.78rem;font-weight:600;padding:.3rem .85rem;cursor:pointer">
                                 <i class="bi bi-download me-1"></i> Download Template
                             </button>
                         </div>
@@ -275,7 +275,7 @@
             <div class="modal-footer px-4 pb-4" style="border-top:1px solid #f1f5f9">
                 <button type="button" class="btn" data-bs-dismiss="modal"
                         style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
-                <button type="button" id="importBtn" onclick="doImport()" style="display:none;background:rgb(152,194,10);color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
+                <button type="button" id="importBtn" onclick="doImport()" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
                     <span id="importBtnLabel"><i class="bi bi-upload me-1"></i> Import</span>
                 </button>
             </div>

@@ -3,12 +3,12 @@
 
 @section('content')
 <style>
-    :root { --lime: rgb(152,194,10); --lime-dark: rgb(118,151,7); --lime-muted: rgb(232,244,195); }
+    :root { --lime: var(--primary); --lime-dark: var(--primary-dark); --lime-muted: rgb(232,244,195); }
     .group-card {
         background:#fff; border:1px solid #e8f5c2; border-radius:12px;
         padding:1.1rem 1.25rem; transition:box-shadow .15s, border-color .15s;
     }
-    .group-card:hover { box-shadow:0 4px 18px rgba(118,151,7,.12); border-color:var(--lime); }
+    .group-card:hover { box-shadow:0 4px 18px rgba(var(--primary-rgb),.12); border-color:var(--lime); }
 </style>
 
 {{-- Header --}}

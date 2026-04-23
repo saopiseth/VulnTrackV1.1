@@ -8,7 +8,8 @@
       "Bash(python3 -c ':*)",
       "Bash(grep -v \"^$\")",
       "Bash(grep -n 'slaPolicy\\\\|slaCounts\\\\|userGroups\\\\|$sla ')",
-      "Bash(php -r ' *)"
+      "Bash(php -r ' *)",
+      "Bash(php -r \"require 'c:/xampp/htdocs/myproject/ProjectAss/vendor/autoload.php';\")"
     ]
   }
 }

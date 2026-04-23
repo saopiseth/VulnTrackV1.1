@@ -24,6 +24,7 @@ class User extends Authenticatable
         'role',
         'mfa_enabled',
         'password',
+        'dashboard_layout',
     ];
 
     public function isAdministrator(): bool
@@ -54,9 +55,10 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'mfa_enabled'       => 'boolean',
+            'email_verified_at'  => 'datetime',
+            'password'           => 'hashed',
+            'mfa_enabled'        => 'boolean',
+            'dashboard_layout'   => 'array',
         ];
     }
 }

@@ -4,13 +4,13 @@
 @section('content')
 <style>
     .form-card { background:#fff; border:1px solid #e8f5c2; border-radius:14px; padding:1.75rem; margin-bottom:1.25rem; }
-    .form-card h6 { font-size:.8rem; font-weight:700; color:rgb(118,151,7); text-transform:uppercase; letter-spacing:.8px; margin-bottom:1.25rem; padding-bottom:.6rem; border-bottom:2px solid rgb(152,194,10); }
+    .form-card h6 { font-size:.8rem; font-weight:700; color:var(--primary-dark); text-transform:uppercase; letter-spacing:.8px; margin-bottom:1.25rem; padding-bottom:.6rem; border-bottom:2px solid var(--primary); }
     .form-label { font-size:.82rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
     .form-control, .form-select { border-radius:9px; border:1.5px solid #e2e8f0; font-size:.875rem; }
-    .form-control:focus, .form-select:focus { border-color:rgb(152,194,10); box-shadow:0 0 0 3px rgba(152,194,10,.15); }
+    .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(var(--primary-rgb),.15); }
     .scope-card { cursor:pointer;display:block;border:1.5px solid #e2e8f0;border-radius:11px;padding:.75rem 1rem;transition:border-color .15s,background .15s }
-    .scope-card:hover { border-color:rgb(152,194,10);background:rgb(248,253,235) }
-    .scope-card.selected { border-color:rgb(152,194,10);background:rgb(248,253,235) }
+    .scope-card:hover { border-color:var(--primary);background:rgb(248,253,235) }
+    .scope-card.selected { border-color:var(--primary);background:rgb(248,253,235) }
     .host-th { padding:.42rem .55rem;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap }
     .host-td { padding:.48rem .55rem;font-size:.8rem;vertical-align:middle }
     #hosts-preview { display:none }
@@ -25,7 +25,7 @@
         <p>Fill in the assessment details and upload scans after creation.</p>
     </div>
     <a href="{{ route('vuln-assessments.index') }}" class="btn btn-sm"
-        style="border:1.5px solid rgb(152,194,10);border-radius:9px;color:rgb(118,151,7);background:#fff;font-weight:500">
+        style="border:1.5px solid var(--primary);border-radius:9px;color:var(--primary-dark);background:#fff;font-weight:500">
         <i class="bi bi-arrow-left me-1"></i> Back
     </a>
 </div>
@@ -75,7 +75,7 @@
         <div class="text-center py-4" style="color:#94a3b8">
             <i class="bi bi-diagram-3" style="font-size:1.75rem;display:block;margin-bottom:.5rem"></i>
             No scope groups defined yet.
-            <a href="{{ route('assessment-scope.index') }}" style="color:rgb(118,151,7)">Create a scope group</a> first.
+            <a href="{{ route('assessment-scope.index') }}" style="color:var(--primary-dark)">Create a scope group</a> first.
         </div>
     @else
         <div class="row g-2" id="scope-group-list">
@@ -85,7 +85,7 @@
                     <div class="d-flex align-items-center gap-3">
                         <input type="radio" name="scope_group_id" value="{{ $group->id }}"
                                class="scope-radio form-check-input mt-0"
-                               style="width:1rem;height:1rem;flex-shrink:0;accent-color:rgb(152,194,10)"
+                               style="width:1rem;height:1rem;flex-shrink:0;accent-color:var(--primary)"
                                {{ old('scope_group_id') == $group->id ? 'checked' : '' }}>
                         <div style="flex:1;min-width:0">
                             <div style="font-weight:600;color:#0f172a;font-size:.875rem">{{ $group->name }}</div>
@@ -99,7 +99,7 @@
                             </div>
                         </div>
                         <div style="flex-shrink:0">
-                            <span style="display:inline-block;background:var(--lime-muted,#f0fdf0);color:rgb(118,151,7);
+                            <span style="display:inline-block;background:var(--lime-muted,#f0fdf0);color:var(--primary-dark);
                                          border-radius:20px;padding:.1rem .6rem;font-size:.7rem;font-weight:700">
                                 {{ $group->items_count }}
                             </span>
@@ -126,7 +126,7 @@
     <h6>
         <i class="bi bi-hdd-network me-2"></i>Vulnerable Hosts
         <span id="hosts-count-badge" style="font-weight:600;text-transform:none;letter-spacing:0;
-              background:rgb(152,194,10);color:#fff;border-radius:20px;padding:.1rem .65rem;
+              background:var(--primary);color:#fff;border-radius:20px;padding:.1rem .65rem;
               font-size:.72rem;margin-left:.5rem">0</span>
         <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;font-size:.75rem;margin-left:.5rem">
             auto-populated from selected scope group
@@ -135,7 +135,7 @@
 
     {{-- Loading state --}}
     <div id="hosts-loading" style="display:none;text-align:center;padding:2rem;color:#94a3b8">
-        <div class="spinner-border spinner-border-sm me-2" style="color:rgb(152,194,10)" role="status"></div>
+        <div class="spinner-border spinner-border-sm me-2" style="color:var(--primary)" role="status"></div>
         Loading scope entries…
     </div>
 
@@ -143,7 +143,7 @@
     <div id="hosts-empty" style="display:none;text-align:center;padding:2rem;color:#94a3b8">
         <i class="bi bi-inbox" style="font-size:1.6rem;display:block;margin-bottom:.5rem;opacity:.4"></i>
         No entries found in this scope group.
-        <a href="{{ route('assessment-scope.index') }}" style="color:rgb(118,151,7)" target="_blank">Add entries</a>
+        <a href="{{ route('assessment-scope.index') }}" style="color:var(--primary-dark)" target="_blank">Add entries</a>
     </div>
 
     {{-- Hosts table --}}
@@ -203,7 +203,7 @@
         Cancel
     </a>
     <button type="submit" id="submit-btn" class="btn btn-sm"
-        style="background:rgb(152,194,10);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.45rem 1.4rem">
+        style="background:var(--primary);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.45rem 1.4rem">
         <i class="bi bi-plus-lg me-1"></i> Create Assessment
     </button>
 </div>

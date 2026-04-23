@@ -29,7 +29,7 @@
 
                 <div class="stat-cards">
                     <div class="stat-card">
-                        <div class="stat-icon" style="background:rgba(79,70,229,.25)">
+                        <div class="stat-icon" style="background:rgba(var(--primary-rgb),.25)">
                             <i class="bi bi-rocket-takeoff-fill" style="color:#818cf8"></i>
                         </div>
                         <div>
@@ -68,7 +68,7 @@
             <div class="auth-form-wrap">
 
                 <div class="auth-brand d-flex d-lg-none mb-4">
-                    <div class="brand-icon" style="background:linear-gradient(135deg,#4f46e5,#06b6d4)">
+                    <div class="brand-icon" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark))">
                         <i class="bi bi-lightning-charge-fill"></i>
                     </div>
                     <span class="brand-name" style="color:#1e1b4b">{{ config('app.name', 'MyApp') }}</span>

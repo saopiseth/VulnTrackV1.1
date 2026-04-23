@@ -22,7 +22,7 @@
     </div>
     <div class="d-flex gap-2">
         @can('update', $user)
-        <a href="{{ route('users.edit', $user) }}" class="btn btn-sm" style="background:linear-gradient(135deg,#4f46e5,#3730a3);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.45rem 1rem">
+        <a href="{{ route('users.edit', $user) }}" class="btn btn-sm" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-radius:9px;font-weight:600;border:none;padding:.45rem 1rem">
             <i class="bi bi-pencil me-1"></i> Edit
         </a>
         @endcan
@@ -39,7 +39,7 @@
         <div class="detail-card">
             <h6><i class="bi bi-person me-2"></i>Profile</h6>
             <div class="d-flex align-items-center gap-3 mb-3">
-                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:#fff;flex-shrink:0">
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:#fff;flex-shrink:0">
                     {{ strtoupper(substr($user->name, 0, 1)) }}
                 </div>
                 <div>
@@ -65,7 +65,7 @@
                     <div class="dl">Two-Factor Auth</div>
                     <div class="dv mt-1">
                         @if($user->mfa_enabled)
-                            <span style="background:rgb(240,248,210);color:rgb(80,105,4);padding:.3rem .85rem;border-radius:20px;font-size:.8rem;font-weight:700">
+                            <span style="background:rgb(240,248,210);color:var(--primary-dark);padding:.3rem .85rem;border-radius:20px;font-size:.8rem;font-weight:700">
                                 <i class="bi bi-shield-check-fill me-1"></i>Enabled
                             </span>
                         @else

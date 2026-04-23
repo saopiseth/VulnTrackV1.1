@@ -756,13 +756,25 @@ class VulnAssessmentController extends Controller
 
     public function reportPdf(VulnAssessment $vulnAssessment)
     {
+        set_time_limit(300);
+        ini_set('memory_limit', '512M');
+
         $a    = $vulnAssessment->load('creator', 'scans', 'scopeEntries');
-        $data = array_merge($this->buildReportData($a), $this->buildDetailedReportData($a));
+        $data = array_merge($this->buildReportData($a), $this->buildDetailedReportData($a), $this->buildReportMeta());
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView(
                     'vuln_assessments.report_pdf',
                     array_merge(['a' => $a], $data)
-                )->setPaper('a4', 'portrait');
+                )
+                ->setPaper('a4', 'portrait')
+                ->setOptions([
+                    'isRemoteEnabled'         => false,
+                    'isHtml5ParserEnabled'    => true,
+                    'isFontSubsettingEnabled' => true,
+                    'defaultMediaType'        => 'print',
+                    'dpi'                     => 96,
+                    'defaultFont'             => 'dejavu sans',
+                ]);
 
         $filename = str()->slug($a->name) . '_report_' . now()->format('Ymd') . '.pdf';
         return $pdf->download($filename);
@@ -771,7 +783,7 @@ class VulnAssessmentController extends Controller
     public function reportWord(VulnAssessment $vulnAssessment)
     {
         $a    = $vulnAssessment->load('creator', 'scans', 'scopeEntries');
-        $data = array_merge($this->buildReportData($a), $this->buildDetailedReportData($a));
+        $data = array_merge($this->buildReportData($a), $this->buildDetailedReportData($a), $this->buildReportMeta());
         $html = view('vuln_assessments.report_word', array_merge(['a' => $a], $data))->render();
 
         $filename = str()->slug($a->name) . '_report_' . now()->format('Ymd') . '.doc';
@@ -779,6 +791,29 @@ class VulnAssessmentController extends Controller
             'Content-Type'        => 'application/msword',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    /** Reads customisable report header/footer settings from SiteSettings. */
+    private function buildReportMeta(): array
+    {
+        $get = fn(string $key, string $default) => \App\Models\SiteSetting::get($key) ?: $default;
+
+        $accentHex = $get('report_accent_color', '#84cc16');
+        // Derive a darker shade for text uses
+        $h  = ltrim($accentHex, '#');
+        $ar = hexdec(substr($h, 0, 2)); $ag = hexdec(substr($h, 2, 2)); $ab = hexdec(substr($h, 4, 2));
+        $accentDark = sprintf('#%02x%02x%02x', (int)($ar * 0.7), (int)($ag * 0.7), (int)($ab * 0.7));
+
+        return [
+            'rpt_company'         => $get('report_company',         config('app.name', 'Security Assessment')),
+            'rpt_confidentiality' => $get('report_confidentiality', 'Confidential — Internal Use Only'),
+            'rpt_prepared_by'     => $get('report_prepared_by',     'Vulnerability Management Team'),
+            'rpt_tool'            => $get('report_tool',            'Tenable Nessus'),
+            'rpt_footer'          => $get('report_footer_text',     ''),
+            'rpt_disclaimer'      => $get('report_disclaimer',      'This document contains confidential and proprietary information. It is intended solely for authorised personnel. Any reproduction, distribution, or disclosure without prior written approval is strictly prohibited.'),
+            'rpt_accent'          => $accentHex,
+            'rpt_accent_dark'     => $accentDark,
+        ];
     }
 
     /** Builds the rich grouped data shared by both PDF and Word report generators. */
@@ -804,8 +839,8 @@ class VulnAssessmentController extends Controller
                     'cvss_score'      => $f->cvss_score,
                     'plugin_id'       => $f->plugin_id,
                     'cve'             => $f->cve,
-                    'description'     => $f->description,
-                    'remediation_text'=> $f->remediation_text,
+                    'description'     => $f->description ? mb_substr(strip_tags($f->description), 0, 1500) : null,
+                    'remediation_text'=> $f->remediation_text ? mb_substr(strip_tags($f->remediation_text), 0, 800) : null,
                     'hosts'           => [],
                 ];
             }

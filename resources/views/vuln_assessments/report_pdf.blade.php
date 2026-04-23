@@ -6,6 +6,17 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: DejaVu Sans, sans-serif; font-size: 9pt; color: #1e293b; background: #fff; }
 
+/* ── Fixed header on every page ── */
+.header {
+    position: fixed; top: 0; left: 0; right: 0;
+    font-size: 7pt; color: #64748b;
+    border-bottom: 1px solid #e2e8f0; background: #fff;
+}
+.header table { width: 100%; border: none; margin: 0; font-size: 7pt; }
+.header td    { border: none; padding: 4px 40px; vertical-align: middle; }
+.header .h-company { font-weight: bold; color: {{ $rpt_accent }}; text-align: left; }
+.header .h-conf    { text-transform: uppercase; letter-spacing: .5px; text-align: right; color: #94a3b8; }
+
 /* ── Fixed footer on every page ── */
 .footer {
     position: fixed; bottom: 0; left: 0; right: 0;
@@ -14,7 +25,7 @@ body { font-family: DejaVu Sans, sans-serif; font-size: 9pt; color: #1e293b; bac
 }
 
 /* ── Page sections ── */
-.page { padding: 32px 40px 48px; }
+.page { padding: 48px 40px 48px; }
 .page-break { page-break-after: always; }
 
 /* ── Cover ── */
@@ -23,7 +34,7 @@ body { font-family: DejaVu Sans, sans-serif; font-size: 9pt; color: #1e293b; bac
     padding: 70px 40px 40px;
 }
 .cover-label {
-    font-size: 7.5pt; font-weight: bold; color: #84cc16;
+    font-size: 7.5pt; font-weight: bold; color: {{ $rpt_accent }};
     text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 10px;
 }
 .cover-title { font-size: 22pt; font-weight: bold; color: #0f172a; margin-bottom: 6px; line-height: 1.15; }
@@ -37,9 +48,9 @@ body { font-family: DejaVu Sans, sans-serif; font-size: 9pt; color: #1e293b; bac
 
 /* ── Section heading ── */
 .sec-title {
-    font-size: 10pt; font-weight: bold; color: #84cc16;
+    font-size: 10pt; font-weight: bold; color: {{ $rpt_accent }};
     text-transform: uppercase; letter-spacing: .8px;
-    border-bottom: 2px solid #84cc16; padding-bottom: 4px; margin-bottom: 12px;
+    border-bottom: 2px solid {{ $rpt_accent }}; padding-bottom: 4px; margin-bottom: 12px;
 }
 .subsec-title {
     font-size: 9pt; font-weight: bold; color: #1e293b;
@@ -84,7 +95,7 @@ tr:last-child td { border-bottom: none; }
 .finding-title {
     font-size: 9pt; font-weight: bold; color: #0f172a;
     background: #f8fafc; padding: 5px 8px;
-    border-left: 3px solid #84cc16; margin: 10px 0 4px;
+    border-left: 3px solid {{ $rpt_accent }}; margin: 10px 0 4px;
 }
 
 /* ── Narrative text ── */
@@ -93,8 +104,19 @@ p { font-size: 8.5pt; line-height: 1.5; margin-bottom: 8px; }
 </head>
 <body>
 
+<div class="header">
+    <table><tr>
+        <td class="h-company">{{ $rpt_company }}</td>
+        <td class="h-conf">{{ $rpt_confidentiality }}</td>
+    </tr></table>
+</div>
+
 <div class="footer">
-    {{ $a->name }} &mdash; Vulnerability Assessment Report &mdash; Generated {{ now()->format('d M Y H:i') }} &mdash; CONFIDENTIAL
+    @if($rpt_footer)
+        {{ $rpt_footer }}
+    @else
+        {{ $a->name }} &mdash; Vulnerability Assessment Report &mdash; {{ now()->format('d M Y') }} &mdash; {{ $rpt_confidentiality }}
+    @endif
 </div>
 
 @php
@@ -107,26 +129,24 @@ p { font-size: 8.5pt; line-height: 1.5; margin-bottom: 8px; }
 
 {{-- ═══════════════════════  PAGE 1 · COVER  ═══════════════════════ --}}
 <div class="cover">
-    <div class="cover-label">Confidential — Internal Use Only</div>
+    <div class="cover-label">{{ $rpt_confidentiality }}</div>
     <div class="cover-title">Vulnerability Assessment Report</div>
     <div class="cover-sub">{{ $a->name }}</div>
 
     <div class="cover-meta">
         <table>
-            <tr><td class="ml">Organization</td><td class="mv">{{ config('app.name', 'Wing Bank') }}</td></tr>
+            <tr><td class="ml">Organization</td><td class="mv">{{ $rpt_company }}</td></tr>
             <tr><td class="ml">Assessment Period</td>
                 <td class="mv">{{ $a->period_start?->format('d M Y') ?? '—' }} – {{ $a->period_end?->format('d M Y') ?? '—' }}</td></tr>
             <tr><td class="ml">Environment</td><td class="mv">{{ $a->environment ?? '—' }}</td></tr>
-            <tr><td class="ml">Prepared By</td><td class="mv">{{ $a->creator?->name ?? 'Vulnerability Management Team' }}</td></tr>
-            <tr><td class="ml">Tool Used</td><td class="mv">Tenable Nessus</td></tr>
+            <tr><td class="ml">Prepared By</td><td class="mv">{{ $a->creator?->name ?? $rpt_prepared_by }}</td></tr>
+            <tr><td class="ml">Tool Used</td><td class="mv">{{ $rpt_tool }}</td></tr>
             <tr><td class="ml">Report Date</td><td class="mv">{{ now()->format('d F Y') }}</td></tr>
         </table>
     </div>
 
     <div class="cover-conf">
-        This document contains confidential and proprietary information. It is intended solely for
-        authorised personnel. Any reproduction, distribution, or disclosure without prior written
-        approval is strictly prohibited.
+        {{ $rpt_disclaimer }}
     </div>
 </div>
 
@@ -139,9 +159,9 @@ p { font-size: 8.5pt; line-height: 1.5; margin-bottom: 8px; }
             <tr><td class="lbl">Document Title</td><td>Vulnerability Assessment Report — {{ $a->name }}</td></tr>
             <tr><td class="lbl">Version</td><td>1.0</td></tr>
             <tr><td class="lbl">Date</td><td>{{ now()->format('d F Y') }}</td></tr>
-            <tr><td class="lbl">Prepared By</td><td>{{ $a->creator?->name ?? 'Vulnerability Management Team' }}</td></tr>
+            <tr><td class="lbl">Prepared By</td><td>{{ $a->creator?->name ?? $rpt_prepared_by }}</td></tr>
             <tr><td class="lbl">Reviewed By</td><td>&nbsp;</td></tr>
-            <tr><td class="lbl">Classification</td><td>Confidential — Internal Use Only</td></tr>
+            <tr><td class="lbl">Classification</td><td>{{ $rpt_confidentiality }}</td></tr>
         </tbody>
     </table>
 
@@ -490,13 +510,13 @@ p { font-size: 8.5pt; line-height: 1.5; margin-bottom: 8px; }
             @if($vuln['description'])
             <tr>
                 <td class="lbl" style="width:15%;vertical-align:top;border:1px solid #e2e8f0;">Description</td>
-                <td style="border:1px solid #e2e8f0;white-space:pre-wrap;font-size:7.5pt;line-height:1.4;">{{ $vuln['description'] }}</td>
+                <td style="border:1px solid #e2e8f0;word-wrap:break-word;overflow-wrap:break-word;font-size:7.5pt;line-height:1.4;">{{ $vuln['description'] }}</td>
             </tr>
             @endif
             @if($vuln['remediation_text'])
             <tr>
                 <td class="lbl" style="vertical-align:top;border:1px solid #e2e8f0;">Recommendation</td>
-                <td style="border:1px solid #e2e8f0;white-space:pre-wrap;font-size:7.5pt;line-height:1.4;">{{ $vuln['remediation_text'] }}</td>
+                <td style="border:1px solid #e2e8f0;word-wrap:break-word;overflow-wrap:break-word;font-size:7.5pt;line-height:1.4;">{{ $vuln['remediation_text'] }}</td>
             </tr>
             @endif
         </tbody>

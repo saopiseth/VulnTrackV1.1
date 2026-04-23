@@ -1,5 +1,5 @@
 <style>
-    :root { --lime: rgb(152,194,10); --lime-dark: rgb(118,151,7); --lime-muted: rgb(232,244,195); }
+    :root { --lime: var(--primary); --lime-dark: var(--primary-dark); --lime-muted: rgb(232,244,195); }
     .va-card { background:#fff; border:1px solid #e8f5c2; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
     .section-label {
         font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.7px;

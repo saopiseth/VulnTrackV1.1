@@ -4,7 +4,7 @@
 @section('content')
 <div class="page-header">
     <div class="d-flex align-items-center gap-3">
-        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,rgb(152,194,10),rgb(100,140,5));display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:#fff;flex-shrink:0">
+        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:#fff;flex-shrink:0">
             {{ strtoupper(substr($user->name, 0, 1)) }}
         </div>
         <div>
@@ -49,10 +49,10 @@
                     </div>
 
                     <div class="d-flex align-items-center gap-3">
-                        <button type="submit" class="btn btn-primary px-4" style="background:rgb(152,194,10);border-color:rgb(152,194,10);border-radius:10px;font-size:.875rem;font-weight:600">
+                        <button type="submit" class="btn btn-primary px-4" style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
                             Save Changes
                         </button>
-                        <span style="font-size:.8rem;color:#94a3b8">Role: <span style="background:rgb(232,244,195);color:rgb(118,151,7);font-size:.7rem;font-weight:700;padding:.1rem .5rem;border-radius:5px;text-transform:uppercase">{{ $user->role }}</span></span>
+                        <span style="font-size:.8rem;color:#94a3b8">Role: <span style="background:rgb(232,244,195);color:var(--primary-dark);font-size:.7rem;font-weight:700;padding:.1rem .5rem;border-radius:5px;text-transform:uppercase">{{ $user->role }}</span></span>
                     </div>
                 </form>
             </div>
@@ -68,7 +68,7 @@
                 <div class="d-flex flex-column gap-3">
                     <div class="d-flex align-items-center gap-3 p-3" style="background:#f8fafc;border-radius:12px">
                         <div style="width:38px;height:38px;border-radius:10px;background:rgb(232,244,195);display:flex;align-items:center;justify-content:center">
-                            <i class="bi bi-person-fill" style="color:rgb(118,151,7)"></i>
+                            <i class="bi bi-person-fill" style="color:var(--primary-dark)"></i>
                         </div>
                         <div>
                             <div style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Name</div>

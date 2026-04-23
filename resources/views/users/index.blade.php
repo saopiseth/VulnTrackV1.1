@@ -5,12 +5,12 @@
 
 <style>
     .btn-primary-act {
-        background:linear-gradient(135deg,#4f46e5,#3730a3); color:#fff; border:none;
+        background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; border:none;
         border-radius:9px; font-weight:600; font-size:.875rem; padding:.5rem 1.1rem;
         text-decoration:none; display:inline-flex; align-items:center;
-        box-shadow:0 4px 12px rgba(79,70,229,.3); transition:all .2s;
+        box-shadow:0 4px 12px rgba(var(--primary-rgb),.3); transition:all .2s;
     }
-    .btn-primary-act:hover { color:#fff; transform:translateY(-1px); box-shadow:0 6px 18px rgba(79,70,229,.4); }
+    .btn-primary-act:hover { color:#fff; transform:translateY(-1px); box-shadow:0 6px 18px rgba(var(--primary-rgb),.4); }
     .stat-mini { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1rem 1.25rem; }
     .stat-mini .sm-val { font-size:1.5rem; font-weight:800; color:#0f172a; }
     .stat-mini .sm-lbl { font-size:.75rem; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.5px; }
@@ -18,16 +18,16 @@
     .user-table table { margin:0; font-size:.875rem; }
     .user-table thead th { background:#f8fafc; color:#64748b; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #e2e8f0; padding:.75rem 1rem; white-space:nowrap; }
     .user-table tbody td { padding:.75rem 1rem; vertical-align:middle; border-color:#f1f5f9; color:#374151; }
-    .user-table tbody tr:hover { background:#fafbff; }
+    .user-table tbody tr:hover { background:#f8fdf0; }
     .filter-bar { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
     .filter-bar .form-control, .filter-bar .form-select { font-size:.85rem; border-color:#e2e8f0; border-radius:8px; }
-    .filter-bar .form-control:focus, .filter-bar .form-select:focus { border-color:#4f46e5; box-shadow:0 0 0 3px rgba(79,70,229,.1); }
+    .filter-bar .form-control:focus, .filter-bar .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(var(--primary-rgb),.1); }
     .btn-act { padding:.25rem .55rem; border-radius:7px; font-size:.78rem; border:1px solid #e2e8f0; background:#fff; }
     .btn-act:hover { background:#f1f5f9; }
     .role-badge { padding:.22rem .7rem; border-radius:20px; font-size:.72rem; font-weight:700; display:inline-block; }
-    .role-admin   { background:#ede9fe; color:#6d28d9; }
+    .role-admin   { background:rgb(240,248,210); color:var(--primary-dark); }
     .role-assessor { background:#f0fdf4; color:#15803d; }
-    .avatar-sm { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700; color:#fff; flex-shrink:0; background:linear-gradient(135deg,#4f46e5,#06b6d4); }
+    .avatar-sm { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700; color:#fff; flex-shrink:0; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); }
 </style>
 
 <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -51,8 +51,8 @@
         </div>
     </div>
     <div class="col-6 col-md-4">
-        <div class="stat-mini" style="border-left:3px solid #6d28d9">
-            <div class="sm-val" style="color:#6d28d9">{{ $stats['administrators'] }}</div>
+        <div class="stat-mini" style="border-left:3px solid var(--primary-dark)">
+            <div class="sm-val" style="color:var(--primary-dark)">{{ $stats['administrators'] }}</div>
             <div class="sm-lbl">Administrators</div>
         </div>
     </div>
@@ -117,7 +117,7 @@
                             <div>
                                 <div style="font-weight:600;color:#0f172a">{{ $u->name }}</div>
                                 @if($u->id === auth()->id())
-                                    <span style="font-size:.7rem;background:#ede9fe;color:#6d28d9;padding:.05rem .4rem;border-radius:5px;font-weight:600">You</span>
+                                    <span style="font-size:.7rem;background:rgb(240,248,210);color:var(--primary-dark);padding:.05rem .4rem;border-radius:5px;font-weight:600">You</span>
                                 @endif
                             </div>
                         </div>
@@ -132,7 +132,7 @@
                     <td style="color:#94a3b8;font-size:.82rem">{{ $u->created_at->format('d M Y') }}</td>
                     <td style="white-space:nowrap">
                         <a href="{{ route('users.show', $u) }}" class="btn btn-act" title="View">
-                            <i class="bi bi-eye" style="color:#4f46e5"></i>
+                            <i class="bi bi-eye" style="color:var(--primary-dark)"></i>
                         </a>
                         @can('update', $u)
                         <a href="{{ route('users.edit', $u) }}" class="btn btn-act ms-1" title="Edit">

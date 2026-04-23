@@ -11,11 +11,24 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+    @php
+        $themeHex = \App\Models\SiteSetting::get('theme_primary', '#98c20a');
+        $themeHex = preg_match('/^#[0-9a-fA-F]{6}$/', $themeHex) ? $themeHex : '#98c20a';
+        $h = ltrim($themeHex, '#');
+        $tr = hexdec(substr($h,0,2)); $tg = hexdec(substr($h,2,2)); $tb = hexdec(substr($h,4,2));
+        $dr = (int)($tr*0.78); $dg = (int)($tg*0.78); $db = (int)($tb*0.78);
+        $lr = (int)($tr+(255-$tr)*0.55); $lg = (int)($tg+(255-$tg)*0.55); $lb = (int)($tb+(255-$tb)*0.55);
+        $themeDark  = "rgb($dr,$dg,$db)";
+        $themeLight = "rgb($lr,$lg,$lb)";
+        $themePrimary = "rgb($tr,$tg,$tb)";
+        $themeRgb     = "$tr,$tg,$tb";
+    @endphp
     <style>
         :root {
-            --primary: rgb(152,194,10);
-            --primary-dark: rgb(118,151,7);
-            --primary-light: rgb(200,225,120);
+            --primary: {{ $themePrimary }};
+            --primary-dark: {{ $themeDark }};
+            --primary-light: {{ $themeLight }};
+            --primary-rgb: {{ $themeRgb }};
             --sidebar-bg: #ffffff;
             --sidebar-width: 260px;
             --topbar-h: 64px;
@@ -46,7 +59,7 @@
         }
         .sidebar-brand .brand-icon {
             width: 38px; height: 38px;
-            background: linear-gradient(135deg, rgb(152,194,10), rgb(100,140,5));
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
             font-size: 1rem; color: #fff; font-weight: 700;
@@ -65,14 +78,14 @@
             color: #64748b; font-size: .875rem; font-weight: 500;
             text-decoration: none; transition: all .2s; margin-bottom: 2px;
         }
-        .nav-item a:hover { background: rgb(240,248,210); color: rgb(118,151,7); }
+        .nav-item a:hover { background: color-mix(in srgb, var(--primary) 12%, white); color: var(--primary-dark); }
         .nav-item a.active {
-            background: rgb(232,244,195); color: rgb(118,151,7); font-weight: 600;
-            border-left: 3px solid rgb(152,194,10);
+            background: color-mix(in srgb, var(--primary) 18%, white); color: var(--primary-dark); font-weight: 600;
+            border-left: 3px solid var(--primary);
         }
-        .nav-item a.active i { color: rgb(152,194,10); }
+        .nav-item a.active i { color: var(--primary); }
         .nav-item a i { font-size: 1.05rem; width: 20px; text-align: center; color: #94a3b8; }
-        .nav-item a:hover i { color: rgb(152,194,10); }
+        .nav-item a:hover i { color: var(--primary); }
         .nav-badge {
             margin-left: auto; background: #ef4444; color: #fff;
             font-size: .68rem; font-weight: 700; padding: .15rem .45rem;
@@ -88,10 +101,10 @@
             padding: .6rem .5rem; border-radius: 10px; cursor: pointer;
             transition: background .2s;
         }
-        .sidebar-user:hover { background: rgb(240,248,210); }
+        .sidebar-user:hover { background: color-mix(in srgb, var(--primary) 12%, white); }
         .sidebar-avatar {
             width: 36px; height: 36px; border-radius: 50%;
-            background: linear-gradient(135deg, rgb(152,194,10), rgb(100,140,5));
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             display: flex; align-items: center; justify-content: center;
             font-size: .85rem; font-weight: 700; color: #fff; flex-shrink: 0;
         }
@@ -134,7 +147,7 @@
             color: var(--text-muted); cursor: pointer; position: relative;
             transition: all .2s;
         }
-        .topbar-icon:hover { background: rgb(240,248,210); color: rgb(118,151,7); border-color: rgb(200,225,120); }
+        .topbar-icon:hover { background: color-mix(in srgb, var(--primary) 12%, white); color: var(--primary-dark); border-color: var(--primary-light); }
         .notif-dot {
             position: absolute; top: 6px; right: 6px;
             width: 8px; height: 8px; border-radius: 50%; background: #ef4444;
@@ -147,7 +160,7 @@
         .page-header h4 { font-size: 1.35rem; font-weight: 700; color: #0f172a; margin: 0; }
         .page-header p { color: var(--text-muted); font-size: .875rem; margin: .25rem 0 0; }
         .breadcrumb { font-size: .8rem; }
-        .breadcrumb-item a { color: rgb(118,151,7); text-decoration: none; }
+        .breadcrumb-item a { color: var(--primary-dark); text-decoration: none; }
 
         /* ── Cards ── */
         .card { border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
@@ -268,7 +281,7 @@
                 <div>
                     <div class="sidebar-user-name">{{ auth()->user()->name ?? 'User' }}</div>
                     <div class="sidebar-user-role" style="display:flex;align-items:center;gap:.4rem;margin-top:2px">
-                        <span style="background:rgb(232,244,195);color:rgb(118,151,7);font-size:.65rem;font-weight:700;padding:.1rem .45rem;border-radius:5px;text-transform:uppercase;letter-spacing:.4px">
+                        <span style="background:color-mix(in srgb,var(--primary) 18%,white);color:var(--primary-dark);font-size:.65rem;font-weight:700;padding:.1rem .45rem;border-radius:5px;text-transform:uppercase;letter-spacing:.4px">
                             {{ auth()->user()->role }}
                         </span>
                     </div>

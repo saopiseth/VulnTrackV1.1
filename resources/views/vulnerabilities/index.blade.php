@@ -4,7 +4,7 @@
 @section('content')
 
 <style>
-    :root { --lime: rgb(152,194,10); --lime-dark: rgb(118,151,7); --lime-light: rgb(240,248,210); --lime-muted: rgb(232,244,195); }
+    :root { --lime: var(--primary); --lime-dark: var(--primary-dark); --lime-light: rgb(240,248,210); --lime-muted: rgb(232,244,195); }
     .vm-card { background:#fff; border:1px solid #e8f5c2; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
     .vm-card h6 { font-size:.8rem; font-weight:700; color:var(--lime-dark); text-transform:uppercase; letter-spacing:.8px; margin-bottom:1rem; padding-bottom:.5rem; border-bottom:2px solid var(--lime); }
     .stat-box { border-radius:12px; padding:1rem 1.2rem; }
@@ -25,7 +25,7 @@
         <h4><i class="bi bi-bug-fill me-2" style="color:var(--lime)"></i>Vulnerability Management</h4>
         <p>Upload scan results and track remediation progress.</p>
     </div>
-    <button class="btn btn-sm" style="background:rgb(152,194,10);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.45rem 1rem"
+    <button class="btn btn-sm" style="background:var(--primary);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.45rem 1rem"
         data-bs-toggle="modal" data-bs-target="#uploadModal">
         <i class="bi bi-upload me-1"></i> Upload Scan
     </button>
@@ -102,7 +102,7 @@
             </select>
         </div>
         <div class="col-auto">
-            <button type="submit" class="btn btn-sm" style="background:rgb(152,194,10);color:#fff;border-radius:8px;border:none;font-weight:600">
+            <button type="submit" class="btn btn-sm" style="background:var(--primary);color:#fff;border-radius:8px;border:none;font-weight:600">
                 <i class="bi bi-funnel me-1"></i>Filter
             </button>
             @if(request()->hasAny(['search','severity','status']))
@@ -181,7 +181,7 @@
                 <div class="modal fade" id="detailModal{{ $v->id }}" tabindex="-1">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content" style="border-radius:14px;border:1px solid #e8f5c2">
-                            <div class="modal-header" style="border-bottom:2px solid rgb(152,194,10);padding:1rem 1.5rem">
+                            <div class="modal-header" style="border-bottom:2px solid var(--primary);padding:1rem 1.5rem">
                                 <h5 class="modal-title" style="font-size:.95rem;font-weight:700;color:#0f172a">
                                     <span class="badge-sev {{ $sevClass }} me-2">{{ $v->severity }}</span>
                                     {{ $v->title }}
@@ -216,7 +216,7 @@
                                 @if($v->recommendation)
                                 <div>
                                     <div style="font-size:.72rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem">Remediation Recommendation</div>
-                                    <div style="background:#f0fdf4;border-left:4px solid rgb(152,194,10);border-radius:0 8px 8px 0;padding:.75rem 1rem;color:#374151;line-height:1.6">{{ $v->recommendation }}</div>
+                                    <div style="background:#f0fdf4;border-left:4px solid var(--primary);border-radius:0 8px 8px 0;padding:.75rem 1rem;color:#374151;line-height:1.6">{{ $v->recommendation }}</div>
                                 </div>
                                 @endif
                             </div>
@@ -247,9 +247,9 @@
 <div class="modal fade" id="uploadModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content" style="border-radius:14px;border:1px solid #e8f5c2">
-            <div class="modal-header" style="border-bottom:2px solid rgb(152,194,10);padding:1rem 1.5rem">
+            <div class="modal-header" style="border-bottom:2px solid var(--primary);padding:1rem 1.5rem">
                 <h5 class="modal-title" style="font-size:.95rem;font-weight:700;color:#0f172a">
-                    <i class="bi bi-upload me-2" style="color:rgb(152,194,10)"></i>Upload Vulnerability Scan
+                    <i class="bi bi-upload me-2" style="color:var(--primary)"></i>Upload Vulnerability Scan
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -275,7 +275,7 @@
                     <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
                         style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Cancel</button>
                     <button type="submit" class="btn btn-sm"
-                        style="background:rgb(152,194,10);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.45rem 1.2rem">
+                        style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.45rem 1.2rem">
                         <i class="bi bi-cloud-upload me-1"></i> Import
                     </button>
                 </div>

@@ -6,6 +6,22 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name', 'MyApp') }}</title>
     <link rel="icon" href="data:,">
+    @php
+        $themeHex = \App\Models\SiteSetting::get('theme_primary', '#98c20a');
+        $themeHex = preg_match('/^#[0-9a-fA-F]{6}$/', $themeHex) ? $themeHex : '#98c20a';
+        $h = ltrim($themeHex, '#');
+        $tr = hexdec(substr($h,0,2)); $tg = hexdec(substr($h,2,2)); $tb = hexdec(substr($h,4,2));
+        $dr = (int)($tr*0.78); $dg = (int)($tg*0.78); $db = (int)($tb*0.78);
+        $lr = (int)($tr+(255-$tr)*0.55); $lg = (int)($tg+(255-$tg)*0.55); $lb = (int)($tb+(255-$tb)*0.55);
+    @endphp
+    <style>
+        :root {
+            --primary: rgb({{ $tr }},{{ $tg }},{{ $tb }});
+            --primary-dark: rgb({{ $dr }},{{ $dg }},{{ $db }});
+            --primary-light: rgb({{ $lr }},{{ $lg }},{{ $lb }});
+            --primary-rgb: {{ $tr }},{{ $tg }},{{ $tb }};
+        }
+    </style>
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,13 +32,6 @@
 
     <style>
         :root {
-            --primary: rgb(152,194,10);
-            --primary-dark: rgb(118,151,7);
-            --primary-light: rgb(200,225,120);
-            --navy: rgb(80,105,4);
-            --navy-dark: rgb(55,72,2);
-            --navy-mid: rgb(100,130,6);
-            --accent: rgb(180,220,50);
             --success: #10b981;
             --body-bg: #f8fafc;
             --card-bg: #ffffff;
@@ -41,7 +50,7 @@
 
         /* ─── Left Panel ─── */
         .auth-left {
-            background: linear-gradient(145deg, rgb(55,72,2) 0%, rgb(80,105,4) 40%, rgb(100,130,6) 100%);
+            background: linear-gradient(145deg, rgb(55,72,2) 0%, var(--primary-dark) 40%, var(--primary-dark) 100%);
             min-height: 100vh;
             position: relative;
             overflow: hidden;
@@ -63,7 +72,7 @@
             content: '';
             position: absolute;
             width: 300px; height: 300px;
-            background: radial-gradient(circle, rgba(152,194,10,.2) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(var(--primary-rgb),.2) 0%, transparent 70%);
             bottom: -60px; right: -60px;
             border-radius: 50%;
         }
@@ -168,22 +177,22 @@
             transition: border-color .2s, box-shadow .2s;
         }
         .form-control:focus {
-            border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+            border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb),.12);
         }
         .input-group .form-control { border-left: 0; }
-        .input-group .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+        .input-group .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb),.12); }
         .input-group:focus-within .input-group-text { border-color: var(--primary); }
 
         /* Primary Button */
         .btn-primary-custom {
-            background: rgb(152,194,10);
+            background: var(--primary);
             border: none; color: #fff; font-weight: 600; font-size: .9rem;
             padding: .72rem 1.5rem; border-radius: 10px; width: 100%;
             transition: all .2s; letter-spacing: .2px;
-            box-shadow: 0 4px 14px rgba(152,194,10,.4);
+            box-shadow: 0 4px 14px rgba(var(--primary-rgb),.4);
         }
         .btn-primary-custom:hover {
-            transform: translateY(-1px); box-shadow: 0 6px 20px rgba(152,194,10,.5);
+            transform: translateY(-1px); box-shadow: 0 6px 20px rgba(var(--primary-rgb),.5);
             background: rgb(136,174,9); color: #fff;
         }
         .btn-primary-custom:active { transform: translateY(0); }
@@ -207,11 +216,11 @@
         }
 
         /* Misc */
-        .form-check-input:checked { background-color: rgb(152,194,10); border-color: rgb(152,194,10); }
-        .link-primary-custom { color: rgb(118,151,7); font-weight: 600; text-decoration: none; }
-        .link-primary-custom:hover { color: rgb(80,105,4); text-decoration: underline; }
+        .form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
+        .link-primary-custom { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
+        .link-primary-custom:hover { color: var(--primary-dark); text-decoration: underline; }
         .toggle-password { cursor: pointer; background: #f8fafc; border-color: var(--border); color: var(--text-muted); }
-        .toggle-password:hover { color: rgb(152,194,10); }
+        .toggle-password:hover { color: var(--primary); }
         .alert { border-radius: 10px; font-size: .88rem; }
 
         /* Responsive */

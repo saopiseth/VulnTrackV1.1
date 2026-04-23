@@ -3,11 +3,11 @@
     .form-card h6 { font-size:.8rem; font-weight:700; color:#4f46e5; text-transform:uppercase; letter-spacing:.8px; margin-bottom:1.25rem; padding-bottom:.6rem; border-bottom:1px solid #f1f5f9; }
     .form-label { font-size:.82rem; font-weight:600; color:#374151; margin-bottom:.35rem; }
     .form-control, .form-select { font-size:.875rem; border-color:#e2e8f0; border-radius:9px; padding:.55rem .85rem; color:#0f172a; transition:border-color .2s, box-shadow .2s; }
-    .form-control:focus, .form-select:focus { border-color:#4f46e5; box-shadow:0 0 0 3px rgba(79,70,229,.1); }
+    .form-control:focus, .form-select:focus { border-color:#4f46e5; box-shadow:0 0 0 3px rgba(var(--primary-rgb),.1); }
     .form-control.is-invalid { border-color:#dc2626; }
     .invalid-feedback { font-size:.78rem; }
-    .btn-submit { background:linear-gradient(135deg,#4f46e5,#3730a3); color:#fff; border:none; border-radius:10px; font-weight:600; font-size:.9rem; padding:.65rem 2rem; box-shadow:0 4px 12px rgba(79,70,229,.3); transition:all .2s; }
-    .form-check-input:checked { background-color:rgb(152,194,10); border-color:rgb(152,194,10); }
+    .btn-submit { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; border:none; border-radius:10px; font-weight:600; font-size:.9rem; padding:.65rem 2rem; box-shadow:0 4px 12px rgba(var(--primary-rgb),.3); transition:all .2s; }
+    .form-check-input:checked { background-color:var(--primary); border-color:var(--primary); }
     .btn-submit:hover { color:#fff; transform:translateY(-1px); }
 
     /* Role cards */
@@ -108,10 +108,10 @@
         <h6><i class="bi bi-shield-lock me-2"></i>Two-Factor Authentication</h6>
         @php $mfaEnabled = old('mfa_enabled', $user?->mfa_enabled ?? true); @endphp
         <div class="d-flex align-items-center justify-content-between p-3"
-             style="border:2px solid {{ $mfaEnabled ? 'rgb(152,194,10)' : '#e2e8f0' }};border-radius:12px;background:{{ $mfaEnabled ? 'rgb(240,248,210)' : '#f8fafc' }};transition:all .2s"
+             style="border:2px solid {{ $mfaEnabled ? 'var(--primary)' : '#e2e8f0' }};border-radius:12px;background:{{ $mfaEnabled ? 'rgb(240,248,210)' : '#f8fafc' }};transition:all .2s"
              id="mfa-toggle-box">
             <div class="d-flex align-items-center gap-3">
-                <div style="width:42px;height:42px;border-radius:10px;background:{{ $mfaEnabled ? 'rgb(152,194,10)' : '#e2e8f0' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s" id="mfa-icon-wrap">
+                <div style="width:42px;height:42px;border-radius:10px;background:{{ $mfaEnabled ? 'var(--primary)' : '#e2e8f0' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s" id="mfa-icon-wrap">
                     <i class="bi bi-{{ $mfaEnabled ? 'shield-check-fill' : 'shield-slash' }}" style="font-size:1.1rem;color:{{ $mfaEnabled ? '#fff' : '#94a3b8' }}" id="mfa-icon"></i>
                 </div>
                 <div>
@@ -197,9 +197,9 @@
             const label = document.getElementById('mfa-label');
             const desc = document.getElementById('mfa-desc');
 
-            box.style.borderColor = on ? 'rgb(152,194,10)' : '#e2e8f0';
+            box.style.borderColor = on ? 'var(--primary)' : '#e2e8f0';
             box.style.background  = on ? 'rgb(240,248,210)' : '#f8fafc';
-            iconWrap.style.background = on ? 'rgb(152,194,10)' : '#e2e8f0';
+            iconWrap.style.background = on ? 'var(--primary)' : '#e2e8f0';
             icon.className = 'bi bi-' + (on ? 'shield-check-fill' : 'shield-slash');
             icon.style.color = on ? '#fff' : '#94a3b8';
             label.textContent = on ? 'MFA Enabled' : 'MFA Disabled';

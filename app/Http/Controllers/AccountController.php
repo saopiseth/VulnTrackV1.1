@@ -83,6 +83,40 @@ class AccountController extends Controller
         return back()->with('success', 'Company name updated.');
     }
 
+    public function updateReportSettings(Request $request)
+    {
+        abort_unless(Auth::user()?->isAdministrator(), 403);
+
+        $data = $request->validate([
+            'report_company'         => ['nullable', 'string', 'max:120'],
+            'report_confidentiality' => ['nullable', 'string', 'max:120'],
+            'report_prepared_by'     => ['nullable', 'string', 'max:120'],
+            'report_tool'            => ['nullable', 'string', 'max:120'],
+            'report_footer_text'     => ['nullable', 'string', 'max:300'],
+            'report_disclaimer'      => ['nullable', 'string', 'max:600'],
+            'report_accent_color'    => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+        ]);
+
+        foreach ($data as $key => $value) {
+            SiteSetting::set($key, $value ?? '');
+        }
+
+        return back()->with('success', 'Report settings saved.');
+    }
+
+    public function updateThemeColor(Request $request)
+    {
+        abort_unless(Auth::user()?->isAdministrator(), 403);
+
+        $request->validate([
+            'theme_primary' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+        ]);
+
+        SiteSetting::set('theme_primary', strtolower($request->theme_primary));
+
+        return back()->with('success', 'Theme color updated.');
+    }
+
     public function uploadLogo(Request $request)
     {
         abort_unless(Auth::user()?->isAdministrator(), 403);

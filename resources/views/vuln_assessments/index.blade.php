@@ -3,7 +3,7 @@
 
 @section('content')
 <style>
-    :root { --lime: rgb(152,194,10); --lime-dark: rgb(118,151,7); --lime-muted: rgb(232,244,195); }
+    :root { --lime: var(--primary); --lime-dark: var(--primary-dark); --lime-muted: rgb(232,244,195); }
 
     .assess-card {
         background: #fff;
@@ -16,7 +16,7 @@
         flex-direction: column;
     }
     .assess-card:hover {
-        box-shadow: 0 6px 28px rgba(118,151,7,.15);
+        box-shadow: 0 6px 28px rgba(var(--primary-rgb),.15);
         border-color: var(--lime);
         transform: translateY(-2px);
     }

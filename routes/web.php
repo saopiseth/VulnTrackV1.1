@@ -33,7 +33,8 @@ Route::get('/forgot-password', fn() => view('auth.login'))->name('password.reque
 
 // ─── Authenticated routes ─────────────────────────────────────
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard',  [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/dashboard/layout', [DashboardController::class, 'saveLayout'])->name('dashboard.layout');
 
     Route::resource('users', UserController::class);
     Route::resource('user-groups', UserGroupController::class);
@@ -88,6 +89,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/account/logo',             [AccountController::class, 'uploadLogo'])->name('account.logo.upload');
     Route::delete('/account/logo',           [AccountController::class, 'deleteLogo'])->name('account.logo.delete');
     Route::patch('/account/company-name',    [AccountController::class, 'updateCompanyName'])->name('account.company-name.update');
+    Route::patch('/account/theme-color',     [AccountController::class, 'updateThemeColor'])->name('account.theme-color.update');
+    Route::patch('/account/report-settings', [AccountController::class, 'updateReportSettings'])->name('account.report-settings.update');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/logout',  [AuthController::class, 'logout']);

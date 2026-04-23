@@ -12,10 +12,10 @@
     /* ── Headings ── */
     h1  { font-size: 26pt; font-weight: bold; color: #0f172a; margin: 0 0 6pt; }
     h2  { font-size: 14pt; font-weight: bold; color: #0f172a; margin: 20pt 0 6pt;
-          border-bottom: 2pt solid #84cc16; padding-bottom: 3pt; }
+          border-bottom: 2pt solid {{ $rpt_accent }}; padding-bottom: 3pt; }
     h3  { font-size: 12pt; font-weight: bold; color: #1e293b; margin: 14pt 0 5pt; }
     h4  { font-size: 11pt; font-weight: bold; color: #0f172a; margin: 12pt 0 4pt;
-          background: #f8fafc; padding: 4pt 8pt; border-left: 3pt solid #84cc16; }
+          background: #f8fafc; padding: 4pt 8pt; border-left: 3pt solid {{ $rpt_accent }}; }
     p   { margin: 4pt 0 8pt; }
 
     /* ── Tables ── */
@@ -37,7 +37,7 @@
 
     /* ── Cover label ── */
     .cover-label {
-        font-size: 9pt; font-weight: bold; color: #84cc16;
+        font-size: 9pt; font-weight: bold; color: {{ $rpt_accent }};
         text-transform: uppercase; letter-spacing: 1pt; margin-bottom: 8pt;
     }
     .cover-sub { font-size: 10pt; color: #64748b; margin: 4pt 0 16pt; }
@@ -49,6 +49,14 @@
     /* ── Confidential / footer ── */
     .conf   { text-align: center; color: #94a3b8; font-size: 8pt;
               margin-top: 24pt; border-top: 1pt solid #e2e8f0; padding-top: 6pt; }
+
+    /* ── Running page header ── */
+    .page-header-bar {
+        border-bottom: 1pt solid {{ $rpt_accent }}; padding-bottom: 5pt; margin-bottom: 14pt;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .page-header-bar .ph-company { font-size: 9pt; font-weight: bold; color: {{ $rpt_accent }}; }
+    .page-header-bar .ph-conf    { font-size: 8pt; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
 
     /* ── Page break ── */
     .pb { page-break-before: always; }
@@ -65,14 +73,14 @@
 
 {{-- ═══════════════════════════  PAGE 1 · COVER  ═══════════════════════════ --}}
 <div style="text-align:center; padding: 60pt 0 40pt;">
-    <div class="cover-label">Confidential — Internal Use Only</div>
+    <div class="cover-label">{{ $rpt_confidentiality }}</div>
     <h1 style="font-size:28pt; margin-bottom:8pt;">Vulnerability Assessment Report</h1>
     <p style="font-size:14pt; color:#475569; margin-bottom:28pt;">{{ $a->name }}</p>
 
     <table style="width:60%; margin:0 auto 24pt; text-align:left; border:none;">
         <tr>
             <td class="lbl" style="width:40%; border:none;">Organization</td>
-            <td style="border:none; font-weight:bold;">{{ config('app.name', 'Wing Bank') }}</td>
+            <td style="border:none; font-weight:bold;">{{ $rpt_company }}</td>
         </tr>
         <tr>
             <td class="lbl" style="border:none;">Assessment Period</td>
@@ -87,11 +95,11 @@
         </tr>
         <tr>
             <td class="lbl" style="border:none;">Prepared By</td>
-            <td style="border:none;">{{ $a->creator?->name ?? 'Vulnerability Management Team' }}</td>
+            <td style="border:none;">{{ $a->creator?->name ?? $rpt_prepared_by }}</td>
         </tr>
         <tr>
             <td class="lbl" style="border:none;">Tool Used</td>
-            <td style="border:none;">Tenable Nessus</td>
+            <td style="border:none;">{{ $rpt_tool }}</td>
         </tr>
         <tr>
             <td class="lbl" style="border:none;">Report Date</td>
@@ -100,23 +108,25 @@
     </table>
 
     <p style="font-size:9pt; color:#94a3b8; border-top:1pt solid #e2e8f0; padding-top:10pt; margin-top:40pt;">
-        This document contains confidential and proprietary information. It is intended solely for
-        authorised personnel. Any reproduction, distribution, or disclosure without prior written
-        approval is strictly prohibited.
+        {{ $rpt_disclaimer }}
     </p>
 </div>
 
 {{-- ═══════════════════  PAGE 2 · DOCUMENT INFO & APPROVAL  ═══════════════════ --}}
 <div class="pb"></div>
+<div class="page-header-bar">
+    <span class="ph-company">{{ $rpt_company }}</span>
+    <span class="ph-conf">{{ $rpt_confidentiality }}</span>
+</div>
 <h2>Document Information</h2>
 <table>
     <tbody>
         <tr><td class="lbl">Document Title</td><td>Vulnerability Assessment Report — {{ $a->name }}</td></tr>
         <tr><td class="lbl">Version</td><td>1.0</td></tr>
         <tr><td class="lbl">Date</td><td>{{ now()->format('d F Y') }}</td></tr>
-        <tr><td class="lbl">Prepared By</td><td>{{ $a->creator?->name ?? 'Vulnerability Management Team' }}</td></tr>
+        <tr><td class="lbl">Prepared By</td><td>{{ $a->creator?->name ?? $rpt_prepared_by }}</td></tr>
         <tr><td class="lbl">Reviewed By</td><td>&nbsp;</td></tr>
-        <tr><td class="lbl">Classification</td><td>Confidential — Internal Use Only</td></tr>
+        <tr><td class="lbl">Classification</td><td>{{ $rpt_confidentiality }}</td></tr>
     </tbody>
 </table>
 
@@ -133,7 +143,7 @@
     <tbody>
         <tr>
             <td>{{ $a->creator?->name ?? '—' }}</td>
-            <td>Vulnerability Management Team</td>
+            <td>{{ $rpt_prepared_by }}</td>
             <td>&nbsp;</td>
             <td>{{ now()->format('d F Y') }}</td>
         </tr>
@@ -144,6 +154,10 @@
 
 {{-- ══════════════════════════  PAGE 3 · TABLE OF CONTENTS  ══════════════════════════ --}}
 <div class="pb"></div>
+<div class="page-header-bar">
+    <span class="ph-company">{{ $rpt_company }}</span>
+    <span class="ph-conf">{{ $rpt_confidentiality }}</span>
+</div>
 <h2 style="border-bottom:none;">Table of Contents</h2>
 <br>
 <div class="toc-1">1.&nbsp;&nbsp; Executive Summary</div>
@@ -162,6 +176,10 @@
 
 {{-- ══════════════════════════  PAGE 4 · EXECUTIVE SUMMARY  ══════════════════════════ --}}
 <div class="pb"></div>
+<div class="page-header-bar">
+    <span class="ph-company">{{ $rpt_company }}</span>
+    <span class="ph-conf">{{ $rpt_confidentiality }}</span>
+</div>
 <h2>1. Executive Summary</h2>
 
 <p>This {{ $a->environment ?? '' }} Vulnerability Assessment (VA) was conducted to evaluate the current security posture
@@ -171,7 +189,7 @@ applications, and network devices within the scope defined below.</p>
 <p>The assessment was performed during the period
 <strong>{{ $a->period_start?->format('d F Y') ?? '—' }}</strong> to
 <strong>{{ $a->period_end?->format('d F Y') ?? '—' }}</strong>
-using Tenable Nessus in {{ $a->scans->count() > 0 ? 'authenticated' : 'unauthenticated' }} scan mode
+using {{ $rpt_tool }} in {{ $a->scans->count() > 0 ? 'authenticated' : 'unauthenticated' }} scan mode
 across {{ $hostsSummary->count() }} host(s).
 A total of <strong>{{ $totalActive }}</strong> active finding(s) and
 <strong>{{ $totalResolved }}</strong> resolved finding(s) were identified.</p>
@@ -253,10 +271,14 @@ A total of <strong>{{ $totalActive }}</strong> active finding(s) and
 
 {{-- ══════════════════════════  PAGE 5 · SCOPE  ══════════════════════════ --}}
 <div class="pb"></div>
+<div class="page-header-bar">
+    <span class="ph-company">{{ $rpt_company }}</span>
+    <span class="ph-conf">{{ $rpt_confidentiality }}</span>
+</div>
 <h2>2. Scope of Assessment</h2>
 
 <p>The scope of this vulnerability assessment covers the following systems and IP ranges.
-All targets were scanned using <strong>Tenable Nessus</strong> in authenticated mode
+All targets were scanned using <strong>{{ $rpt_tool }}</strong> in authenticated mode
 to ensure comprehensive detection of patch-level and configuration vulnerabilities.</p>
 
 @if($a->scopeEntries->count())
@@ -294,7 +316,7 @@ to ensure comprehensive detection of patch-level and configuration vulnerabiliti
 <table style="width:60%;">
     <tbody>
         <tr><td class="lbl">Scan Type</td><td>Authenticated</td></tr>
-        <tr><td class="lbl">Tool</td><td>Tenable Nessus</td></tr>
+        <tr><td class="lbl">Tool</td><td>{{ $rpt_tool }}</td></tr>
         <tr><td class="lbl">Total Scans</td><td>{{ $a->scans->count() }}</td></tr>
         <tr><td class="lbl">Period</td><td>{{ $a->period_start?->format('d M Y') ?? '—' }} – {{ $a->period_end?->format('d M Y') ?? '—' }}</td></tr>
     </tbody>
@@ -302,6 +324,10 @@ to ensure comprehensive detection of patch-level and configuration vulnerabiliti
 
 {{-- ══════════════════════  PAGE 6 · ASSESSOR INFO  ══════════════════════ --}}
 <div class="pb"></div>
+<div class="page-header-bar">
+    <span class="ph-company">{{ $rpt_company }}</span>
+    <span class="ph-conf">{{ $rpt_confidentiality }}</span>
+</div>
 <h2>3. Vulnerability Assessor Information</h2>
 
 <table>
@@ -363,6 +389,10 @@ to ensure comprehensive detection of patch-level and configuration vulnerabiliti
 
 {{-- ══════════════════════  PAGE 7+ · TECHNICAL FINDINGS  ══════════════════════ --}}
 <div class="pb"></div>
+<div class="page-header-bar">
+    <span class="ph-company">{{ $rpt_company }}</span>
+    <span class="ph-conf">{{ $rpt_confidentiality }}</span>
+</div>
 <h2>4. Technical Findings</h2>
 
 <p>Findings are ordered by severity (Critical → High → Medium → Low), then by CVSS score (descending).
@@ -480,8 +510,12 @@ Vulnerabilities affecting multiple hosts are grouped together to avoid duplicati
 @endforeach
 
 <div class="conf">
-    {{ $a->name }} &mdash; Vulnerability Assessment Report &mdash;
-    Generated {{ now()->format('d M Y H:i') }} &mdash; CONFIDENTIAL
+    @if($rpt_footer)
+        {{ $rpt_footer }}
+    @else
+        {{ $a->name }} &mdash; Vulnerability Assessment Report &mdash;
+        {{ now()->format('d M Y') }} &mdash; {{ $rpt_confidentiality }}
+    @endif
 </div>
 
 </body>

@@ -3,7 +3,7 @@
 
 @section('content')
 <style>
-    :root { --lime: rgb(152,194,10); --lime-dark: rgb(118,151,7); --lime-light: rgb(240,248,210); --lime-muted: rgb(232,244,195); }
+    :root { --lime: var(--primary); --lime-dark: var(--primary-dark); --lime-light: rgb(240,248,210); --lime-muted: rgb(232,244,195); }
     .va-card { background:#fff; border:1px solid #e8f5c2; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
     .badge-sev { padding:.22rem .65rem; border-radius:20px; font-size:.7rem; font-weight:700; display:inline-block; white-space:nowrap; }
     .sev-critical { background:#fee2e2; color:#991b1b; }
@@ -34,7 +34,7 @@
     .detail-meta-item .value.mono { font-family:monospace; font-size:.82rem; }
     .desc-box { background:#f8fafc; border-radius:8px; padding:.85rem 1rem; color:#374151;
         line-height:1.7; white-space:pre-wrap; font-size:.83rem; max-height:180px; overflow-y:auto; }
-    .rem-box  { background:#f0fdf4; border-left:4px solid rgb(152,194,10); border-radius:0 8px 8px 0;
+    .rem-box  { background:#f0fdf4; border-left:4px solid var(--primary); border-radius:0 8px 8px 0;
         padding:.85rem 1rem; color:#374151; line-height:1.7; white-space:pre-wrap; font-size:.83rem; max-height:180px; overflow-y:auto; }
     .out-box  { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:.85rem 1rem;
         font-size:.75rem; overflow-x:auto; white-space:pre-wrap; max-height:220px; overflow-y:auto; font-family:monospace; }
@@ -46,7 +46,7 @@
     .sev-banner-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center;
         justify-content:center; font-size:1.1rem; flex-shrink:0; }
     .row-selected { background:rgb(240,248,210) !important; }
-    .group-popover .popover-header { background:rgb(232,244,195); color:rgb(100,140,5); font-size:.82rem; border-bottom:1px solid rgb(200,225,120); }
+    .group-popover .popover-header { background:rgb(232,244,195); color:var(--primary-dark); font-size:.82rem; border-bottom:1px solid var(--primary-light); }
     .group-popover .popover-body { padding:.65rem .85rem; }
     .bulk-bar {
         position:fixed; bottom:1.25rem; z-index:1050;
@@ -144,7 +144,7 @@
                 value="{{ request('ip') }}" style="border-radius:8px;font-family:monospace">
         </div>
         <div class="col-auto d-flex gap-2">
-            <button type="submit" class="btn btn-sm" style="background:rgb(152,194,10);color:#fff;border-radius:8px;border:none;font-weight:600">
+            <button type="submit" class="btn btn-sm" style="background:var(--primary);color:#fff;border-radius:8px;border:none;font-weight:600">
                 <i class="bi bi-funnel me-1"></i>Filter
             </button>
             @if(request()->hasAny(['search','ip','rem_status']))
@@ -323,13 +323,13 @@
                                 data-bs-trigger="hover focus"
                                 data-bs-placement="left"
                                 data-bs-html="true"
-                                data-bs-title="{!! htmlspecialchars('<i class=\"bi bi-people-fill me-1\" style=\"color:rgb(152,194,10)\"></i>' . $rem->assignedGroup->name, ENT_QUOTES) !!}"
+                                data-bs-title="{!! htmlspecialchars('<i class=\"bi bi-people-fill me-1\" style=\"color:var(--primary)\"></i>' . $rem->assignedGroup->name, ENT_QUOTES) !!}"
                                 data-bs-content="{!! htmlspecialchars($memberHtml, ENT_QUOTES) !!}"
-                                style="display:inline-flex;align-items:center;gap:.3rem;background:rgb(232,244,195);color:rgb(100,140,5);font-size:.7rem;font-weight:700;padding:.22rem .65rem;border-radius:20px;cursor:pointer;border:1px solid rgb(200,225,120)">
+                                style="display:inline-flex;align-items:center;gap:.3rem;background:rgb(232,244,195);color:var(--primary-dark);font-size:.7rem;font-weight:700;padding:.22rem .65rem;border-radius:20px;cursor:pointer;border:1px solid var(--primary-light)">
                                 <i class="bi bi-people-fill" style="font-size:.65rem"></i>
                                 {{ $rem->assignedGroup->name }}
                                 @if($rem->assignedGroup->members->isNotEmpty())
-                                <span style="background:rgb(152,194,10);color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800">
+                                <span style="background:var(--primary);color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800">
                                     {{ $rem->assignedGroup->members->count() }}
                                 </span>
                                 @endif
@@ -345,7 +345,7 @@
                                 data-bs-toggle="modal" data-bs-target="#remModal{{ $f->id }}">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm" style="border-radius:8px;border:1.5px solid rgb(152,194,10);color:rgb(118,151,7);padding:.22rem .55rem;font-size:.74rem;background:rgb(232,244,195)"
+                            <button class="btn btn-sm" style="border-radius:8px;border:1.5px solid var(--primary);color:var(--primary-dark);padding:.22rem .55rem;font-size:.74rem;background:rgb(232,244,195)"
                                 title="View Detail"
                                 data-bs-toggle="modal" data-bs-target="#detailModal{{ $f->id }}">
                                 <i class="bi bi-eye-fill"></i>
@@ -358,9 +358,9 @@
                 <div class="modal fade" id="remModal{{ $f->id }}" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content" style="border-radius:14px;border:1px solid #e8f5c2">
-                            <div class="modal-header" style="border-bottom:2px solid rgb(152,194,10);padding:1rem 1.5rem">
+                            <div class="modal-header" style="border-bottom:2px solid var(--primary);padding:1rem 1.5rem">
                                 <h5 class="modal-title" style="font-size:.9rem;font-weight:700;color:#0f172a">
-                                    <i class="bi bi-pencil me-2" style="color:rgb(152,194,10)"></i>Update Remediation
+                                    <i class="bi bi-pencil me-2" style="color:var(--primary)"></i>Update Remediation
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
@@ -400,7 +400,7 @@
                                         style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Cancel</button>
                                     @if($rem)
                                     <button type="submit" class="btn btn-sm"
-                                        style="background:rgb(152,194,10);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.4rem 1.2rem">
+                                        style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.4rem 1.2rem">
                                         Save Changes
                                     </button>
                                     @endif
@@ -416,7 +416,7 @@
                         <div class="modal-content" style="border-radius:14px;border:1px solid #e8f5c2">
 
                             {{-- Header --}}
-                            <div class="modal-header" style="border-bottom:2px solid rgb(152,194,10);padding:1rem 1.5rem;gap:.75rem;flex-wrap:wrap">
+                            <div class="modal-header" style="border-bottom:2px solid var(--primary);padding:1rem 1.5rem;gap:.75rem;flex-wrap:wrap">
                                 <div style="flex:1;min-width:0">
                                     <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
                                         <span class="badge-sev {{ $sevClass }}" style="font-size:.75rem">{{ $f->severity }}</span>
@@ -458,7 +458,7 @@
                                 {{-- Host Information --}}
                                 <div class="detail-section">
                                     <div class="detail-section-title">
-                                        <i class="bi bi-hdd-network-fill" style="color:rgb(152,194,10)"></i>
+                                        <i class="bi bi-hdd-network-fill" style="color:var(--primary)"></i>
                                         Host Information
                                     </div>
                                     <div class="detail-meta-grid">
@@ -521,7 +521,7 @@
                                 {{-- Auto Classification --}}
                                 <div class="detail-section">
                                     <div class="detail-section-title">
-                                        <i class="bi bi-tags-fill" style="color:rgb(152,194,10)"></i>
+                                        <i class="bi bi-tags-fill" style="color:var(--primary)"></i>
                                         Auto Classification
                                     </div>
                                     @php
@@ -547,7 +547,7 @@
                                 @if($f->remediation_text)
                                 <div class="detail-section">
                                     <div class="detail-section-title">
-                                        <i class="bi bi-wrench-adjustable-circle-fill" style="color:rgb(152,194,10)"></i>
+                                        <i class="bi bi-wrench-adjustable-circle-fill" style="color:var(--primary)"></i>
                                         Recommended Fix
                                     </div>
                                     <div class="rem-box">{{ $f->remediation_text }}</div>
@@ -604,7 +604,7 @@
                                 <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
                                     style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Close</button>
                                 <button class="btn btn-sm" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#remModal{{ $f->id }}"
-                                    style="background:rgb(152,194,10);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.4rem 1.2rem">
+                                    style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.4rem 1.2rem">
                                     <i class="bi bi-pencil me-1"></i> Update Remediation
                                 </button>
                             </div>
@@ -641,7 +641,7 @@
 
     <div class="bulk-bar" id="bulkBar">
         <span style="font-size:.82rem;font-weight:600;white-space:nowrap">
-            <i class="bi bi-check2-square me-1" style="color:rgb(152,194,10)"></i>
+            <i class="bi bi-check2-square me-1" style="color:var(--primary)"></i>
             <span id="bulkCount">0</span> selected
         </span>
 
@@ -658,7 +658,7 @@
         </div>
 
         <button type="submit" class="btn btn-sm"
-            style="background:rgb(152,194,10);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.38rem 1rem;white-space:nowrap">
+            style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.38rem 1rem;white-space:nowrap">
             <i class="bi bi-people-fill me-1"></i>Assign Group
         </button>
 
