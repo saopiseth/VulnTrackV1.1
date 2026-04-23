@@ -2,61 +2,55 @@ version: '3.8'
 
 services:
 
-  # ── PHP-FPM Application ────────────────────────────────────────────────────
+  # ── PHP-FPM Application ──────────────────────────────────────
   app:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: laravel_app
+      dockerfile: docker/Dockerfile
+    container_name: vulntrack_app
     restart: unless-stopped
     working_dir: /var/www
     volumes:
       - ./storage:/var/www/storage
       - ./bootstrap/cache:/var/www/bootstrap/cache
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-    env_file:
-      - .env.production
+    env_file: .env.docker
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - laravel
+      - vulntrack
 
-  # ── Nginx Web Server ───────────────────────────────────────────────────────
-  webserver:
+  # ── Nginx ────────────────────────────────────────────────────
+  nginx:
     image: nginx:1.25-alpine
-    container_name: laravel_nginx
+    container_name: vulntrack_nginx
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./public:/var/www/public:ro
-      - ./docker/nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
-      - nginx_logs:/var/log/nginx
+      - ./storage/app/public:/var/www/storage/app/public:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
     networks:
-      - laravel
+      - vulntrack
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/up"]
       interval: 30s
       timeout: 5s
       retries: 3
 
-  # ── MySQL Database ─────────────────────────────────────────────────────────
+  # ── MySQL ─────────────────────────────────────────────────────
   db:
     image: mysql:8.0
-    container_name: laravel_db
+    container_name: vulntrack_db
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
-      MYSQL_USER: ${DB_USERNAME:-laravel}
+      MYSQL_DATABASE: ${DB_DATABASE:-vulntrack}
+      MYSQL_USER: ${DB_USERNAME:-vulntrack}
       MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
     ports:
@@ -65,76 +59,34 @@ services:
       - dbdata:/var/lib/mysql
       - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     networks:
-      - laravel
+      - vulntrack
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootsecret}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-rootsecret}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
-  # ── Redis Cache / Queue / Session ──────────────────────────────────────────
+  # ── Redis ─────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: laravel_redis
+    container_name: vulntrack_redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redissecret}
     volumes:
       - redisdata:/data
     networks:
-      - laravel
+      - vulntrack
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redissecret}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
 
-  # ── Laravel Queue Worker ───────────────────────────────────────────────────
-  queue:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: laravel_queue
-    restart: unless-stopped
-    working_dir: /var/www
-    command: ["php", "artisan", "queue:work", "redis", "--sleep=3", "--tries=3", "--max-time=3600"]
-    volumes:
-      - ./storage:/var/www/storage
-      - ./bootstrap/cache:/var/www/bootstrap/cache
-    env_file:
-      - .env.production
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - laravel
-
-  # ── Laravel Scheduler ─────────────────────────────────────────────────────
-  scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: laravel_scheduler
-    restart: unless-stopped
-    working_dir: /var/www
-    command: ["/bin/sh", "-c", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
-    volumes:
-      - ./storage:/var/www/storage
-      - ./bootstrap/cache:/var/www/bootstrap/cache
-    env_file:
-      - .env.production
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - laravel
-
 networks:
-  laravel:
+  vulntrack:
     driver: bridge
 
 volumes:
   dbdata:
   redisdata:
-  nginx_logs:
