@@ -1,8 +1,12 @@
 version: '3.8'
 
+# Usage:
+#   Local:    ENV_FILE=.env.docker    docker compose up -d --build
+#   Internal: ENV_FILE=.env.internal  docker compose up -d --build
+
 services:
 
-  # ── PHP-FPM Application ──────────────────────────────────────
+  # ── PHP-FPM + Queue Worker + Scheduler (via Supervisor) ──────
   app:
     build:
       context: .
@@ -13,16 +17,17 @@ services:
     volumes:
       - ./storage:/var/www/storage
       - ./bootstrap/cache:/var/www/bootstrap/cache
-    env_file: .env.docker
+    env_file:
+      - ${ENV_FILE:-.env.docker}
     depends_on:
-      db:
+      mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
       - vulntrack
 
-  # ── Nginx ────────────────────────────────────────────────────
+  # ── Nginx (only container exposed to host) ────────────────────
   nginx:
     image: nginx:1.25-alpine
     container_name: vulntrack_nginx
@@ -43,18 +48,16 @@ services:
       timeout: 5s
       retries: 3
 
-  # ── MySQL ─────────────────────────────────────────────────────
-  db:
+  # ── MySQL (internal only — no host port mapping) ──────────────
+  mysql:
     image: mysql:8.0
-    container_name: vulntrack_db
+    container_name: vulntrack_mysql
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-vulntrack}
       MYSQL_USER: ${DB_USERNAME:-vulntrack}
       MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
-    ports:
-      - "127.0.0.1:3306:3306"
     volumes:
       - dbdata:/var/lib/mysql
       - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
@@ -67,7 +70,7 @@ services:
       retries: 10
       start_period: 30s
 
-  # ── Redis ─────────────────────────────────────────────────────
+  # ── Redis (internal only) ─────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: vulntrack_redis

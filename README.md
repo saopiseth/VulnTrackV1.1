@@ -115,20 +115,18 @@ Open **http://localhost** — done.
 
 ---
 
-## Production Deployment (Docker)
+## Internal Server Deployment (Ubuntu + Docker)
 
 ### Architecture
 
-The Docker Compose stack runs six containers on an isolated `laravel` bridge network:
+Four containers on an isolated `vulntrack` bridge network. Only Nginx (port 80) is exposed to the host — MySQL and Redis are internal only.
 
-| Container | Image | Purpose |
-|---|---|---|
-| `laravel_app` | Custom PHP 8.2-FPM | Laravel application (PHP-FPM) |
-| `laravel_nginx` | nginx:1.25-alpine | Web server / reverse proxy |
-| `laravel_db` | mysql:8.0 | MySQL database |
-| `laravel_redis` | redis:7-alpine | Cache, sessions, queues |
-| `laravel_queue` | Custom PHP 8.2-FPM | Laravel queue worker |
-| `laravel_scheduler` | Custom PHP 8.2-FPM | Laravel task scheduler (cron) |
+| Container | Image | Exposed | Purpose |
+|---|---|---|---|
+| `vulntrack_app` | Custom PHP 8.2-FPM | No | Laravel app + queue worker + scheduler (Supervisor) |
+| `vulntrack_nginx` | nginx:1.25-alpine | **Port 80** | Reverse proxy → PHP-FPM |
+| `vulntrack_mysql` | mysql:8.0 | No | Database (internal only) |
+| `vulntrack_redis` | redis:7-alpine | No | Cache, sessions, queues (internal only) |
 
 ---
 
