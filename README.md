@@ -69,7 +69,7 @@ A web-based vulnerability assessment and management platform built with Laravel 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/security-assessment.git
+git clone https://github.com/saopiseth/VulnTrackV1.0.git
 cd security-assessment
 
 # 2. Install PHP dependencies
