@@ -1,44 +1,25 @@
-# Security Assessment Platform
+# VulnTrack
 
-A web-based vulnerability assessment and management platform built with Laravel 12. Designed for security teams to track vulnerabilities across assessment scopes, manage remediation workflows, assign work to user groups, and monitor progress over time.
+A web-based vulnerability assessment and management platform built with Laravel 12. Designed for security teams to upload scan results, track findings across assessments, manage remediation workflows, and export professional reports.
 
 ---
 
 ## Features
 
-### Vulnerability Management
-- Upload Nessus scan results and automatically track findings across multiple scans
-- Baseline vs. subsequent scan comparison with automatic status transitions (New → Open → Unresolved → Resolved → Reopened)
-- Per-finding severity classification: Critical, High, Medium, Low
-- OS family detection and vulnerability categorisation
-- Plugin output viewer per finding
-
-### Assessment Scope
-- Define assessment scope groups with IP addresses, hostnames, system names, criticality levels, environments, and locations
-- Link scope entries to assessments for system-name resolution on findings
-
-### Remediation Workflow
-- Per-finding remediation records: status, assigned-to, due date, comments, evidence
-- Bulk assign findings to user groups from the findings table
-- SLA policy enforcement with due-date tracking
-- Remediation status breakdown: Open / In Progress / Resolved / Accepted Risk
-
-### User & Group Management
-- Role-based access: Administrator and Assessor
-- User groups for team-based remediation assignment
-- Per-group member management
-- Optional MFA (email OTP) per user
-
-### Progress Tracking
-- Per-assessment progress page with Chart.js visualisations:
-  - Severity trend line chart across scan uploads
-  - Remediation status doughnut chart
-  - Current severity breakdown bar chart
-- Scan history timeline with finding and host counts
-
-### Reporting
-- Export assessment reports to PDF, Word, and Excel
-- Customisable cover page, header, footer, disclaimer, and accent color per report
+| Area | Capabilities |
+|---|---|
+| **Scan Import** | Upload Nessus `.nessus` files; auto-track findings across multiple scans |
+| **Finding Lifecycle** | Automatic status transitions: New → Open → Unresolved → Resolved → Reopened |
+| **Severity** | Critical / High / Medium / Low per finding with CVSS score |
+| **Assessment Scope** | IP/hostname groups linked to assessments for system-name resolution |
+| **Remediation** | Per-finding status, assignee, due date, evidence, comments |
+| **SLA Policies** | Configurable SLA per severity; due-date auto-calculation |
+| **User Groups** | Bulk-assign findings to teams; per-group member management |
+| **MFA** | Optional email OTP per user |
+| **Dashboard** | Customisable per-user widget layout (drag, hide, reorder) |
+| **Progress** | Severity trend charts, remediation doughnut, scan timeline |
+| **Reports** | Export to PDF, Word, Excel with customisable branding |
+| **Settings** | Theme color, logo, company name, report header/footer — all from the UI |
 
 ---
 
@@ -46,55 +27,102 @@ A web-based vulnerability assessment and management platform built with Laravel 
 
 | Layer | Technology |
 |---|---|
-| Framework | Laravel 12 |
-| PHP | 8.2 |
+| Framework | Laravel 12 / PHP 8.2 |
 | Database | MySQL 8 |
-| Cache / Queue / Session | Redis 7 |
-| Frontend | Bootstrap 5.3, Bootstrap Icons, Chart.js 4 |
-| PDF generation | barryvdh/laravel-dompdf |
+| Cache · Queue · Session | Redis 7 |
+| Frontend | Bootstrap 5.3, Bootstrap Icons, Chart.js 4, SortableJS |
+| PDF Export | barryvdh/laravel-dompdf |
 | Web server | Nginx 1.25 (Alpine) |
-| Containerisation | Docker + Docker Compose |
+| Process manager | Supervisor (php-fpm + queue workers + scheduler) |
+| Containerisation | Docker + Docker Compose v2 |
 
 ---
 
-## Getting Started (Docker)
+## Architecture
+
+Four containers on an isolated `vulntrack` bridge network. Only Nginx is exposed to the host.
+
+```
+┌─────────────────────────────────────────────────┐
+│  Host (port 80)                                 │
+│                                                 │
+│  ┌──────────────┐      vulntrack network        │
+│  │ vulntrack_   │  ┌─────────────────────────┐  │
+│  │ nginx        │──▶ vulntrack_app            │  │
+│  │ nginx:1.25   │  │ PHP 8.2-FPM             │  │
+│  └──────────────┘  │ + Queue workers (x2)    │  │
+│                    │ + Scheduler             │  │
+│                    │ via Supervisor          │  │
+│                    └────────┬────────────────┘  │
+│                             │                   │
+│                    ┌────────┴────────────────┐  │
+│                    │ vulntrack_mysql          │  │
+│                    │ mysql:8.0  (no host port)│  │
+│                    └─────────────────────────┘  │
+│                    ┌─────────────────────────┐  │
+│                    │ vulntrack_redis          │  │
+│                    │ redis:7-alpine (no port) │  │
+│                    └─────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Repository Structure
+
+```
+docker/
+├── Dockerfile                  # Multi-stage: Composer deps → PHP 8.2-FPM + Supervisor
+├── entrypoint.sh               # Waits for MySQL, runs migrate, warms cache, starts app
+├── nginx/default.conf          # Nginx FastCGI config (app:9000)
+├── supervisor/supervisord.conf # php-fpm + 2× queue workers + scheduler
+├── php/php.ini                 # Upload limits, execution time, memory
+├── php/opcache.ini             # OPcache tuning
+└── mysql/my.cnf                # utf8mb4, InnoDB settings
+
+app/
+├── Http/Controllers/           # Feature controllers
+├── Models/                     # Eloquent models
+├── Services/                   # VulnTrackingService, OsDetector, VulnClassifier
+└── Policies/                   # Gate policies
+
+resources/views/
+├── layouts/app.blade.php       # Sidebar shell (theme vars injected server-side)
+├── vuln_assessments/           # Assessment pages + PDF/Word/Excel report templates
+├── account/                    # Profile, settings (theme, logo, report branding)
+└── dashboard.blade.php         # Customisable widget dashboard
+
+docker-compose.yml              # 4-service stack
+.env.docker                     # Local dev template  (git-ignored)
+.env.internal                   # Internal server template (git-ignored)
+.env.example                    # Committed reference with safe defaults
+```
+
+---
+
+## Local Development (Docker)
 
 ### Requirements
-- [Docker Engine 24+](https://docs.docker.com/get-docker/)
-- [Docker Compose v2](https://docs.docker.com/compose/install/)
+- Docker Engine 24+ and Docker Compose v2
 
-### 1 — Clone the repository
+### Steps
 
 ```bash
+# 1. Clone
 git clone https://github.com/saopiseth/VulnTrackV1.0.git
 cd VulnTrackV1.0
-```
 
-### 2 — Configure environment
+# 2. Generate APP_KEY (no PHP needed on host)
+docker run --rm php:8.2-cli php -r \
+  "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
 
-```bash
-cp .env.docker .env.docker
-```
+# 3. Set APP_KEY in .env.docker
+nano .env.docker   # paste key, leave everything else as-is
 
-Open `.env.docker` and set `APP_KEY`. Generate one with:
+# 4. Build and start (migrations run automatically)
+ENV_FILE=.env.docker docker compose up -d --build
 
-```bash
-docker run --rm php:8.2-cli php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
-```
-
-Paste the output into `APP_KEY=` in `.env.docker`. All other defaults work out of the box for local use.
-
-### 3 — Build and start
-
-```bash
-docker compose up -d --build
-```
-
-This starts four containers — **app** (PHP-FPM + queue + scheduler via Supervisor), **nginx**, **db** (MySQL 8), and **redis**. Migrations run automatically on first boot.
-
-### 4 — Create the first admin user
-
-```bash
+# 5. Create first admin user
 docker compose exec app php artisan tinker --execute="
 \App\Models\User::create([
     'name'        => 'Admin',
@@ -105,339 +133,173 @@ docker compose exec app php artisan tinker --execute="
 ]);"
 ```
 
-### 5 — Open the app
-
-Visit **http://localhost** and sign in with the credentials above.
-
-Open **http://localhost** — done.
-
-> Migrations run automatically on container start via `docker/entrypoint.sh`.
+Open **http://localhost**
 
 ---
 
-## Internal Server Deployment (Ubuntu + Docker)
+## Internal Server Deployment (Ubuntu 22.04)
 
-### Architecture
-
-Four containers on an isolated `vulntrack` bridge network. Only Nginx (port 80) is exposed to the host — MySQL and Redis are internal only.
-
-| Container | Image | Exposed | Purpose |
-|---|---|---|---|
-| `vulntrack_app` | Custom PHP 8.2-FPM | No | Laravel app + queue worker + scheduler (Supervisor) |
-| `vulntrack_nginx` | nginx:1.25-alpine | **Port 80** | Reverse proxy → PHP-FPM |
-| `vulntrack_mysql` | mysql:8.0 | No | Database (internal only) |
-| `vulntrack_redis` | redis:7-alpine | No | Cache, sessions, queues (internal only) |
-
----
-
-### Prerequisites
-
-- Docker Engine 24+ and Docker Compose v2
-- A server with at least 2 GB RAM and 20 GB disk
-- A domain name pointed at the server (for HTTPS)
-
-Verify installation:
+### 1 — Install Docker on the server
 
 ```bash
-docker --version
-docker compose version
+sudo apt update && sudo apt install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo usermod -aG docker $USER && newgrp docker
 ```
 
----
+Verify: `docker --version && docker compose version`
 
-### Step 1 — Clone the Repository
+### 2 — Clone the repository
 
 ```bash
 git clone https://github.com/saopiseth/VulnTrackV1.0.git
-cd security-assessment
+cd VulnTrackV1.0
 ```
 
----
-
-### Step 2 — Configure Environment
-
-Copy the production environment template:
+### 3 — Configure environment
 
 ```bash
-cp .env.production .env
+nano .env.internal
 ```
 
-Open `.env` and fill in every required value:
+Minimum required changes:
 
 ```env
-APP_NAME="Security Assessment"
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://yourdomain.com        # <-- your actual domain
+APP_URL=http://192.168.1.100        # your server's internal IP
+APP_KEY=                            # generate below
 
-# Generate with: php artisan key:generate --show
-APP_KEY=base64:REPLACE_WITH_GENERATED_KEY
+DB_PASSWORD=YourStrongDbPass!
+DB_ROOT_PASSWORD=YourStrongRootPass!
+REDIS_PASSWORD=YourStrongRedisPass!
 
-# Database
-DB_DATABASE=laravel
-DB_USERNAME=laravel
-DB_PASSWORD=STRONG_DB_PASSWORD        # <-- change this
-DB_ROOT_PASSWORD=STRONG_ROOT_PASSWORD # <-- change this
-
-# Redis
-REDIS_PASSWORD=STRONG_REDIS_PASSWORD  # <-- change this
-
-# Mail (required for MFA email OTP)
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.yourprovider.com
-MAIL_PORT=587
-MAIL_USERNAME=your@email.com
-MAIL_PASSWORD=your_mail_password
-MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=noreply@yourdomain.com
-MAIL_FROM_NAME="Security Assessment"
+MAIL_HOST=192.168.1.10              # internal SMTP relay, or set MAIL_MAILER=log
 ```
 
-Generate `APP_KEY` without starting containers:
+Generate `APP_KEY`:
 
 ```bash
-php artisan key:generate --show
-# Copy the output (base64:...) into APP_KEY in .env
+docker run --rm php:8.2-cli php -r \
+  "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
 ```
 
----
-
-### Step 3 — (Optional) Configure SSL / HTTPS
-
-Place your SSL certificate files in `docker/nginx/ssl/`:
-
-```
-docker/nginx/ssl/
-├── fullchain.pem
-└── privkey.pem
-```
-
-Then open `docker/nginx/app.conf` and:
-
-1. Uncomment the `return 301 https://...` redirect in the HTTP block
-2. Uncomment the entire `# ── HTTPS Server Block` at the bottom
-3. Replace `yourdomain.com` with your actual domain
-
-To obtain a free certificate with Certbot (run on the host before starting Docker):
+### 4 — Build and start
 
 ```bash
-# Install certbot on Ubuntu/Debian
-sudo apt install certbot
-
-# Obtain certificate (port 80 must be free)
-sudo certbot certonly --standalone -d yourdomain.com
-
-# Copy certs into the project
-sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem docker/nginx/ssl/
-sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem   docker/nginx/ssl/
+ENV_FILE=.env.internal docker compose up -d --build
 ```
 
----
-
-### Step 4 — Build and Start Containers
+Watch startup logs until you see `[entrypoint] Booting: supervisord`:
 
 ```bash
-# Build images (first time or after code changes)
-docker compose build --no-cache
-
-# Start all services in the background
-docker compose up -d
+docker compose logs -f app
 ```
 
-Check all containers are running:
+### 5 — Verify
 
 ```bash
 docker compose ps
 ```
 
-Expected output — all containers should show `running` or `Up`:
-
 ```
 NAME                STATUS
-laravel_app         Up
-laravel_nginx       Up
-laravel_db          Up (healthy)
-laravel_redis       Up (healthy)
-laravel_queue       Up
-laravel_scheduler   Up
+vulntrack_app       Up
+vulntrack_nginx     Up (healthy)
+vulntrack_mysql     Up (healthy)
+vulntrack_redis     Up (healthy)
 ```
-
----
-
-### Step 5 — Run Migrations
-
-Wait for the database to be healthy, then run migrations:
 
 ```bash
-docker compose exec app php artisan migrate --force
+curl -s http://localhost/up    # → {"status":"UP"}
 ```
 
-Create the storage symlink (once):
+### 6 — Create first admin user
 
 ```bash
-docker compose exec app php artisan storage:link
-```
-
----
-
-### Step 6 — Create the First Admin User
-
-```bash
-docker compose exec app php artisan tinker
-```
-
-```php
+docker compose exec app php artisan tinker --execute="
 \App\Models\User::create([
     'name'        => 'Admin',
-    'email'       => 'admin@yourdomain.com',
+    'email'       => 'admin@internal.local',
     'password'    => bcrypt('StrongPassword123!'),
     'role'        => 'administrator',
     'mfa_enabled' => false,
-]);
-exit
+]);"
 ```
+
+Access from any machine on the network: **http://\<server-ip\>**
 
 ---
 
-### Step 7 — Verify the Deployment
+## Operations
 
-Visit `http://yourdomain.com` (or `https://` if SSL is configured). You should see the login page.
-
-Check application health:
+### Update
 
 ```bash
-curl -s http://localhost/up
-# Should return: {"status":"UP"}
-```
-
----
-
-### Updating the Application
-
-```bash
-# 1. Pull latest code
 git pull origin main
-
-# 2. Rebuild the app image
-docker compose build --no-cache app queue scheduler
-
-# 3. Restart with zero-downtime (rolling)
-docker compose up -d --no-deps app queue scheduler
-
-# 4. Run any new migrations
+ENV_FILE=.env.internal docker compose up -d --build --no-deps app
 docker compose exec app php artisan migrate --force
-
-# 5. Clear and rebuild caches
-docker compose exec app php artisan optimize:clear
-docker compose exec app php artisan optimize
 ```
 
----
-
-### Database Backup and Restore
-
-**Backup:**
+### Database Backup
 
 ```bash
-docker compose exec db mysqldump \
-  -u root -p"${DB_ROOT_PASSWORD}" \
-  --single-transaction --quick \
+source .env.internal
+docker compose exec mysql mysqldump \
+  -uroot -p"${DB_ROOT_PASSWORD}" --single-transaction --quick \
   "${DB_DATABASE}" > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-**Restore:**
+### Database Restore
 
 ```bash
-docker compose exec -T db mysql \
-  -u root -p"${DB_ROOT_PASSWORD}" \
-  "${DB_DATABASE}" < backup_20260101_120000.sql
+source .env.internal
+docker compose exec -T mysql mysql \
+  -uroot -p"${DB_ROOT_PASSWORD}" "${DB_DATABASE}" \
+  < backup_20260101_120000.sql
+```
+
+### Common Commands
+
+```bash
+docker compose logs -f                              # all logs
+docker compose logs -f app                          # app only
+docker compose exec app bash                        # shell into app
+docker compose exec app supervisorctl status        # queue/scheduler status
+docker compose exec app supervisorctl restart laravel-queue:*   # restart workers
+docker compose exec app php artisan optimize:clear  # clear all caches
+docker compose exec app php artisan optimize        # rebuild caches
+docker compose down                                 # stop (volumes kept)
+docker compose down -v                              # stop + delete all data
 ```
 
 ---
 
-### Useful Commands
+## Troubleshooting
 
-```bash
-# View logs (all services)
-docker compose logs -f
-
-# View logs for a specific service
-docker compose logs -f app
-docker compose logs -f webserver
-
-# Open a shell inside the app container
-docker compose exec app bash
-
-# Clear all Laravel caches
-docker compose exec app php artisan optimize:clear
-
-# Rebuild config/route/view caches
-docker compose exec app php artisan optimize
-
-# Restart a single service without downtime
-docker compose restart queue
-
-# Stop everything
-docker compose down
-
-# Stop and delete all volumes (WARNING: destroys database)
-docker compose down -v
-```
-
----
-
-### Troubleshooting
-
-| Symptom | Likely cause | Fix |
+| Symptom | Cause | Fix |
 |---|---|---|
-| Container exits immediately | Missing or invalid `.env` values | Check `docker compose logs app` |
-| 502 Bad Gateway | PHP-FPM not ready or crashed | `docker compose logs app` — check for PHP errors |
-| Database connection refused | DB not healthy yet | Wait 30 s; entrypoint retries for 60 s |
-| Migrations fail | `APP_KEY` not set | Set `APP_KEY` in `.env` and rebuild |
-| Emails not sending | MAIL_* not configured | Verify SMTP settings in `.env` |
-| Storage files not served | Missing storage symlink | `docker compose exec app php artisan storage:link` |
-| Permission denied on storage | Wrong ownership | `docker compose exec app chown -R www-data:www-data storage bootstrap/cache` |
-
----
-
-## Project Structure
-
-```
-app/
-├── Http/
-│   ├── Controllers/        # VulnAssessmentController, UserController, etc.
-│   ├── Middleware/
-│   └── Requests/
-├── Models/                 # VulnAssessment, VulnTracked, VulnFinding, UserGroup, etc.
-└── Services/               # VulnTrackingService, OsDetector, VulnClassifier
-
-resources/views/
-├── layouts/app.blade.php   # Sidebar layout
-├── vuln_assessments/       # Findings, progress, show, create, reports
-├── users/                  # User management
-└── user-groups/            # Group management
-
-docker/
-├── nginx/app.conf          # Nginx site config (HTTP + HTTPS blocks)
-├── nginx/ssl/              # SSL certificate files (not committed)
-├── php/php.ini             # PHP production settings
-├── php/opcache.ini         # OPcache tuning
-├── mysql/my.cnf            # MySQL tuning
-└── entrypoint.sh           # Container startup script (waits for DB, caches config)
-
-Dockerfile                  # Multi-stage build: Composer deps → PHP-FPM image
-docker-compose.yml          # Six-service production stack
-.env.production             # Environment template for production
-```
+| Container exits immediately | Invalid or missing env value | `docker compose logs app` |
+| 502 Bad Gateway | PHP-FPM not running | `docker compose logs app` — check for PHP fatal errors |
+| `SQLSTATE[HY000]` connection error | MySQL still initialising | Entrypoint retries 30× — wait 60 s or check `docker compose logs mysql` |
+| Wrong URL in emails / redirects | `APP_URL` incorrect | Update `.env.internal` and rebuild app |
+| Emails not delivered | No SMTP relay | Set `MAIL_MAILER=log` for log-based delivery |
+| Uploaded files not accessible | Storage permissions | `docker compose exec app chown -R www-data:www-data storage` |
+| `No application encryption key` | `APP_KEY` not set | Generate key, update env file, rebuild |
 
 ---
 
 ## User Roles
 
-| Role | Permissions |
+| Role | Access |
 |---|---|
-| **Administrator** | Full access — manage users, groups, assessments, findings, settings |
-| **Assessor** | View, create, edit assessments and findings — no delete, no user management |
+| **Administrator** | Full access — users, groups, assessments, findings, all settings |
+| **Assessor** | Create and manage assessments and findings — no user management, no delete |
 
 ---
 
