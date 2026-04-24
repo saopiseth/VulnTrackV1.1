@@ -558,11 +558,11 @@ class VulnAssessmentController extends Controller
         VulnAssessment $vulnAssessment,
         VulnRemediation $remediation
     ): \Illuminate\Http\RedirectResponse {
-        // Double-check ownership — route model binding already scopes by ID,
+        // Double-check ownership; route model binding already scopes by ID,
         // but this guards against any misconfiguration.
         abort_unless($remediation->assessment_id === $vulnAssessment->id, 403);
 
-        // Only assigned_group_id ever reaches here — the Form Request strips
+        // Only assigned_group_id ever reaches here; the Form Request strips
         // every other field (including status) before validation runs.
         $remediation->update([
             'assigned_group_id' => $request->validated('assigned_group_id'),
@@ -578,7 +578,7 @@ class VulnAssessmentController extends Controller
 
         $data = $request->validate([
             'finding_ids'       => ['required', 'string'],
-            // '__clear__' sentinel removes the group; any other non-empty value must be a real group ID.
+            // '__clear__' removes the group; any other non-empty value must be a real group ID.
             'assigned_group_id' => ['required', 'string'],
         ]);
 
@@ -614,7 +614,7 @@ class VulnAssessmentController extends Controller
                 ['status' => 'Open']
             );
 
-            // Status is intentionally excluded — only group assignment is permitted.
+            // Status is intentionally excluded; only group assignment is permitted.
             $rem->update([
                 'assigned_group_id' => $groupId,
                 'updated_by'        => Auth::id(),
@@ -624,7 +624,7 @@ class VulnAssessmentController extends Controller
         }
 
         $verb = $groupId ? 'assigned' : 'unassigned';
-        return back()->with('success', “Group {$verb} for {$count} finding(s).”);
+        return back()->with('success', 'Group ' . $verb . ' for ' . $count . ' finding(s).');
     }
 
     /**
