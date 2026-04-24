@@ -167,7 +167,7 @@
                 <i class="bi bi-funnel me-1"></i>Filter
             </button>
             @if(request()->hasAny(['search','ip','rem_status','category']))
-            <a href="{{ route('vuln-assessments.findings', array_filter(['tracking' => request('tracking')])) }}"
+            <a href="{{ route('vuln-assessments.findings', array_filter([$assessment, 'tracking' => request('tracking')])) }}"
                class="btn btn-sm" style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">
                <i class="bi bi-x me-1"></i>Clear
             </a>
