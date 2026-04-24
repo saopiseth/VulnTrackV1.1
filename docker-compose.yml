@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Usage:
 #   Local:    ENV_FILE=.env.docker    docker compose up -d --build
 #   Internal: ENV_FILE=.env.internal  docker compose up -d --build
@@ -59,12 +57,11 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
     volumes:
-      - dbdata:/var/lib/mysql
-      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - dbdata_brandnew:/var/lib/mysql
     networks:
       - vulntrack
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-rootsecret}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${DB_ROOT_PASSWORD:-rootsecret}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -81,7 +78,7 @@ services:
     networks:
       - vulntrack
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redissecret}", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-redissecret} ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -91,5 +88,5 @@ networks:
     driver: bridge
 
 volumes:
-  dbdata:
+  dbdata_brandnew:
   redisdata:

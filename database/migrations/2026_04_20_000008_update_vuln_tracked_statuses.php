@@ -15,12 +15,12 @@ return new class extends Migration
             $this->widenSqliteCheck(
                 'vuln_tracked',
                 "'New', 'Pending', 'Resolved'",
-                "'New', 'Open', 'Reopened', 'Resolved'"
+                "'New', 'Open', 'Unresolved', 'Reopened', 'Resolved'"
             );
             // vuln_tracked_history has CHECK constraints on prev_status and new_status
             $this->widenSqliteHistoryChecks(
                 "'New', 'Pending', 'Resolved'",
-                "'New', 'Open', 'Reopened', 'Resolved'"
+                "'New', 'Open', 'Unresolved', 'Reopened', 'Resolved', 'Pending'"
             );
         }
 
@@ -40,7 +40,9 @@ return new class extends Migration
 
         // ── MySQL only: widen enum definitions ───────────────────────────────
         if (DB::getDriverName() === 'mysql') {
-            DB::statement("ALTER TABLE vuln_tracked MODIFY tracking_status ENUM('New','Open','Reopened','Resolved') NOT NULL DEFAULT 'New'");
+            DB::statement("ALTER TABLE vuln_tracked MODIFY tracking_status ENUM('New','Open','Unresolved','Reopened','Resolved') NOT NULL DEFAULT 'New'");
+            DB::statement("ALTER TABLE vuln_tracked_history MODIFY prev_status ENUM('New','Open','Unresolved','Reopened','Resolved','Pending') NULL");
+            DB::statement("ALTER TABLE vuln_tracked_history MODIFY new_status ENUM('New','Open','Unresolved','Reopened','Resolved','Pending') NOT NULL");
         }
     }
 
@@ -49,11 +51,11 @@ return new class extends Migration
         if (DB::getDriverName() === 'sqlite') {
             $this->widenSqliteCheck(
                 'vuln_tracked',
-                "'New', 'Open', 'Reopened', 'Resolved'",
+                "'New', 'Open', 'Unresolved', 'Reopened', 'Resolved'",
                 "'New', 'Pending', 'Resolved'"
             );
             $this->widenSqliteHistoryChecks(
-                "'New', 'Open', 'Reopened', 'Resolved'",
+                "'New', 'Open', 'Unresolved', 'Reopened', 'Resolved', 'Pending'",
                 "'New', 'Pending', 'Resolved'"
             );
         }
