@@ -97,6 +97,11 @@
                        padding:.4rem .95rem;font-size:.81rem">
                 <i class="bi bi-table me-1"></i>Findings
             </a>
+            <a href="{{ route('vuln-assessments.progress', $assessment) }}" class="btn btn-sm"
+                style="border:1.5px solid var(--lime);border-radius:8px;color:var(--lime-dark);background:#fff;
+                       font-weight:600;font-size:.81rem;padding:.4rem .95rem">
+                <i class="bi bi-bar-chart-line me-1"></i>Progress
+            </a>
             @endif
             {{-- Report dropdown --}}
             <div class="dropdown">
