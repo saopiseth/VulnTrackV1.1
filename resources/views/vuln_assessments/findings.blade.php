@@ -231,14 +231,6 @@
                             $osDisplay    = $f->os_name ?? $f->os_detected;
                             $appComponent = $f->affected_component;
 
-                            // Determine if affected_component is a 3rd-party application
-                            // (installed after fresh OS install) vs an OS-native component.
-                            // OS-native = base OS/kernel/distro names only.
-                            $isApp = $appComponent && !preg_match(
-                                '/^(microsoft\s+windows|windows\s+(server|10|11|xp|vista|7|8)|red\s?hat|rhel|centos|ubuntu|debian|fedora|suse|alma|rocky|oracle\s+linux|linux\s+kernel|unix|freebsd|solaris)/i',
-                                $appComponent
-                            );
-
                             // Derive OS family (fall back to name-based detection)
                             $osFam = $f->os_family;
                             if (!$osFam || $osFam === 'Other') {
@@ -262,11 +254,6 @@
                             $osFamMeta = $osFamIcons[$osFam] ?? $osFamIcons['Other'];
                         @endphp
 
-                        @php
-                            $fCat  = $f->vuln_category ?? 'Other';
-                            [$cbg, $ccol, $cicon] = \App\Models\VulnFinding::categoryStyle($fCat);
-                        @endphp
-
                         {{-- OS family badge --}}
                         @if($osFam && $osFam !== 'Other')
                         <div style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:600;
@@ -288,12 +275,6 @@
                         </div>
                         @endif
 
-                        {{-- Vulnerability category icon only --}}
-                        <div style="display:inline-flex;align-items:center;justify-content:center;
-                            background:{{ $cbg }};color:{{ $ccol }};padding:.18rem .35rem;border-radius:20px;margin-top:.25rem"
-                            title="{{ $fCat }}">
-                            <i class="bi {{ $cicon }}" style="font-size:.72rem"></i>
-                        </div>
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $remClass }}" style="font-size:.68rem">{{ $remStatus }}</span>
