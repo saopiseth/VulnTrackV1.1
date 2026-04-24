@@ -191,7 +191,6 @@
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Vulnerability Name</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Host</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">System Name</th>
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">OS / Application</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Category</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Remediation</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Assigned To</th>
@@ -246,57 +245,6 @@
                             <span style="color:#cbd5e1;font-size:.75rem">—</span>
                         @endif
                     </td>
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
-                        @php
-                            $osDisplay    = $f->os_name ?? $f->os_detected;
-                            $appComponent = $f->affected_component;
-
-                            // Derive OS family (fall back to name-based detection)
-                            $osFam = $f->os_family;
-                            if (!$osFam || $osFam === 'Other') {
-                                $haystack = strtolower($osDisplay ?? $appComponent ?? '');
-                                if (preg_match('/windows/i', $haystack))
-                                    $osFam = 'Windows';
-                                elseif (preg_match('/linux|ubuntu|centos|red\s?hat|rhel|debian|fedora|suse|mint|arch|rocky|alma/i', $haystack))
-                                    $osFam = 'Linux';
-                                elseif (preg_match('/unix|freebsd|solaris|aix|hp-ux/i', $haystack))
-                                    $osFam = 'Unix';
-                                else
-                                    $osFam = 'Other';
-                            }
-
-                            $osFamIcons = [
-                                'Windows' => ['icon'=>'bi-windows',       'bg'=>'#dbeafe','color'=>'#1e40af'],
-                                'Linux'   => ['icon'=>'bi-ubuntu',        'bg'=>'#d1fae5','color'=>'#065f46'],
-                                'Unix'    => ['icon'=>'bi-terminal-fill', 'bg'=>'#ffedd5','color'=>'#7c2d12'],
-                                'Other'   => ['icon'=>'bi-cpu-fill',      'bg'=>'#f3f4f6','color'=>'#374151'],
-                            ];
-                            $osFamMeta = $osFamIcons[$osFam] ?? $osFamIcons['Other'];
-                        @endphp
-
-                        {{-- OS family badge --}}
-                        @if($osFam && $osFam !== 'Other')
-                        <div style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:600;
-                            background:{{ $osFamMeta['bg'] }};color:{{ $osFamMeta['color'] }};
-                            padding:.12rem .45rem;border-radius:5px"
-                            title="{{ $osDisplay ?? $appComponent ?? $osFam }}">
-                            <i class="bi {{ $osFamMeta['icon'] }}" style="font-size:.72rem"></i>
-                            {{ $osFam }}
-                        </div>
-                        @else
-                        <span style="color:#cbd5e1;font-size:.75rem">—</span>
-                        @endif
-
-                        {{-- OS version (name already includes version, e.g. "Ubuntu 22.04") --}}
-                        @if($f->os_name)
-                        <div style="font-size:.68rem;color:#475569;margin-top:.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px"
-                             title="{{ $f->os_name }}">
-                            {{ $f->os_name }}
-                        </div>
-                        @endif
-
-                    </td>
-
                     {{-- ── Category column ── --}}
                     @php
                         $cat = $f->vuln_category ?? 'Other';
@@ -660,7 +608,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="12" style="text-align:center;padding:3rem;color:#94a3b8">
+                    <td colspan="11" style="text-align:center;padding:3rem;color:#94a3b8">
                         <i class="bi bi-bug" style="font-size:2rem;display:block;margin-bottom:.75rem;opacity:.4"></i>
                         No findings match the current filters.
                     </td>
