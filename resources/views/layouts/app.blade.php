@@ -196,15 +196,12 @@
             $companyName = \App\Models\SiteSetting::get('company_name', 'VulnTrack');
         @endphp
         <div class="sidebar-brand">
+            @if($logoPath)
             <div class="brand-icon" style="background:none;padding:0;overflow:hidden;flex-shrink:0">
-                @if($logoPath)
-                    <img src="{{ \Illuminate\Support\Facades\Storage::url($logoPath) }}" alt="Logo"
-                         style="width:38px;height:38px;object-fit:contain;border-radius:10px">
-                @else
-                    <img src="{{ asset('favicon.ico') }}" alt="Logo"
-                         style="width:38px;height:38px;object-fit:contain;border-radius:10px">
-                @endif
+                <img src="{{ \Illuminate\Support\Facades\Storage::url($logoPath) }}" alt="Logo"
+                     style="width:38px;height:38px;object-fit:contain;border-radius:10px">
             </div>
+            @endif
             <span class="brand-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
                 {{ $companyName }}
             </span>
