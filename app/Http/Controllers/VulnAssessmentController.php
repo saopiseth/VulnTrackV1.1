@@ -578,6 +578,7 @@ class VulnAssessmentController extends Controller
         $data = $request->validate([
             'finding_ids'       => ['required', 'string'],
             'status'            => ['nullable', 'in:Open,In Progress,Resolved,Accepted Risk'],
+            'assigned_to'       => ['nullable', 'string', 'max:255'],
             'assigned_group_id' => ['nullable', 'string'],
             'due_date'          => ['nullable', 'date'],
             'comments'          => ['nullable', 'string'],
@@ -591,11 +592,15 @@ class VulnAssessmentController extends Controller
         // Use SLA policy if defined on assessment; otherwise fall back to manual due_date
         $slaPolicy = $vulnAssessment->slaPolicy;
 
-        // Build the base update payload â€” only include fields that were supplied
+        // Build the base update payload — only include fields that were supplied
         $update = ['updated_by' => Auth::id()];
 
         if (!empty($data['status'])) {
             $update['status'] = $data['status'];
+        }
+
+        if (array_key_exists('assigned_to', $data)) {
+            $update['assigned_to'] = $data['assigned_to'] ?? null;
         }
 
         if (!empty($data['assigned_group_id'])) {

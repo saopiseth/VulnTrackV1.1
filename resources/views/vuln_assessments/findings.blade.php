@@ -368,7 +368,10 @@
                             <form method="POST" action="{{ route('vuln-assessments.remediation.update', [$assessment, $rem]) }}">
                                 @csrf @method('PATCH')
                             @else
-                            <form>
+                            {{-- No record yet — create via bulk-update which uses firstOrCreate --}}
+                            <form method="POST" action="{{ route('vuln-assessments.remediation.bulk-update', $assessment) }}">
+                                @csrf @method('PATCH')
+                                <input type="hidden" name="finding_ids" value="{{ $f->id }}">
                             @endif
                                 <div class="modal-body" style="padding:1.5rem">
                                     <div style="font-size:.8rem;color:#64748b;margin-bottom:1rem;font-family:monospace;background:#f8fafc;border-radius:8px;padding:.5rem .75rem">
@@ -389,6 +392,11 @@
                                         <input type="text" name="assigned_to" class="form-control form-control-sm" style="border-radius:8px"
                                             value="{{ $rem?->assigned_to }}" placeholder="Name or team">
                                     </div>
+                                    <div class="mb-3">
+                                        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Due Date</label>
+                                        <input type="date" name="due_date" class="form-control form-control-sm" style="border-radius:8px"
+                                            value="{{ $rem?->due_date?->format('Y-m-d') }}">
+                                    </div>
                                     <div class="mb-1">
                                         <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Comments</label>
                                         <textarea name="comments" class="form-control form-control-sm" rows="3" style="border-radius:8px"
@@ -398,12 +406,10 @@
                                 <div class="modal-footer" style="border-top:1px solid #e8f5c2;padding:.75rem 1.5rem">
                                     <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
                                         style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Cancel</button>
-                                    @if($rem)
                                     <button type="submit" class="btn btn-sm"
                                         style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.4rem 1.2rem">
                                         Save Changes
                                     </button>
-                                    @endif
                                 </div>
                             </form>
                         </div>
