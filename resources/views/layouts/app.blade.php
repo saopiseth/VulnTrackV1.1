@@ -193,7 +193,7 @@
     <aside class="sidebar" id="sidebar">
         @php
             $logoPath    = \App\Models\SiteSetting::get('logo_path');
-            $companyName = \App\Models\SiteSetting::get('company_name', 'Security Assessment');
+            $companyName = \App\Models\SiteSetting::get('company_name', 'VulnTrack');
         @endphp
         <div class="sidebar-brand">
             <div class="brand-icon" style="background:none;padding:0;overflow:hidden;flex-shrink:0">

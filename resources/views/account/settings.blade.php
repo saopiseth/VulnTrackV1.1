@@ -22,7 +22,7 @@
 
 @php
     $logoPath           = \App\Models\SiteSetting::get('logo_path');
-    $companyName        = \App\Models\SiteSetting::get('company_name', 'Security Assessment');
+    $companyName        = \App\Models\SiteSetting::get('company_name', 'VulnTrack');
     $themeColor         = \App\Models\SiteSetting::get('theme_primary', '#98c20a');
     $rptCompany         = \App\Models\SiteSetting::get('report_company', '');
     $rptConfidentiality = \App\Models\SiteSetting::get('report_confidentiality', '');
