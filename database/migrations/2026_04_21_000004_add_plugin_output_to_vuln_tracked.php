@@ -9,9 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('vuln_tracked', function (Blueprint $table) {
-            $table->text('plugin_output')->nullable()->after('os_family');
-        });
+        if (!Schema::hasColumn('vuln_tracked', 'plugin_output')) {
+            Schema::table('vuln_tracked', function (Blueprint $table) {
+                $table->text('plugin_output')->nullable()->after('os_family');
+            });
+        }
 
         // Backfill from the finding that matches last_scan_id + ip + plugin
         DB::statement("
@@ -29,8 +31,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('vuln_tracked', function (Blueprint $table) {
-            $table->dropColumn('plugin_output');
-        });
+        if (Schema::hasColumn('vuln_tracked', 'plugin_output')) {
+            Schema::table('vuln_tracked', function (Blueprint $table) {
+                $table->dropColumn('plugin_output');
+            });
+        }
     }
 };

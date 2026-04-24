@@ -8,20 +8,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('vuln_assessments', function (Blueprint $table) {
-            $table->foreignId('scope_group_id')
-                  ->nullable()
-                  ->after('scanner_type')
-                  ->constrained('assessment_scope_groups')
-                  ->nullOnDelete();
-        });
+        if (!Schema::hasColumn('vuln_assessments', 'scope_group_id')) {
+            Schema::table('vuln_assessments', function (Blueprint $table) {
+                $table->foreignId('scope_group_id')
+                      ->nullable()
+                      ->after('scanner_type')
+                      ->constrained('assessment_scope_groups')
+                      ->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('vuln_assessments', function (Blueprint $table) {
-            $table->dropForeign(['scope_group_id']);
-            $table->dropColumn('scope_group_id');
-        });
+        if (Schema::hasColumn('vuln_assessments', 'scope_group_id')) {
+            Schema::table('vuln_assessments', function (Blueprint $table) {
+                $table->dropForeign(['scope_group_id']);
+                $table->dropColumn('scope_group_id');
+            });
+        }
     }
 };

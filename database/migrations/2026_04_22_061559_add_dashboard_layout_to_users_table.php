@@ -6,20 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->json('dashboard_layout')->nullable()->after('mfa_enabled');
-        });
+        if (!Schema::hasColumn('users', 'dashboard_layout')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->json('dashboard_layout')->nullable()->after('mfa_enabled');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('dashboard_layout');
-        });
+        if (Schema::hasColumn('users', 'dashboard_layout')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('dashboard_layout');
+            });
+        }
     }
 };

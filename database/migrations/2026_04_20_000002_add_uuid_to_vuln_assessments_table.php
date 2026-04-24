@@ -10,9 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('vuln_assessments', function (Blueprint $table) {
-            $table->uuid('uuid')->nullable()->unique()->after('id');
-        });
+        if (!Schema::hasColumn('vuln_assessments', 'uuid')) {
+            Schema::table('vuln_assessments', function (Blueprint $table) {
+                $table->uuid('uuid')->nullable()->unique()->after('id');
+            });
+        }
 
         // Back-fill UUIDs for any existing rows
         DB::table('vuln_assessments')->whereNull('uuid')->orderBy('id')->each(function ($row) {
@@ -29,8 +31,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('vuln_assessments', function (Blueprint $table) {
-            $table->dropColumn('uuid');
-        });
+        if (Schema::hasColumn('vuln_assessments', 'uuid')) {
+            Schema::table('vuln_assessments', function (Blueprint $table) {
+                $table->dropColumn('uuid');
+            });
+        }
     }
 };
