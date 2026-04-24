@@ -18,7 +18,7 @@ return new class extends Migration
         }
 
         // Backfill existing rows
-        \DB::table('project_assessments')->whereNull('slug')->each(function ($row) {
+        \DB::table('project_assessments')->whereNull('slug')->orderBy('id')->each(function ($row) {
             \DB::table('project_assessments')
                 ->where('id', $row->id)
                 ->update(['slug' => \Illuminate\Support\Str::random(12)]);
