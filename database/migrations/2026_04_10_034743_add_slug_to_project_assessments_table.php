@@ -18,8 +18,10 @@ return new class extends Migration
         }
 
         // Backfill existing rows
-        \App\Models\ProjectAssessment::whereNull('slug')->each(function ($a) {
-            $a->update(['slug' => \Illuminate\Support\Str::random(12)]);
+        \DB::table('project_assessments')->whereNull('slug')->each(function ($row) {
+            \DB::table('project_assessments')
+                ->where('id', $row->id)
+                ->update(['slug' => \Illuminate\Support\Str::random(12)]);
         });
     }
 
