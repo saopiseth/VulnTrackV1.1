@@ -128,29 +128,48 @@
 </div>
 
 
-{{-- Search + IP filter --}}
+{{-- Search + IP + Category filter --}}
 <div class="va-card" style="padding:.85rem 1.25rem;margin-bottom:1.25rem">
     <form method="GET" class="row g-2 align-items-end">
         @if(request('rem_status'))<input type="hidden" name="rem_status" value="{{ request('rem_status') }}">@endif
-        <div class="col-12 col-md-5">
+        @if(request('tracking'))<input type="hidden" name="tracking" value="{{ request('tracking') }}">@endif
+
+        {{-- Keyword search --}}
+        <div class="col-12 col-md-4">
             <div class="input-group input-group-sm">
                 <span class="input-group-text" style="border-radius:8px 0 0 8px;background:#f8fafc"><i class="bi bi-search"></i></span>
                 <input type="text" name="search" class="form-control" placeholder="Search vulnerability name, IP, plugin ID, CVE…"
                     value="{{ request('search') }}" style="border-radius:0 8px 8px 0">
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <input type="text" name="ip" class="form-control form-control-sm" placeholder="Filter by IP address"
+
+        {{-- IP filter --}}
+        <div class="col-6 col-md-2">
+            <input type="text" name="ip" class="form-control form-control-sm" placeholder="Filter by IP"
                 value="{{ request('ip') }}" style="border-radius:8px;font-family:monospace">
         </div>
+
+        {{-- Category filter --}}
+        <div class="col-6 col-md-3">
+            <select name="category" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem">
+                <option value="">All Categories</option>
+                @foreach(\App\Models\VulnFinding::categories() as $cat)
+                @php [$cBg, $cCol] = \App\Models\VulnFinding::categoryStyle($cat); @endphp
+                <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>
+                    {{ $cat }}
+                </option>
+                @endforeach
+            </select>
+        </div>
+
         <div class="col-auto d-flex gap-2">
             <button type="submit" class="btn btn-sm" style="background:var(--primary);color:#fff;border-radius:8px;border:none;font-weight:600">
                 <i class="bi bi-funnel me-1"></i>Filter
             </button>
-            @if(request()->hasAny(['search','ip','rem_status']))
-            <a href="{{ route('vuln-assessments.findings', [$assessment]) }}"
+            @if(request()->hasAny(['search','ip','rem_status','category']))
+            <a href="{{ route('vuln-assessments.findings', array_filter(['tracking' => request('tracking')])) }}"
                class="btn btn-sm" style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">
-               <i class="bi bi-x me-1"></i>Clear All
+               <i class="bi bi-x me-1"></i>Clear
             </a>
             @endif
         </div>
@@ -173,6 +192,7 @@
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Host</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">System Name</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">OS / Application</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Category</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Remediation</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Assigned To</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center">Actions</th>
@@ -276,6 +296,30 @@
                         @endif
 
                     </td>
+
+                    {{-- ── Category column ── --}}
+                    @php
+                        $cat = $f->vuln_category ?? 'Other';
+                        [$catBg, $catColor, $catIcon] = \App\Models\VulnFinding::categoryStyle($cat);
+                    @endphp
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;white-space:nowrap">
+                        <div style="display:inline-flex;align-items:center;gap:.28rem;
+                                    background:{{ $catBg }};color:{{ $catColor }};
+                                    font-size:.68rem;font-weight:700;
+                                    padding:.2rem .55rem;border-radius:20px;
+                                    border:1px solid {{ $catColor }}22">
+                            <i class="bi {{ $catIcon }}" style="font-size:.65rem"></i>
+                            {{ $cat }}
+                        </div>
+                        @if($f->affected_component)
+                        <div style="font-size:.67rem;color:#94a3b8;margin-top:.22rem;
+                                    max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                             title="{{ $f->affected_component }}">
+                            {{ $f->affected_component }}
+                        </div>
+                        @endif
+                    </td>
+
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $remClass }}" style="font-size:.68rem">{{ $remStatus }}</span>
                         @if($rem?->assigned_to)
@@ -616,7 +660,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="10" style="text-align:center;padding:3rem;color:#94a3b8">
+                    <td colspan="12" style="text-align:center;padding:3rem;color:#94a3b8">
                         <i class="bi bi-bug" style="font-size:2rem;display:block;margin-bottom:.75rem;opacity:.4"></i>
                         No findings match the current filters.
                     </td>
