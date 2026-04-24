@@ -341,7 +341,7 @@
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;text-align:center">
                         <div class="d-flex justify-content-center gap-1">
                             <button class="btn btn-sm" style="border-radius:8px;border:1px solid #e2e8f0;color:#64748b;padding:.22rem .55rem;font-size:.74rem"
-                                title="Update Remediation"
+                                title="Assign Group"
                                 data-bs-toggle="modal" data-bs-target="#remModal{{ $f->id }}">
                                 <i class="bi bi-pencil"></i>
                             </button>
@@ -354,61 +354,76 @@
                     </td>
                 </tr>
 
-                {{-- ═══ Remediation Edit Modal ═══ --}}
+                {{-- ═══ Assign Group Modal ═══ --}}
                 <div class="modal fade" id="remModal{{ $f->id }}" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content" style="border-radius:14px;border:1px solid #e8f5c2">
                             <div class="modal-header" style="border-bottom:2px solid var(--primary);padding:1rem 1.5rem">
                                 <h5 class="modal-title" style="font-size:.9rem;font-weight:700;color:#0f172a">
-                                    <i class="bi bi-pencil me-2" style="color:var(--primary)"></i>Update Remediation
+                                    <i class="bi bi-people-fill me-2" style="color:var(--primary)"></i>Assign to Group
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
+
+                            {{-- Route: existing record → updateRemediation; no record yet → bulkUpdateRemediation (uses firstOrCreate) --}}
                             @if($rem)
                             <form method="POST" action="{{ route('vuln-assessments.remediation.update', [$assessment, $rem]) }}">
                                 @csrf @method('PATCH')
                             @else
-                            {{-- No record yet — create via bulk-update which uses firstOrCreate --}}
                             <form method="POST" action="{{ route('vuln-assessments.remediation.bulk-update', $assessment) }}">
                                 @csrf @method('PATCH')
                                 <input type="hidden" name="finding_ids" value="{{ $f->id }}">
                             @endif
+
                                 <div class="modal-body" style="padding:1.5rem">
-                                    <div style="font-size:.8rem;color:#64748b;margin-bottom:1rem;font-family:monospace;background:#f8fafc;border-radius:8px;padding:.5rem .75rem">
-                                        <span class="badge-sev {{ $sevClass }} me-2" style="font-size:.68rem">{{ $f->severity }}</span>
-                                        {{ $f->vuln_name }}<br>
-                                        <span style="font-size:.75rem">{{ $f->ip_address }} &nbsp;&middot;&nbsp; Plugin {{ $f->plugin_id }}</span>
+
+                                    {{-- Finding summary --}}
+                                    <div style="background:#f8fafc;border-radius:8px;padding:.6rem .85rem;margin-bottom:1.25rem;font-size:.8rem;color:#374151">
+                                        <span class="badge-sev {{ $sevClass }}" style="font-size:.68rem;margin-right:.4rem">{{ $f->severity }}</span>
+                                        <strong>{{ $f->vuln_name }}</strong><br>
+                                        <span style="font-family:monospace;font-size:.75rem;color:#64748b">
+                                            {{ $f->ip_address }} &middot; Plugin {{ $f->plugin_id }}
+                                        </span>
                                     </div>
-                                    <div class="mb-3">
-                                        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Status</label>
-                                        <select name="status" class="form-select form-select-sm" style="border-radius:8px">
-                                            @foreach(\App\Models\VulnRemediation::statuses() as $s)
-                                            <option value="{{ $s }}" @selected($remStatus===$s)>{{ $s }}</option>
+
+                                    {{-- Current status — read-only, managed by tracking engine --}}
+                                    <div class="mb-4 p-3" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
+                                        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:.45rem">
+                                            <i class="bi bi-lock-fill me-1"></i>Remediation Status
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge-sev {{ $remClass }}">{{ $remStatus }}</span>
+                                            <span style="font-size:.75rem;color:#94a3b8">Managed automatically by the tracking engine</span>
+                                        </div>
+                                    </div>
+
+                                    {{-- Assign to Group — only editable field --}}
+                                    <div class="mb-1">
+                                        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.4rem">
+                                            <i class="bi bi-people-fill me-1" style="color:var(--primary)"></i>Assign to User Group
+                                        </label>
+                                        <select name="assigned_group_id" class="form-select form-select-sm" style="border-radius:8px">
+                                            <option value="">— Unassigned —</option>
+                                            @foreach($userGroups as $g)
+                                            <option value="{{ $g->id }}" @selected($rem?->assigned_group_id == $g->id)>
+                                                {{ $g->name }}
+                                            </option>
                                             @endforeach
                                         </select>
+                                        <div style="font-size:.72rem;color:#94a3b8;margin-top:.3rem">
+                                            Select a group to own remediation of this finding. Choose "Unassigned" to clear.
+                                        </div>
                                     </div>
-                                    <div class="mb-3">
-                                        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Assigned To</label>
-                                        <input type="text" name="assigned_to" class="form-control form-control-sm" style="border-radius:8px"
-                                            value="{{ $rem?->assigned_to }}" placeholder="Name or team">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Due Date</label>
-                                        <input type="date" name="due_date" class="form-control form-control-sm" style="border-radius:8px"
-                                            value="{{ $rem?->due_date?->format('Y-m-d') }}">
-                                    </div>
-                                    <div class="mb-1">
-                                        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">Comments</label>
-                                        <textarea name="comments" class="form-control form-control-sm" rows="3" style="border-radius:8px"
-                                            placeholder="Notes, evidence, or context…">{{ $rem?->comments }}</textarea>
-                                    </div>
+
                                 </div>
                                 <div class="modal-footer" style="border-top:1px solid #e8f5c2;padding:.75rem 1.5rem">
                                     <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
-                                        style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Cancel</button>
+                                        style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">
+                                        Cancel
+                                    </button>
                                     <button type="submit" class="btn btn-sm"
                                         style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.4rem 1.2rem">
-                                        Save Changes
+                                        <i class="bi bi-check-lg me-1"></i>Assign Group
                                     </button>
                                 </div>
                             </form>
@@ -611,7 +626,7 @@
                                     style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Close</button>
                                 <button class="btn btn-sm" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#remModal{{ $f->id }}"
                                     style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.4rem 1.2rem">
-                                    <i class="bi bi-pencil me-1"></i> Update Remediation
+                                    <i class="bi bi-people-fill me-1"></i>Assign Group
                                 </button>
                             </div>
                         </div>

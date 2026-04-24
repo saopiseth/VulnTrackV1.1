@@ -13,6 +13,7 @@ use App\Models\VulnRemediation;
 use App\Models\VulnScan;
 use App\Models\VulnTracked;
 use App\Jobs\ProcessScanUpload;
+use App\Http\Requests\AssignRemediationGroupRequest;
 use App\Services\VulnClassifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -552,36 +553,33 @@ class VulnAssessmentController extends Controller
 
 
 
-    public function updateRemediation(Request $request, VulnAssessment $vulnAssessment, VulnRemediation $remediation)
-    {
-        $this->authorize('manage', $vulnAssessment);
+    public function updateRemediation(
+        AssignRemediationGroupRequest $request,
+        VulnAssessment $vulnAssessment,
+        VulnRemediation $remediation
+    ): \Illuminate\Http\RedirectResponse {
+        // Double-check ownership — route model binding already scopes by ID,
+        // but this guards against any misconfiguration.
         abort_unless($remediation->assessment_id === $vulnAssessment->id, 403);
 
-        $data = $request->validate([
-            'status'            => ['required', 'in:Open,In Progress,Resolved,Accepted Risk'],
-            'assigned_to'       => ['nullable', 'string', 'max:255'],
-            'assigned_group_id' => ['nullable', 'integer', 'exists:user_groups,id'],
-            'due_date'          => ['nullable', 'date'],
-            'comments'          => ['nullable', 'string'],
+        // Only assigned_group_id ever reaches here — the Form Request strips
+        // every other field (including status) before validation runs.
+        $remediation->update([
+            'assigned_group_id' => $request->validated('assigned_group_id'),
+            'updated_by'        => Auth::id(),
         ]);
 
-        $data['updated_by'] = Auth::id();
-        $remediation->update($data);
-
-        return back()->with('success', 'Remediation updated.');
+        return back()->with('success', 'Group assigned successfully.');
     }
 
-    public function bulkUpdateRemediation(Request $request, VulnAssessment $vulnAssessment)
+    public function bulkUpdateRemediation(Request $request, VulnAssessment $vulnAssessment): \Illuminate\Http\RedirectResponse
     {
         $this->authorize('manage', $vulnAssessment);
 
         $data = $request->validate([
             'finding_ids'       => ['required', 'string'],
-            'status'            => ['nullable', 'in:Open,In Progress,Resolved,Accepted Risk'],
-            'assigned_to'       => ['nullable', 'string', 'max:255'],
-            'assigned_group_id' => ['nullable', 'string'],
-            'due_date'          => ['nullable', 'date'],
-            'comments'          => ['nullable', 'string'],
+            // '__clear__' sentinel removes the group; any other non-empty value must be a real group ID.
+            'assigned_group_id' => ['required', 'string'],
         ]);
 
         $ids = array_filter(array_map('intval', explode(',', $data['finding_ids'])));
@@ -589,34 +587,21 @@ class VulnAssessmentController extends Controller
             return back()->with('error', 'No findings selected.');
         }
 
-        // Use SLA policy if defined on assessment; otherwise fall back to manual due_date
-        $slaPolicy = $vulnAssessment->slaPolicy;
+        $rawGroupId = $data['assigned_group_id'];
 
-        // Build the base update payload — only include fields that were supplied
-        $update = ['updated_by' => Auth::id()];
-
-        if (!empty($data['status'])) {
-            $update['status'] = $data['status'];
+        if ($rawGroupId === '__clear__') {
+            $groupId = null;
+        } elseif (ctype_digit($rawGroupId)) {
+            $groupId = (int) $rawGroupId;
+            abort_unless(UserGroup::where('id', $groupId)->exists(), 422);
+        } else {
+            // Empty string = “No Group” placeholder selected; nothing to do.
+            return back();
         }
 
-        if (array_key_exists('assigned_to', $data)) {
-            $update['assigned_to'] = $data['assigned_to'] ?? null;
-        }
-
-        if (!empty($data['assigned_group_id'])) {
-            $update['assigned_group_id'] = $data['assigned_group_id'] === '__clear__'
-                ? null
-                : (int) $data['assigned_group_id'];
-        }
-
-        if (!$slaPolicy && !empty($data['due_date'])) {
-            $update['due_date'] = $data['due_date'];
-        }
-
-        // Fetch tracked rows â€” include severity + first_seen_at for SLA calculation
-        $tracked = \App\Models\VulnTracked::whereIn('id', $ids)
+        $tracked = VulnTracked::whereIn('id', $ids)
             ->where('assessment_id', $vulnAssessment->id)
-            ->get(['id', 'plugin_id', 'ip_address', 'severity', 'first_seen_at']);
+            ->get(['id', 'plugin_id', 'ip_address']);
 
         $count = 0;
         foreach ($tracked as $t) {
@@ -629,29 +614,17 @@ class VulnAssessmentController extends Controller
                 ['status' => 'Open']
             );
 
-            $payload = $update;
+            // Status is intentionally excluded — only group assignment is permitted.
+            $rem->update([
+                'assigned_group_id' => $groupId,
+                'updated_by'        => Auth::id(),
+            ]);
 
-            if ($slaPolicy) {
-                $days = $slaPolicy->daysForSeverity($t->severity);
-                if ($days !== null) {
-                    $payload['due_date'] = \Carbon\Carbon::parse($t->first_seen_at)
-                        ->addDays($days)
-                        ->toDateString();
-                }
-            }
-
-            // Append comments rather than overwrite
-            if (!empty($data['comments'])) {
-                $existing = $rem->comments ? $rem->comments . "\n\n" : '';
-                $payload['comments'] = $existing . trim($data['comments']);
-            }
-
-            $rem->update($payload);
             $count++;
         }
 
-        $note = $slaPolicy ? ' with SLA-calculated due dates' : '';
-        return back()->with('success', "Remediation updated for {$count} finding(s){$note}.");
+        $verb = $groupId ? 'assigned' : 'unassigned';
+        return back()->with('success', “Group {$verb} for {$count} finding(s).”);
     }
 
     /**
