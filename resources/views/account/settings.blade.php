@@ -31,6 +31,22 @@
     $rptFooter          = \App\Models\SiteSetting::get('report_footer_text', '');
     $rptDisclaimer      = \App\Models\SiteSetting::get('report_disclaimer', '');
     $rptAccent          = \App\Models\SiteSetting::get('report_accent_color', '#84cc16');
+
+    $ldapEnabled     = \App\Models\SiteSetting::get('ldap_enabled', '0') === '1';
+    $ldapHost        = \App\Models\SiteSetting::get('ldap_host', '');
+    $ldapPort        = \App\Models\SiteSetting::get('ldap_port', '389');
+    $ldapEncryption  = \App\Models\SiteSetting::get('ldap_encryption', 'none');
+    $ldapBaseDn      = \App\Models\SiteSetting::get('ldap_base_dn', '');
+    $ldapBindDn      = \App\Models\SiteSetting::get('ldap_bind_dn', '');
+    $ldapBindPwdSet  = (bool) \App\Models\SiteSetting::get('ldap_bind_password', '');
+    $ldapUserFilter  = \App\Models\SiteSetting::get('ldap_user_filter', '');
+    $ldapUidAttr     = \App\Models\SiteSetting::get('ldap_uid_attribute', 'sAMAccountName');
+
+    $azureEnabled    = \App\Models\SiteSetting::get('azure_enabled', '0') === '1';
+    $azureTenant     = \App\Models\SiteSetting::get('azure_tenant_id', '');
+    $azureClientId   = \App\Models\SiteSetting::get('azure_client_id', '');
+    $azureSecretSet  = (bool) \App\Models\SiteSetting::get('azure_client_secret', '');
+    $azureRedirect   = \App\Models\SiteSetting::get('azure_redirect_uri', url('/auth/azure/callback'));
 @endphp
 
 <div class="row g-4">
@@ -296,6 +312,264 @@
     </div>
     @endif
 
+    {{-- ── LDAP Integration (admin only) ── --}}
+    @if(Auth::user()->isAdministrator())
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <h6 class="mb-0" style="color:#0f172a;font-weight:700">
+                        <i class="bi bi-diagram-3-fill me-2" style="color:var(--primary)"></i>LDAP / Active Directory
+                    </h6>
+                    <span id="ldap-enabled-badge"
+                        style="font-size:.7rem;font-weight:700;padding:.2rem .6rem;border-radius:20px;border:1px solid;
+                               background:{{ $ldapEnabled ? '#f0fdf4' : '#f1f5f9' }};
+                               color:{{ $ldapEnabled ? '#166534' : '#64748b' }};
+                               border-color:{{ $ldapEnabled ? '#bbf7d0' : '#e2e8f0' }}">
+                        {{ $ldapEnabled ? 'ENABLED' : 'DISABLED' }}
+                    </span>
+                </div>
+                <p class="mb-4" style="color:#64748b;font-size:.85rem">
+                    Allow users to sign in with corporate LDAP or Active Directory credentials.
+                </p>
+
+                <form method="POST" action="{{ route('account.ldap-settings.update') }}" id="ldap-form">
+                    @csrf @method('PATCH')
+
+                    {{-- Enable toggle --}}
+                    <div class="d-flex align-items-center justify-content-between p-3 mb-4"
+                         style="background:#f8fafc;border-radius:12px;border:1.5px solid #e2e8f0">
+                        <div>
+                            <div style="font-weight:600;color:#0f172a;font-size:.875rem">Enable LDAP Authentication</div>
+                            <div style="font-size:.78rem;color:#64748b;margin-top:.15rem">Show "Sign in with LDAP" on the login page.</div>
+                        </div>
+                        <div class="form-check form-switch ms-3">
+                            <input class="form-check-input" type="checkbox" id="ldap_enabled_toggle"
+                                   style="width:2.5rem;height:1.3rem;cursor:pointer"
+                                   {{ $ldapEnabled ? 'checked' : '' }}>
+                        </div>
+                    </div>
+                    <input type="hidden" name="ldap_enabled" id="ldap_enabled_input" value="{{ $ldapEnabled ? '1' : '0' }}">
+
+                    <div id="ldap-fields">
+                        <div class="row g-3">
+                            {{-- Host --}}
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">LDAP Host</label>
+                                <input type="text" name="ldap_host"
+                                    class="form-control @error('ldap_host') is-invalid @enderror"
+                                    value="{{ old('ldap_host', $ldapHost) }}"
+                                    placeholder="e.g. ldap.example.com or 192.168.1.10"
+                                    style="border-radius:9px;font-size:.875rem">
+                                @error('ldap_host')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            {{-- Port --}}
+                            <div class="col-md-3">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Port</label>
+                                <input type="number" name="ldap_port"
+                                    class="form-control @error('ldap_port') is-invalid @enderror"
+                                    value="{{ old('ldap_port', $ldapPort) }}"
+                                    min="1" max="65535"
+                                    placeholder="389"
+                                    style="border-radius:9px;font-size:.875rem">
+                                @error('ldap_port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            {{-- Encryption --}}
+                            <div class="col-md-3">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Encryption</label>
+                                <select name="ldap_encryption" class="form-select @error('ldap_encryption') is-invalid @enderror"
+                                        style="border-radius:9px;font-size:.875rem">
+                                    <option value="none"  {{ old('ldap_encryption', $ldapEncryption) === 'none' ? 'selected' : '' }}>None (plain)</option>
+                                    <option value="tls"   {{ old('ldap_encryption', $ldapEncryption) === 'tls'  ? 'selected' : '' }}>StartTLS (LDAP+TLS)</option>
+                                    <option value="ssl"   {{ old('ldap_encryption', $ldapEncryption) === 'ssl'  ? 'selected' : '' }}>SSL (LDAPS port 636)</option>
+                                </select>
+                                @error('ldap_encryption')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            {{-- Base DN --}}
+                            <div class="col-12">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Base DN</label>
+                                <input type="text" name="ldap_base_dn"
+                                    class="form-control @error('ldap_base_dn') is-invalid @enderror"
+                                    value="{{ old('ldap_base_dn', $ldapBaseDn) }}"
+                                    placeholder="e.g. DC=example,DC=com"
+                                    style="border-radius:9px;font-size:.875rem;font-family:monospace">
+                                @error('ldap_base_dn')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            {{-- Bind DN --}}
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Bind DN <span style="color:#94a3b8;font-weight:400">(service account)</span></label>
+                                <input type="text" name="ldap_bind_dn"
+                                    class="form-control @error('ldap_bind_dn') is-invalid @enderror"
+                                    value="{{ old('ldap_bind_dn', $ldapBindDn) }}"
+                                    placeholder="e.g. CN=svc-ldap,OU=ServiceAccounts,DC=example,DC=com"
+                                    style="border-radius:9px;font-size:.875rem;font-family:monospace">
+                                @error('ldap_bind_dn')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            {{-- Bind Password --}}
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Bind Password</label>
+                                <input type="password" name="ldap_bind_password"
+                                    class="form-control @error('ldap_bind_password') is-invalid @enderror"
+                                    placeholder="{{ $ldapBindPwdSet ? '(saved — leave blank to keep)' : 'Enter bind password' }}"
+                                    autocomplete="new-password"
+                                    style="border-radius:9px;font-size:.875rem">
+                                @error('ldap_bind_password')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            {{-- User Filter --}}
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">User Search Filter <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
+                                <input type="text" name="ldap_user_filter"
+                                    class="form-control @error('ldap_user_filter') is-invalid @enderror"
+                                    value="{{ old('ldap_user_filter', $ldapUserFilter) }}"
+                                    placeholder="e.g. (&(objectClass=user)(memberOf=CN=VulnTrack,OU=Groups,DC=example,DC=com))"
+                                    style="border-radius:9px;font-size:.875rem;font-family:monospace">
+                                @error('ldap_user_filter')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+
+                            {{-- UID Attribute --}}
+                            <div class="col-md-6">
+                                <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Username Attribute</label>
+                                <input type="text" name="ldap_uid_attribute"
+                                    class="form-control @error('ldap_uid_attribute') is-invalid @enderror"
+                                    value="{{ old('ldap_uid_attribute', $ldapUidAttr) }}"
+                                    placeholder="sAMAccountName"
+                                    style="border-radius:9px;font-size:.875rem;font-family:monospace">
+                                <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem">AD: <code>sAMAccountName</code> · OpenLDAP: <code>uid</code></div>
+                                @error('ldap_uid_attribute')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+
+                        {{-- Test + Save --}}
+                        <div class="d-flex align-items-center gap-3 flex-wrap mt-4">
+                            <button type="submit" class="btn btn-sm"
+                                style="background:var(--primary);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.5rem 1.4rem;font-size:.875rem">
+                                <i class="bi bi-check-lg me-1"></i>Save LDAP Settings
+                            </button>
+                            <button type="button" id="ldap-test-btn" class="btn btn-sm"
+                                style="border:1.5px solid var(--primary);color:var(--primary-dark);background:#fff;border-radius:9px;font-weight:600;font-size:.875rem;padding:.45rem 1rem">
+                                <i class="bi bi-plug-fill me-1"></i>Test Connection
+                            </button>
+                            <span id="ldap-test-result" style="font-size:.82rem;display:none"></span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ── Azure AD (admin only) ── --}}
+    @if(Auth::user()->isAdministrator())
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <h6 class="mb-0" style="color:#0f172a;font-weight:700">
+                        <i class="bi bi-microsoft me-2" style="color:var(--primary)"></i>Azure AD / Microsoft Entra ID
+                    </h6>
+                    <span id="azure-enabled-badge"
+                        style="font-size:.7rem;font-weight:700;padding:.2rem .6rem;border-radius:20px;border:1px solid;
+                               background:{{ $azureEnabled ? '#f0fdf4' : '#f1f5f9' }};
+                               color:{{ $azureEnabled ? '#166534' : '#64748b' }};
+                               border-color:{{ $azureEnabled ? '#bbf7d0' : '#e2e8f0' }}">
+                        {{ $azureEnabled ? 'ENABLED' : 'DISABLED' }}
+                    </span>
+                </div>
+                <p class="mb-4" style="color:#64748b;font-size:.85rem">
+                    Allow users to sign in with their Microsoft / Azure AD account via OAuth 2.0.
+                </p>
+
+                <form method="POST" action="{{ route('account.azure-settings.update') }}" id="azure-form">
+                    @csrf @method('PATCH')
+
+                    {{-- Enable toggle --}}
+                    <div class="d-flex align-items-center justify-content-between p-3 mb-4"
+                         style="background:#f8fafc;border-radius:12px;border:1.5px solid #e2e8f0">
+                        <div>
+                            <div style="font-weight:600;color:#0f172a;font-size:.875rem">Enable Azure AD Sign-In</div>
+                            <div style="font-size:.78rem;color:#64748b;margin-top:.15rem">Show "Sign in with Microsoft" on the login page.</div>
+                        </div>
+                        <div class="form-check form-switch ms-3">
+                            <input class="form-check-input" type="checkbox" id="azure_enabled_toggle"
+                                   style="width:2.5rem;height:1.3rem;cursor:pointer"
+                                   {{ $azureEnabled ? 'checked' : '' }}>
+                        </div>
+                    </div>
+                    <input type="hidden" name="azure_enabled" id="azure_enabled_input" value="{{ $azureEnabled ? '1' : '0' }}">
+
+                    <div class="row g-3">
+                        {{-- Tenant ID --}}
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Tenant ID (Directory ID)</label>
+                            <input type="text" name="azure_tenant_id"
+                                class="form-control @error('azure_tenant_id') is-invalid @enderror"
+                                value="{{ old('azure_tenant_id', $azureTenant) }}"
+                                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                style="border-radius:9px;font-size:.875rem;font-family:monospace">
+                            <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem">Found in Azure Portal → App Registrations → Overview.</div>
+                            @error('azure_tenant_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Client ID --}}
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Application (Client) ID</label>
+                            <input type="text" name="azure_client_id"
+                                class="form-control @error('azure_client_id') is-invalid @enderror"
+                                value="{{ old('azure_client_id', $azureClientId) }}"
+                                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                style="border-radius:9px;font-size:.875rem;font-family:monospace">
+                            @error('azure_client_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Client Secret --}}
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Client Secret</label>
+                            <input type="password" name="azure_client_secret"
+                                class="form-control @error('azure_client_secret') is-invalid @enderror"
+                                placeholder="{{ $azureSecretSet ? '(saved — leave blank to keep)' : 'Paste client secret value' }}"
+                                autocomplete="new-password"
+                                style="border-radius:9px;font-size:.875rem">
+                            @error('azure_client_secret')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Redirect URI --}}
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">Redirect URI</label>
+                            <div class="input-group" style="border-radius:9px;overflow:hidden">
+                                <input type="url" name="azure_redirect_uri" id="azure_redirect_uri"
+                                    class="form-control @error('azure_redirect_uri') is-invalid @enderror"
+                                    value="{{ old('azure_redirect_uri', $azureRedirect) }}"
+                                    style="border-radius:9px 0 0 9px;font-size:.82rem;font-family:monospace">
+                                <button type="button" id="copy-redirect-btn"
+                                    class="btn btn-sm"
+                                    style="border:1.5px solid #e2e8f0;border-left:none;background:#f8fafc;color:#64748b;border-radius:0 9px 9px 0;font-size:.8rem;padding:0 .8rem"
+                                    title="Copy to clipboard">
+                                    <i class="bi bi-clipboard" id="copy-redirect-icon"></i>
+                                </button>
+                            </div>
+                            <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem">Register this exact URL in Azure Portal → App Registrations → Authentication → Redirect URIs.</div>
+                            @error('azure_redirect_uri')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="col-12 mt-1">
+                            <button type="submit" class="btn btn-sm"
+                                style="background:var(--primary);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.5rem 1.4rem;font-size:.875rem">
+                                <i class="bi bi-check-lg me-1"></i>Save Azure Settings
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- ── Security Settings ── --}}
     <div class="col-lg-7">
         <div class="card">
@@ -427,6 +701,76 @@
     }
     rptPicker.addEventListener('input', syncRptFromPicker);
     rptHex.addEventListener('input', syncRptFromHex);
+
+    // LDAP toggle
+    const ldapToggle = document.getElementById('ldap_enabled_toggle');
+    const ldapInput  = document.getElementById('ldap_enabled_input');
+    const ldapBadge  = document.getElementById('ldap-enabled-badge');
+    if (ldapToggle) {
+        ldapToggle.addEventListener('change', () => {
+            ldapInput.value = ldapToggle.checked ? '1' : '0';
+            ldapBadge.textContent = ldapToggle.checked ? 'ENABLED' : 'DISABLED';
+            ldapBadge.style.background = ldapToggle.checked ? '#f0fdf4' : '#f1f5f9';
+            ldapBadge.style.color      = ldapToggle.checked ? '#166534' : '#64748b';
+            ldapBadge.style.borderColor= ldapToggle.checked ? '#bbf7d0' : '#e2e8f0';
+        });
+    }
+
+    // LDAP test connection
+    const ldapTestBtn = document.getElementById('ldap-test-btn');
+    if (ldapTestBtn) {
+        ldapTestBtn.addEventListener('click', async () => {
+            const resultEl = document.getElementById('ldap-test-result');
+            ldapTestBtn.disabled = true;
+            ldapTestBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing…';
+            resultEl.style.display = 'none';
+            try {
+                const resp = await fetch('{{ route('account.ldap-test') }}', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                });
+                const data = await resp.json();
+                resultEl.style.display = 'inline';
+                resultEl.style.color   = data.success ? '#166534' : '#dc2626';
+                resultEl.innerHTML = (data.success
+                    ? '<i class="bi bi-check-circle-fill me-1"></i>'
+                    : '<i class="bi bi-x-circle-fill me-1"></i>') + data.message;
+            } catch (e) {
+                resultEl.style.display = 'inline';
+                resultEl.style.color   = '#dc2626';
+                resultEl.textContent   = 'Request failed.';
+            } finally {
+                ldapTestBtn.disabled = false;
+                ldapTestBtn.innerHTML = '<i class="bi bi-plug-fill me-1"></i>Test Connection';
+            }
+        });
+    }
+
+    // Azure toggle
+    const azureToggle = document.getElementById('azure_enabled_toggle');
+    const azureInput  = document.getElementById('azure_enabled_input');
+    const azureBadge  = document.getElementById('azure-enabled-badge');
+    if (azureToggle) {
+        azureToggle.addEventListener('change', () => {
+            azureInput.value = azureToggle.checked ? '1' : '0';
+            azureBadge.textContent = azureToggle.checked ? 'ENABLED' : 'DISABLED';
+            azureBadge.style.background = azureToggle.checked ? '#f0fdf4' : '#f1f5f9';
+            azureBadge.style.color      = azureToggle.checked ? '#166534' : '#64748b';
+            azureBadge.style.borderColor= azureToggle.checked ? '#bbf7d0' : '#e2e8f0';
+        });
+    }
+
+    // Copy redirect URI
+    const copyBtn = document.getElementById('copy-redirect-btn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const val = document.getElementById('azure_redirect_uri').value;
+            navigator.clipboard.writeText(val).then(() => {
+                const icon = document.getElementById('copy-redirect-icon');
+                icon.className = 'bi bi-clipboard-check';
+                setTimeout(() => { icon.className = 'bi bi-clipboard'; }, 2000);
+            });
+        });
+    }
 
     function previewLogo(input) {
         const name   = input.files[0]?.name ?? 'No file chosen';
