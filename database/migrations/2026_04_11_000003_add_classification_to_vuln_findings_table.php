@@ -9,15 +9,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('vuln_findings', function (Blueprint $table) {
-            $table->string('vuln_category')->nullable()->after('os_detected');      // OS / Application / Database / Web Server / Network / SSL-TLS / Policy / Other
-            $table->string('affected_component')->nullable()->after('vuln_category'); // e.g. "Apache HTTP Server", "OpenSSL 1.1.1", "Windows SMB"
+            if (!Schema::hasColumn('vuln_findings', 'vuln_category')) {
+                $table->string('vuln_category')->nullable()->after('os_detected');
+            }
+            if (!Schema::hasColumn('vuln_findings', 'affected_component')) {
+                $table->string('affected_component')->nullable()->after('vuln_category');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('vuln_findings', function (Blueprint $table) {
-            $table->dropColumn(['vuln_category', 'affected_component']);
+            $cols = array_filter(['vuln_category', 'affected_component'],
+                fn($c) => Schema::hasColumn('vuln_findings', $c));
+            if ($cols) {
+                $table->dropColumn(array_values($cols));
+            }
         });
     }
 };

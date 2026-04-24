@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('project_assessments', function (Blueprint $table) {
-            $table->string('slug', 12)->unique()->nullable()->after('id');
-        });
+        if (!Schema::hasColumn('project_assessments', 'slug')) {
+            Schema::table('project_assessments', function (Blueprint $table) {
+                $table->string('slug', 12)->unique()->nullable()->after('id');
+            });
+        }
 
         // Backfill existing rows
         \App\Models\ProjectAssessment::whereNull('slug')->each(function ($a) {
@@ -23,8 +25,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('project_assessments', function (Blueprint $table) {
-            $table->dropColumn('slug');
-        });
+        if (Schema::hasColumn('project_assessments', 'slug')) {
+            Schema::table('project_assessments', function (Blueprint $table) {
+                $table->dropColumn('slug');
+            });
+        }
     }
 };

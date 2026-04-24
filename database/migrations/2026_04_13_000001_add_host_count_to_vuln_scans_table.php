@@ -2,16 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('vuln_scans', function (Blueprint $table) {
-            $table->unsignedInteger('host_count')->default(0)->after('finding_count');
-        });
+        if (!Schema::hasColumn('vuln_scans', 'host_count')) {
+            Schema::table('vuln_scans', function (Blueprint $table) {
+                $table->unsignedInteger('host_count')->default(0)->after('finding_count');
+            });
+        }
 
         // Backfill existing scans
         DB::statement("
@@ -26,8 +28,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('vuln_scans', function (Blueprint $table) {
-            $table->dropColumn('host_count');
-        });
+        if (Schema::hasColumn('vuln_scans', 'host_count')) {
+            Schema::table('vuln_scans', function (Blueprint $table) {
+                $table->dropColumn('host_count');
+            });
+        }
     }
 };

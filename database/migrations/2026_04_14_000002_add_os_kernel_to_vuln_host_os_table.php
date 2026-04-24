@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('vuln_host_os', function (Blueprint $table) {
-            $table->string('os_kernel')->nullable()->after('os_confidence');
-        });
+        if (!Schema::hasColumn('vuln_host_os', 'os_kernel')) {
+            Schema::table('vuln_host_os', function (Blueprint $table) {
+                $table->string('os_kernel')->nullable()->after('os_confidence');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('vuln_host_os', function (Blueprint $table) {
-            $table->dropColumn('os_kernel');
-        });
+        if (Schema::hasColumn('vuln_host_os', 'os_kernel')) {
+            Schema::table('vuln_host_os', function (Blueprint $table) {
+                $table->dropColumn('os_kernel');
+            });
+        }
     }
 };

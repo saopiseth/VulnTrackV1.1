@@ -6,20 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->boolean('mfa_enabled')->default(true)->after('role');
-        });
+        if (!Schema::hasColumn('users', 'mfa_enabled')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->boolean('mfa_enabled')->default(true)->after('role');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('mfa_enabled');
-        });
+        if (Schema::hasColumn('users', 'mfa_enabled')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('mfa_enabled');
+            });
+        }
     }
 };

@@ -22,9 +22,13 @@ return new class extends Migration
     {
         Schema::table('project_assessments', function (Blueprint $table) {
             foreach (self::CRITERIA as $field) {
-                $table->string("{$field}_evidence")->nullable()->after("{$field}");
-                $table->enum("{$field}_status", ['Not Started', 'In Progress', 'Completed', 'N/A'])
-                      ->default('Not Started')->after("{$field}_evidence");
+                if (!Schema::hasColumn('project_assessments', "{$field}_evidence")) {
+                    $table->string("{$field}_evidence")->nullable()->after("{$field}");
+                }
+                if (!Schema::hasColumn('project_assessments', "{$field}_status")) {
+                    $table->enum("{$field}_status", ['Not Started', 'In Progress', 'Completed', 'N/A'])
+                          ->default('Not Started')->after("{$field}_evidence");
+                }
             }
         });
     }
@@ -33,7 +37,13 @@ return new class extends Migration
     {
         Schema::table('project_assessments', function (Blueprint $table) {
             foreach (self::CRITERIA as $field) {
-                $table->dropColumn(["{$field}_evidence", "{$field}_status"]);
+                $cols = array_filter(
+                    ["{$field}_evidence", "{$field}_status"],
+                    fn($c) => Schema::hasColumn('project_assessments', $c)
+                );
+                if ($cols) {
+                    $table->dropColumn(array_values($cols));
+                }
             }
         });
     }
