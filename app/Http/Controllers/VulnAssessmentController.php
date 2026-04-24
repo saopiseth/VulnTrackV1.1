@@ -973,7 +973,7 @@ class VulnAssessmentController extends Controller
                     $desc     = (string) ($item->description ?? '');
                     $portVal  = (string) ($item['port'] ?? '');
                     $protoVal = (string) ($item['protocol'] ?? '');
-                    $output   = (string) ($item->plugin_output ?? '');
+                    $output   = mb_substr((string) ($item->plugin_output ?? ''), 0, 10_000_000);
                     $cveVal   = (string) ($item->cve ?? '');
 
                     // CVSS: prefer v3 base score, fall back to v2
@@ -1053,7 +1053,7 @@ class VulnAssessmentController extends Controller
             $osRawCsv   = $col($line, ['operating system', 'os', 'detected os', 'os_detected']) ?: null;
             $portVal    = $col($line, ['port']);
             $protoVal   = $col($line, ['protocol']);
-            $output     = $col($line, ['plugin output', 'plugin_output']);
+            $output     = mb_substr($col($line, ['plugin output', 'plugin_output']), 0, 10_000_000);
             $cveVal     = $col($line, ['cve']);
             $hostname   = $col($line, ['dns name', 'hostname', 'fqdn', 'netbios']) ?: null;
             $cvssRawCsv = $col($line, ['cvss3_base_score', 'cvss_base_score', 'cvss score', 'cvss_score', 'cvss']);
