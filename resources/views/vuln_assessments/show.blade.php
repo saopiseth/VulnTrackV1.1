@@ -572,7 +572,7 @@
 
 </div>{{-- /tab-content --}}
 
-{{-- ══ Upload Modal (unchanged) ══ --}}
+{{-- ══ Upload Modal — AJAX + progress + chunked upload ══ --}}
 <div class="modal fade" id="uploadModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content" style="border-radius:14px;border:1px solid #e8f5c2">
@@ -581,52 +581,238 @@
                     <i class="bi bi-upload me-2" style="color:var(--lime)"></i>
                     Upload {{ $assessment->scans->count() === 0 ? 'Baseline' : 'Latest' }} Scan
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" id="uploadModalClose" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ route('vuln-assessments.upload', $assessment) }}" enctype="multipart/form-data">
-                @csrf
-                <div class="modal-body" style="padding:1.5rem">
-                    @if($errors->any())
-                    <div class="alert alert-danger" style="font-size:.85rem;border-radius:8px">{{ $errors->first() }}</div>
-                    @endif
-                    @if($assessment->scans->count() === 0)
-                    <div class="alert" style="background:#e8f5c2;border:1px solid #c8e87a;border-radius:9px;
-                                              font-size:.83rem;color:var(--lime-dark);padding:.65rem 1rem">
-                        <i class="bi bi-info-circle me-1"></i>
-                        The first upload will be set as the <strong>Baseline Scan</strong>. Subsequent uploads will be the Latest Scan for comparison.
-                    </div>
-                    @endif
-                    <div class="mb-3">
-                        <label class="form-label" style="font-size:.82rem;font-weight:600;color:#374151">
-                            Scan File <span style="color:#dc2626">*</span>
-                        </label>
-                        <input type="file" name="scan_file" class="form-control" accept=".xml,.nessus,.csv,.txt"
-                               required style="border-radius:8px;font-size:.875rem">
-                        <div style="font-size:.73rem;color:#94a3b8;margin-top:.4rem">
-                            Supported: <strong>.nessus</strong> (XML), <strong>.csv</strong> (Tenable export). Max 50 MB.
-                        </div>
-                    </div>
-                    <div class="mb-1">
-                        <label class="form-label" style="font-size:.82rem;font-weight:600;color:#374151">Notes</label>
-                        <input type="text" name="notes" class="form-control"
-                               placeholder="Optional notes about this scan" style="border-radius:8px;font-size:.875rem">
+
+            <div class="modal-body" style="padding:1.5rem">
+                <div id="upload-error" class="alert alert-danger" style="font-size:.85rem;border-radius:8px;display:none"></div>
+
+                @if($assessment->scans->count() === 0)
+                <div class="alert" style="background:#e8f5c2;border:1px solid #c8e87a;border-radius:9px;
+                                          font-size:.83rem;color:var(--lime-dark);padding:.65rem 1rem;margin-bottom:1rem">
+                    <i class="bi bi-info-circle me-1"></i>
+                    The first upload will be set as the <strong>Baseline Scan</strong>.
+                </div>
+                @endif
+
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:.82rem;font-weight:600;color:#374151">
+                        Scan File <span style="color:#dc2626">*</span>
+                    </label>
+                    <input type="file" id="scan-file-input" class="form-control" accept=".xml,.nessus,.csv,.txt"
+                           style="border-radius:8px;font-size:.875rem">
+                    <div id="upload-file-hint" style="font-size:.73rem;color:#94a3b8;margin-top:.4rem">
+                        Supported: <strong>.nessus</strong> (XML), <strong>.csv</strong> (Tenable export). Max 50 MB.
+                        Files &gt;5 MB upload in chunks automatically.
                     </div>
                 </div>
-                <div class="modal-footer" style="border-top:1px solid #e8f5c2;padding:.75rem 1.5rem">
-                    <button type="button" class="btn btn-sm" data-bs-dismiss="modal"
-                        style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Cancel</button>
-                    <button type="submit" class="btn btn-sm"
-                        style="background:var(--lime);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.45rem 1.2rem">
-                        <i class="bi bi-cloud-upload me-1"></i>Import Scan
-                    </button>
+
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:.82rem;font-weight:600;color:#374151">Notes</label>
+                    <input type="text" id="upload-notes" class="form-control"
+                           placeholder="Optional notes about this scan" style="border-radius:8px;font-size:.875rem">
                 </div>
-            </form>
+
+                {{-- Progress area (hidden until upload starts) --}}
+                <div id="upload-progress-area" style="display:none;margin-top:.75rem">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
+                        <span id="upload-status-msg" style="font-size:.8rem;color:#475569;font-weight:500"></span>
+                        <span id="upload-pct" style="font-size:.75rem;color:#94a3b8;font-weight:600"></span>
+                    </div>
+                    <div style="height:7px;border-radius:20px;background:#e8f5c2;overflow:hidden">
+                        <div id="upload-progress-bar"
+                             style="height:100%;width:0%;border-radius:20px;background:var(--lime);transition:width .25s ease"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="border-top:1px solid #e8f5c2;padding:.75rem 1.5rem">
+                <button type="button" id="upload-cancel-btn" class="btn btn-sm" data-bs-dismiss="modal"
+                    style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">Cancel</button>
+                <button type="button" id="upload-submit-btn" class="btn btn-sm"
+                    style="background:var(--lime);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.45rem 1.2rem">
+                    <i class="bi bi-cloud-upload me-1"></i>Import Scan
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 @push('scripts')
 <script>
+(function () {
+    const CHUNK_SIZE    = 5 * 1024 * 1024; // 5 MB
+    const UPLOAD_URL    = '{{ route('vuln-assessments.upload', $assessment) }}';
+    const CHUNK_URL     = '{{ route('vuln-assessments.upload.chunk', $assessment) }}';
+    const CSRF          = document.querySelector('meta[name="csrf-token"]').content;
+
+    const fileInput     = document.getElementById('scan-file-input');
+    const notesInput    = document.getElementById('upload-notes');
+    const submitBtn     = document.getElementById('upload-submit-btn');
+    const cancelBtn     = document.getElementById('upload-cancel-btn');
+    const errorBox      = document.getElementById('upload-error');
+    const progressArea  = document.getElementById('upload-progress-area');
+    const progressBar   = document.getElementById('upload-progress-bar');
+    const statusMsg     = document.getElementById('upload-status-msg');
+    const pctLabel      = document.getElementById('upload-pct');
+
+    let pollTimer = null;
+
+    function setProgress(pct, msg) {
+        progressArea.style.display = 'block';
+        progressBar.style.width    = pct + '%';
+        pctLabel.textContent       = pct + '%';
+        statusMsg.textContent      = msg;
+    }
+
+    function setError(msg) {
+        errorBox.textContent    = msg;
+        errorBox.style.display  = 'block';
+        submitBtn.disabled      = false;
+        submitBtn.innerHTML     = '<i class="bi bi-cloud-upload me-1"></i>Import Scan';
+        progressArea.style.display = 'none';
+    }
+
+    function lockUI() {
+        errorBox.style.display = 'none';
+        submitBtn.disabled     = true;
+        cancelBtn.disabled     = true;
+    }
+
+    function pollStatus(scanId) {
+        const url = '{{ url('/vuln-assessments/' . $assessment->uuid . '/scan-status') }}/' + scanId;
+        pollTimer = setInterval(function () {
+            fetch(url, { headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.status === 'completed') {
+                        clearInterval(pollTimer);
+                        setProgress(100, 'Processing complete — redirecting…');
+                        setTimeout(function () { window.location.href = data.redirect; }, 600);
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollTimer);
+                        setError('Processing failed: ' + (data.message || 'Unknown error'));
+                        cancelBtn.disabled = false;
+                    } else {
+                        setProgress(100, 'Processing scan… please wait');
+                    }
+                })
+                .catch(function () { /* network hiccup — keep polling */ });
+        }, 2000);
+    }
+
+    // ── Regular AJAX upload (files ≤ 5 MB) ──────────────────────
+    function uploadRegular(file) {
+        const formData = new FormData();
+        formData.append('scan_file', file);
+        formData.append('notes', notesInput.value);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', UPLOAD_URL);
+        xhr.setRequestHeader('X-CSRF-TOKEN', CSRF);
+        xhr.setRequestHeader('Accept', 'application/json');
+
+        xhr.upload.addEventListener('progress', function (e) {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 90);
+                setProgress(pct, 'Uploading… ' + pct + '%');
+            }
+        });
+
+        xhr.onload = function () {
+            const res = (() => { try { return JSON.parse(xhr.responseText); } catch(e) { return {}; } })();
+            if (xhr.status === 200) {
+                setProgress(95, 'Queued — processing in background…');
+                pollStatus(res.scan_id);
+            } else {
+                const msg = res.errors?.scan_file || res.message || 'Upload failed (HTTP ' + xhr.status + ')';
+                setError(msg);
+                cancelBtn.disabled = false;
+            }
+        };
+
+        xhr.onerror = function () { setError('Network error — check your connection and retry.'); cancelBtn.disabled = false; };
+
+        lockUI();
+        setProgress(0, 'Starting upload…');
+        xhr.send(formData);
+    }
+
+    // ── Chunked upload (files > 5 MB) ───────────────────────────
+    async function uploadChunked(file) {
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId    = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+
+        lockUI();
+        setProgress(0, 'Preparing chunked upload…');
+
+        try {
+            for (let i = 0; i < totalChunks; i++) {
+                const start     = i * CHUNK_SIZE;
+                const chunk     = file.slice(start, start + CHUNK_SIZE);
+                const formData  = new FormData();
+                formData.append('upload_id',    uploadId);
+                formData.append('chunk_index',  i);
+                formData.append('total_chunks', totalChunks);
+                formData.append('filename',     file.name);
+                formData.append('notes',        notesInput.value);
+                formData.append('chunk',        chunk, file.name);
+
+                const pct = Math.round(((i + 1) / totalChunks) * 90);
+                setProgress(pct, 'Uploading chunk ' + (i + 1) + ' / ' + totalChunks + '…');
+
+                const resp = await fetch(CHUNK_URL, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                    body: formData,
+                });
+
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    const msg = data.errors?.scan_file || data.message || 'Chunk upload failed';
+                    setError(msg);
+                    cancelBtn.disabled = false;
+                    return;
+                }
+
+                if (data.status === 'queued') {
+                    setProgress(95, 'All chunks received — processing in background…');
+                    pollStatus(data.scan_id);
+                    return;
+                }
+            }
+        } catch (err) {
+            setError('Network error during chunked upload: ' + err.message);
+            cancelBtn.disabled = false;
+        }
+    }
+
+    submitBtn.addEventListener('click', function () {
+        const file = fileInput.files[0];
+        if (!file) { setError('Please select a file before uploading.'); return; }
+        if (file.size > CHUNK_SIZE) {
+            uploadChunked(file);
+        } else {
+            uploadRegular(file);
+        }
+    });
+
+    // Reset modal state when closed
+    document.getElementById('uploadModal').addEventListener('hidden.bs.modal', function () {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        fileInput.value             = '';
+        notesInput.value            = '';
+        errorBox.style.display      = 'none';
+        progressArea.style.display  = 'none';
+        progressBar.style.width     = '0%';
+        submitBtn.disabled          = false;
+        cancelBtn.disabled          = false;
+        submitBtn.innerHTML         = '<i class="bi bi-cloud-upload me-1"></i>Import Scan';
+    });
+})();
+
 @if($errors->any())
 new bootstrap.Modal(document.getElementById('uploadModal')).show();
 @endif
