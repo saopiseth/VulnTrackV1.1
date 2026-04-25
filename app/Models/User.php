@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -46,6 +47,13 @@ class User extends Authenticatable
     public function isViewOnly(): bool
     {
         return $this->role === 'patch_administrator';
+    }
+
+    /** Groups this user belongs to (many-to-many via user_group_members). */
+    public function groups(): BelongsToMany
+    {
+        return $this->belongsToMany(UserGroup::class, 'user_group_members', 'user_id', 'user_group_id')
+                    ->withTimestamps();
     }
 
     /**

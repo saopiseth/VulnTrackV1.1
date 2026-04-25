@@ -273,7 +273,8 @@ class VulnAssessmentController extends Controller
         // â”€â”€ Base query: vuln_tracked (ALL scans, cumulative) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         $query = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
-            ->select('vuln_tracked.*', 'vf.plugin_output');
+            ->select('vuln_tracked.*', 'vf.plugin_output')
+            ->visibleTo(Auth::user());
 
         // Join latest finding to get plugin_output
         $query->leftJoin('vuln_findings as vf', function ($join) use ($assessment) {
@@ -725,18 +726,23 @@ class VulnAssessmentController extends Controller
 
     private function buildReportData(VulnAssessment $a): array
     {
+        $user = Auth::user();
+
         $active = VulnTracked::where('assessment_id', $a->id)
             ->whereIn('tracking_status', VulnTracked::openStatuses())
+            ->visibleTo($user)
             ->selectRaw("severity, COUNT(*) as cnt")
             ->groupBy('severity')->pluck('cnt', 'severity');
 
         $resolved = VulnTracked::where('assessment_id', $a->id)
             ->where('tracking_status', 'Resolved')
+            ->visibleTo($user)
             ->selectRaw("severity, COUNT(*) as cnt")
             ->groupBy('severity')->pluck('cnt', 'severity');
 
         $topHosts = VulnTracked::where('assessment_id', $a->id)
             ->whereIn('tracking_status', VulnTracked::openStatuses())
+            ->visibleTo($user)
             ->selectRaw("ip_address, hostname, COUNT(*) as total,
                 SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as c,
                 SUM(CASE WHEN severity='High'     THEN 1 ELSE 0 END) as h,
@@ -749,6 +755,7 @@ class VulnAssessmentController extends Controller
         $findings = VulnTracked::where('assessment_id', $a->id)
             ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
             ->whereIn('tracking_status', VulnTracked::openStatuses())
+            ->visibleTo($user)
             ->orderByRaw("CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
             ->orderBy('ip_address')
             ->get(['vuln_name', 'severity', 'ip_address', 'hostname', 'port', 'protocol', 'cve', 'tracking_status', 'first_seen_at']);
@@ -821,13 +828,16 @@ class VulnAssessmentController extends Controller
     /** Builds the rich grouped data shared by both PDF and Word report generators. */
     private function buildDetailedReportData(VulnAssessment $a): array
     {
+        $user = Auth::user();
+
         // Findings grouped: severity â†’ plugin_id â†’ [vuln info + affected hosts list]
-        $rawFindings = VulnTracked::where('assessment_id', $a->id)
-            ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-            ->orderByRaw("CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
-            ->orderByDesc('cvss_score')
-            ->orderBy('vuln_name')
-            ->orderBy('ip_address')
+        $rawFindings = VulnTracked::where(‘assessment_id’, $a->id)
+            ->whereIn(‘severity’, [‘Critical’, ‘High’, ‘Medium’, ‘Low’])
+            ->visibleTo($user)
+            ->orderByRaw("CASE severity WHEN ‘Critical’ THEN 1 WHEN ‘High’ THEN 2 WHEN ‘Medium’ THEN 3 WHEN ‘Low’ THEN 4 ELSE 5 END")
+            ->orderByDesc(‘cvss_score’)
+            ->orderBy(‘vuln_name’)
+            ->orderBy(‘ip_address’)
             ->get();
 
         $findingsBySeverity = [];
@@ -860,6 +870,7 @@ class VulnAssessmentController extends Controller
         // Per-host summary with open/closed breakdown
         $hostsSummary = VulnTracked::where('assessment_id', $a->id)
             ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+            ->visibleTo($user)
             ->selectRaw("ip_address, hostname, os_name,
                 SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as c,
                 SUM(CASE WHEN severity='High'     THEN 1 ELSE 0 END) as h,

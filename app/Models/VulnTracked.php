@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\User;
 use App\Services\VulnTrackingService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -81,6 +83,37 @@ class VulnTracked extends Model
             'Pending'               => ['#fef9c3', '#854d0e', 'bi-arrow-repeat'], // legacy
             default                 => ['#f1f5f9', '#475569', 'bi-question-circle'],
         };
+    }
+
+    // ── Visibility scope ─────────────────────────────────────────────────────
+    // Single source of truth for group-based access control.
+    // Admins and Assessors see all findings; Patch Administrators see only
+    // findings whose remediation is assigned to one of their groups.
+    // Usage: VulnTracked::visibleTo(Auth::user())->where(...)
+    public function scopeVisibleTo(Builder $query, User $user): void
+    {
+        if ($user->isAdministrator() || $user->isAssessor()) {
+            return;
+        }
+
+        // loadMissing ensures the relation is only queried once per request
+        // even when this scope is applied across multiple chained queries.
+        $user->loadMissing('groups');
+        $groupIds = $user->groups->pluck('id');
+
+        if ($groupIds->isEmpty()) {
+            $query->whereRaw('0 = 1');
+            return;
+        }
+
+        $query->whereExists(function ($sub) use ($groupIds) {
+            $sub->selectRaw('1')
+                ->from('vuln_remediations')
+                ->whereColumn('vuln_remediations.plugin_id',     'vuln_tracked.plugin_id')
+                ->whereColumn('vuln_remediations.ip_address',    'vuln_tracked.ip_address')
+                ->whereColumn('vuln_remediations.assessment_id', 'vuln_tracked.assessment_id')
+                ->whereIn('vuln_remediations.assigned_group_id', $groupIds);
+        });
     }
 
     // ── Relationships ─────────────────────────────────────────────────────────
