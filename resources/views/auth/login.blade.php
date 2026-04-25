@@ -106,7 +106,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.getElementById('togglePass').addEventListener('click', function () {
         const pwd  = document.getElementById('password');
         const icon = document.getElementById('toggleIcon');

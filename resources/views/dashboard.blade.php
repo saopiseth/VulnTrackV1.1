@@ -410,7 +410,7 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 const WIDGETS = @json($widgets);
 const DEFAULT_IDS = ['stat_assessments','stat_findings','stat_remediated','stat_users',
     'severity_breakdown','remediation_status','recent_assessments','sla_status','top_vulns','quick_actions'];

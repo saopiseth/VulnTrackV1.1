@@ -123,7 +123,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Auto-submit when 6 digits entered
 document.querySelector('input[name="otp"]').addEventListener('input', function () {
     this.value = this.value.replace(/\D/g, '');

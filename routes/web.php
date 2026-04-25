@@ -16,12 +16,14 @@ Route::get('/', fn() => redirect()->route('login'));
 
 // ─── Guest-only routes ────────────────────────────────────────
 Route::middleware('guest')->group(function () {
-    Route::get('/login',    [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login',   [AuthController::class, 'login'])->middleware('throttle:login');
-
-    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register',[AuthController::class, 'register'])->middleware('throttle:register');
+    Route::get('/login',  [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 });
+
+// Self-registration is disabled — new users are created by administrators via /users.
+// Redirect /register to login so stale bookmarks or bots don't get a 404.
+Route::get('/register',  fn() => redirect()->route('login'))->name('register');
+Route::post('/register', fn() => redirect()->route('login'));
 
 // ─── MFA routes (session-gated, no auth middleware) ───────────
 Route::get('/mfa/verify',  [AuthController::class, 'showMfa'])->name('mfa.verify');
@@ -42,7 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('sla-policies', SlaPolicyController::class)->except(['show']);
 
     Route::get('/vulnerabilities', [VulnerabilityController::class, 'index'])->name('vulnerabilities.index');
-    Route::post('/vulnerabilities/upload', [VulnerabilityController::class, 'upload'])->name('vulnerabilities.upload');
+    Route::post('/vulnerabilities/upload', [VulnerabilityController::class, 'upload'])->middleware('throttle:upload')->name('vulnerabilities.upload');
     Route::patch('/vulnerabilities/{vulnerability}/status', [VulnerabilityController::class, 'updateStatus'])->name('vulnerabilities.status');
     Route::delete('/vulnerabilities/{vulnerability}', [VulnerabilityController::class, 'destroy'])->name('vulnerabilities.destroy');
 
@@ -67,9 +69,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments/{vulnAssessment}',                        [VulnAssessmentController::class, 'show'])->name('vuln-assessments.show');
     Route::get('/vuln-assessments/{vulnAssessment}/findings',               [VulnAssessmentController::class, 'findings'])->name('vuln-assessments.findings');
     Route::get('/vuln-assessments/{vulnAssessment}/progress',               [VulnAssessmentController::class, 'progress'])->name('vuln-assessments.progress');
-    Route::post('/vuln-assessments/{vulnAssessment}/upload',                [VulnAssessmentController::class, 'uploadScan'])->name('vuln-assessments.upload');
+    Route::post('/vuln-assessments/{vulnAssessment}/upload',                [VulnAssessmentController::class, 'uploadScan'])->middleware('throttle:upload')->name('vuln-assessments.upload');
     Route::get('/vuln-assessments/{vulnAssessment}/scan-status/{scan}',     [VulnAssessmentController::class, 'uploadStatus'])->name('vuln-assessments.upload.status');
-    Route::post('/vuln-assessments/{vulnAssessment}/upload-chunk',          [VulnAssessmentController::class, 'uploadChunk'])->name('vuln-assessments.upload.chunk');
+    Route::post('/vuln-assessments/{vulnAssessment}/upload-chunk',          [VulnAssessmentController::class, 'uploadChunk'])->middleware('throttle:upload')->name('vuln-assessments.upload.chunk');
     Route::patch('/vuln-assessments/{vulnAssessment}/remediations/{remediation}', [VulnAssessmentController::class, 'updateRemediation'])->name('vuln-assessments.remediation.update');
     Route::patch('/vuln-assessments/{vulnAssessment}/remediations-bulk',          [VulnAssessmentController::class, 'bulkUpdateRemediation'])->name('vuln-assessments.remediation.bulk-update');
     Route::get('/vuln-assessments/{vulnAssessment}/os-assets',              [VulnAssessmentController::class, 'osAssets'])->name('vuln-assessments.os-assets');

@@ -285,7 +285,7 @@
 </div>
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Re-open upload modal if there are validation errors
 @if($errors->any())
 new bootstrap.Modal(document.getElementById('uploadModal')).show();

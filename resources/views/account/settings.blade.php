@@ -654,7 +654,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
     const toggle    = document.getElementById('mfa_toggle');
     const hiddenInput = document.getElementById('mfa_enabled_input');
     toggle.addEventListener('change', () => {

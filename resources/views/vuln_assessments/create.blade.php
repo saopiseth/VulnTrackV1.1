@@ -211,7 +211,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     // ── Route template (replace placeholder with group id at runtime) ──────
     const ITEMS_URL = '{{ route('assessment-scope.items.json', ['assessmentScopeGroup' => '__ID__']) }}';

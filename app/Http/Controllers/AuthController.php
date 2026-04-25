@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\MfaOtpMail;
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -33,6 +34,7 @@ class AuthController extends Controller
 
         // Verify credentials without logging in
         if (!Auth::validate($credentials)) {
+            AuditLog::record('auth.login_failed', null, ['email' => $request->email]);
             return back()
                 ->withInput($request->only('email', 'remember'))
                 ->withErrors(['email' => 'These credentials do not match our records.']);
@@ -43,6 +45,7 @@ class AuthController extends Controller
         if (!$user->mfa_enabled) {
             Auth::login($user, $remember);
             $request->session()->regenerate();
+            AuditLog::record('auth.login', $user);
             return redirect()->intended(route('dashboard'))
                 ->with('success', 'Welcome back, ' . $user->name . '!');
         }
@@ -107,6 +110,7 @@ class AuthController extends Controller
 
         Auth::login($user, $remember);
         $request->session()->regenerate();
+        AuditLog::record('auth.login_mfa', $user);
 
         return redirect()->intended(route('dashboard'))
             ->with('success', 'Welcome back, ' . $user->name . '!');
@@ -176,6 +180,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        AuditLog::record('auth.logout', Auth::user());
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

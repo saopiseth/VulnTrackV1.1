@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\SecurityHeaders;
 use App\Models\User;
 use App\Models\Vulnerability;
 use App\Models\VulnAssessment;
@@ -10,6 +11,7 @@ use App\Policies\VulnerabilityPolicy;
 use App\Policies\VulnAssessmentPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +25,17 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Global helper — returns the per-request CSP nonce for inline <script> tags.
+        if (!function_exists('csp_nonce')) {
+            function csp_nonce(): string
+            {
+                return SecurityHeaders::nonce();
+            }
+        }
+
+        // Blade directive shorthand: nonce="{{ csp_nonce() }}" in templates.
+        Blade::directive('cspnonce', fn() => '<?php echo e(csp_nonce()); ?>');
+
         // ── Authorization policies ────────────────────────────
         Gate::policy(User::class,             UserPolicy::class);
         Gate::policy(VulnAssessment::class,   VulnAssessmentPolicy::class);

@@ -200,7 +200,7 @@
     </div>
 </form>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Password toggle
     document.getElementById('togglePass')?.addEventListener('click', function () {
         const pwd = document.getElementById('password');

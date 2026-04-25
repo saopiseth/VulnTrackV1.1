@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -46,6 +47,7 @@ class AccountController extends Controller
         }
 
         $user->update(['password' => Hash::make($request->password)]);
+        AuditLog::record('account.password_changed', $user);
 
         return back()->with('success', 'Password changed successfully.')->withFragment('password');
     }
@@ -122,7 +124,7 @@ class AccountController extends Controller
         abort_unless(Auth::user()?->isAdministrator(), 403);
 
         $request->validate([
-            'logo' => ['required', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+            'logo' => ['required', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
         ]);
 
         // Delete old logo if exists
@@ -133,6 +135,7 @@ class AccountController extends Controller
 
         $path = $request->file('logo')->store('logos', 'public');
         SiteSetting::set('logo_path', $path);
+        AuditLog::record('settings.logo_uploaded', null, ['path' => $path]);
 
         return back()->with('success', 'Logo updated successfully.');
     }
@@ -181,6 +184,7 @@ class AccountController extends Controller
             SiteSetting::set('ldap_bind_password', encrypt($data['ldap_bind_password']));
         }
 
+        AuditLog::record('settings.ldap_updated');
         return back()->with('success', 'LDAP settings saved.');
     }
 
@@ -261,6 +265,7 @@ class AccountController extends Controller
             SiteSetting::set('azure_client_secret', encrypt($data['azure_client_secret']));
         }
 
+        AuditLog::record('settings.azure_updated');
         return back()->with('success', 'Azure AD settings saved.');
     }
 }

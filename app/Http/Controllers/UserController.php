@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
@@ -69,7 +70,8 @@ class UserController extends Controller
 
         $data['password'] = Hash::make($data['password']);
 
-        User::create($data);
+        $user = User::create($data);
+        AuditLog::record('user.created', $user, ['name' => $user->name, 'email' => $user->email, 'role' => $user->role]);
 
         return redirect()->route('users.index')
             ->with('success', 'User created successfully.');
@@ -108,6 +110,7 @@ class UserController extends Controller
         }
 
         $user->update($data);
+        AuditLog::record('user.updated', $user, ['role' => $user->role]);
 
         return redirect()->route('users.index')
             ->with('success', 'User updated successfully.');
@@ -117,6 +120,7 @@ class UserController extends Controller
     {
         $this->denyIfNotAdmin('delete', $user);
 
+        AuditLog::record('user.deleted', null, ['id' => $user->id, 'name' => $user->name, 'email' => $user->email]);
         $user->delete();
 
         return redirect()->route('users.index')

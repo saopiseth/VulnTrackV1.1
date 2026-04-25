@@ -287,7 +287,7 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 const FIELDS = ['ip_address','hostname','system_name','system_criticality','system_owner','identified_scope','environment','location','notes'];
 const FIELD_LABELS = {ip_address:'IP Address',hostname:'Hostname',system_name:'System Name',system_criticality:'Criticality',system_owner:'Owner',identified_scope:'Scope',environment:'Environment',location:'Location',notes:'Notes'};
 const GROUP_ID = {{ $group->id }};

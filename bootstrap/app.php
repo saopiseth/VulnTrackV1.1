@@ -15,7 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Console\Commands\RebuildVulnTracking::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
-        // Global middleware: security headers on every response
+        // Force HTTPS in production before anything else runs
+        $middleware->prepend(\App\Http\Middleware\ForceHttps::class);
+
+        // Security headers on every response (generates CSP nonce before view renders)
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
         // Named middleware aliases

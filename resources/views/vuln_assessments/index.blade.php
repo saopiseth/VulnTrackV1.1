@@ -400,7 +400,7 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.querySelectorAll('[id^="donut-"]').forEach(canvas => {
     const open       = parseInt(canvas.dataset.open)       || 0;
     const progress   = parseInt(canvas.dataset.progress)   || 0;

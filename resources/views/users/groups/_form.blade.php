@@ -143,7 +143,7 @@
 </form>
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Live search
 document.getElementById('member-search').addEventListener('input', function() {
     const q = this.value.toLowerCase();

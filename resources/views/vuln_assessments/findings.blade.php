@@ -666,7 +666,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
 // ── Group popovers ──────────────────────────────────────────────
 document.querySelectorAll('.group-badge-hover').forEach(function (el) {
     new bootstrap.Popover(el, {

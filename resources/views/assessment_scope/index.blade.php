@@ -173,7 +173,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
 function openCreate() { new bootstrap.Modal(document.getElementById('createModal')).show(); }
 
 function openEdit(group) {

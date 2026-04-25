@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AssessmentScope;
 use App\Models\AssessmentScopeGroup;
+use App\Models\AuditLog;
 use App\Models\SlaPolicy;
 use App\Models\UserGroup;
 use App\Models\VulnAssessment;
@@ -462,6 +463,8 @@ class VulnAssessmentController extends Controller
 
         ProcessScanUpload::dispatch($scan->id, $path, $ext);
 
+        AuditLog::record('scan.uploaded', $assessment, ['filename' => $filename, 'is_baseline' => $isBaseline]);
+
         if ($request->wantsJson()) {
             return response()->json(['scan_id' => $scan->id, 'status' => 'pending']);
         }
@@ -688,6 +691,7 @@ class VulnAssessmentController extends Controller
     {
         $this->authorize('delete', $vulnAssessment);
 
+        AuditLog::record('assessment.deleted', null, ['id' => $vulnAssessment->id, 'name' => $vulnAssessment->name]);
         $vulnAssessment->delete();
         return redirect()->route('vuln-assessments.index')
             ->with('success', 'Assessment deleted.');
@@ -707,6 +711,18 @@ class VulnAssessmentController extends Controller
     }
 
     // â”€â”€ Reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private function csvSafe(?string $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+        // Prefix formula-injection characters so spreadsheet apps don't execute them
+        if (in_array($value[0] ?? '', ['=', '+', '-', '@', “\t”, “\r”], true)) {
+            return “'” . $value;
+        }
+        return $value;
+    }
 
     private function buildReportData(VulnAssessment $a): array
     {
@@ -877,24 +893,24 @@ class VulnAssessmentController extends Controller
             $out = fopen('php://output', 'w');
 
             // Summary sheet header
-            fputcsv($out, ['Assessment Report â€” ' . $a->name]);
+            fputcsv($out, ['Assessment Report - ' . $a->name]);
             fputcsv($out, ['Generated', now()->format('d M Y H:i')]);
-            fputcsv($out, ['Period', ($a->period_start?->format('d M Y') ?? 'â€”') . ' â€“ ' . ($a->period_end?->format('d M Y') ?? 'â€”')]);
-            fputcsv($out, ['Environment', $a->environment ?? 'â€”']);
+            fputcsv($out, ['Period', ($a->period_start?->format('d M Y') ?? '-') . ' - ' . ($a->period_end?->format('d M Y') ?? '-')]);
+            fputcsv($out, ['Environment', $a->environment ?? '-']);
             fputcsv($out, []);
 
             // Findings
             fputcsv($out, ['Vulnerability Name', 'Severity', 'IP Address', 'Hostname', 'Port', 'Protocol', 'CVE', 'Status', 'First Seen']);
             foreach ($findings as $f) {
                 fputcsv($out, [
-                    $f->vuln_name,
-                    $f->severity,
-                    $f->ip_address,
-                    $f->hostname,
-                    $f->port,
-                    $f->protocol,
-                    $f->cve,
-                    $f->tracking_status,
+                    $this->csvSafe($f->vuln_name),
+                    $this->csvSafe($f->severity),
+                    $this->csvSafe($f->ip_address),
+                    $this->csvSafe($f->hostname),
+                    $this->csvSafe($f->port),
+                    $this->csvSafe($f->protocol),
+                    $this->csvSafe($f->cve),
+                    $this->csvSafe($f->tracking_status),
                     $f->first_seen_at?->format('d M Y'),
                 ]);
             }

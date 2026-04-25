@@ -639,7 +639,7 @@
 </div>
 
 @push('scripts')
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     const CHUNK_SIZE    = 5 * 1024 * 1024; // 5 MB
     const UPLOAD_URL    = '{{ route('vuln-assessments.upload', $assessment) }}';
