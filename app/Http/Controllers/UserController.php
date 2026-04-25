@@ -41,9 +41,10 @@ class UserController extends Controller
         $users = $query->paginate(15)->withQueryString();
 
         $stats = [
-            'total'          => User::count(),
-            'administrators' => User::where('role', 'administrator')->count(),
-            'assessors'      => User::where('role', 'assessor')->count(),
+            'total'                => User::count(),
+            'administrators'       => User::where('role', 'administrator')->count(),
+            'assessors'            => User::where('role', 'assessor')->count(),
+            'patch_administrators' => User::where('role', 'patch_administrator')->count(),
         ];
 
         return view('users.index', compact('users', 'stats'));
@@ -62,7 +63,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'email', 'unique:users,email'],
-            'role'     => ['required', 'in:administrator,assessor'],
+            'role'     => ['required', 'in:administrator,assessor,patch_administrator'],
             'password' => ['required', 'confirmed', Password::min(8)],
         ]);
 
@@ -93,7 +94,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name'        => ['required', 'string', 'max:255'],
             'email'       => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'role'        => ['required', 'in:administrator,assessor'],
+            'role'        => ['required', 'in:administrator,assessor,patch_administrator'],
             'mfa_enabled' => ['nullable', 'boolean'],
             'password'    => ['nullable', 'confirmed', Password::min(8)],
         ]);

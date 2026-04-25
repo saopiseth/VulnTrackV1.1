@@ -37,6 +37,17 @@ class User extends Authenticatable
         return $this->role === 'assessor';
     }
 
+    public function isPatchAdministrator(): bool
+    {
+        return $this->role === 'patch_administrator';
+    }
+
+    /** True for any role that may only read data and cannot perform write actions. */
+    public function isViewOnly(): bool
+    {
+        return $this->role === 'patch_administrator';
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

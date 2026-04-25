@@ -15,6 +15,7 @@
     .role-card:hover { border-color:#a5b4fc; background:#fafbff; }
     .role-card.selected-admin { border-color:#6d28d9; background:#faf5ff; }
     .role-card.selected-assessor { border-color:#15803d; background:#f0fdf4; }
+    .role-card.selected-patch-admin { border-color:#0369a1; background:#f0f9ff; }
     .role-card input[type=radio] { display:none; }
     .role-card .rc-title { font-weight:700; font-size:.9rem; color:#0f172a; }
     .role-card .rc-desc { font-size:.8rem; color:#64748b; margin-top:.25rem; }
@@ -60,16 +61,17 @@
     <div class="form-card">
         <h6><i class="bi bi-shield-half me-2"></i>Role & Permissions</h6>
         <div class="row g-3" id="roleCards">
-            {{-- Administrator --}}
             @php $currentRole = old('role', $user?->role ?? 'assessor'); @endphp
-            <div class="col-md-6">
+
+            {{-- Administrator --}}
+            <div class="col-md-4">
                 <label class="role-card {{ $currentRole === 'administrator' ? 'selected-admin' : '' }}" id="card-admin" for="role-admin">
                     <input type="radio" name="role" id="role-admin" value="administrator" {{ $currentRole === 'administrator' ? 'checked' : '' }}>
                     <div class="d-flex align-items-start gap-3">
                         <div class="rc-icon" style="background:#ede9fe;color:#6d28d9"><i class="bi bi-shield-fill-check"></i></div>
                         <div>
                             <div class="rc-title">Administrator</div>
-                            <div class="rc-desc">Full access — can manage users, create, edit, and delete assessments.</div>
+                            <div class="rc-desc">Full access — manage users, create, edit, and delete assessments.</div>
                             <div class="mt-2 d-flex flex-wrap gap-1">
                                 @foreach(['View','Create','Edit','Delete'] as $p)
                                 <span style="background:#ede9fe;color:#6d28d9;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:5px">{{ $p }}</span>
@@ -79,19 +81,40 @@
                     </div>
                 </label>
             </div>
+
             {{-- Assessor --}}
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label class="role-card {{ $currentRole === 'assessor' ? 'selected-assessor' : '' }}" id="card-assessor" for="role-assessor">
                     <input type="radio" name="role" id="role-assessor" value="assessor" {{ $currentRole === 'assessor' ? 'checked' : '' }}>
                     <div class="d-flex align-items-start gap-3">
                         <div class="rc-icon" style="background:#f0fdf4;color:#15803d"><i class="bi bi-person-badge-fill"></i></div>
                         <div>
                             <div class="rc-title">Assessor</div>
-                            <div class="rc-desc">Limited access — can view, create, and edit assessments. Cannot delete.</div>
+                            <div class="rc-desc">Can view, create, and edit own assessments. Cannot delete.</div>
                             <div class="mt-2 d-flex flex-wrap gap-1">
                                 @foreach(['View','Create','Edit'] as $p)
                                 <span style="background:#f0fdf4;color:#15803d;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:5px">{{ $p }}</span>
                                 @endforeach
+                                <span style="background:#fee2e2;color:#dc2626;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:5px">No Delete</span>
+                            </div>
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            {{-- Patch Administrator --}}
+            <div class="col-md-4">
+                <label class="role-card {{ $currentRole === 'patch_administrator' ? 'selected-patch-admin' : '' }}" id="card-patch-admin" for="role-patch-admin">
+                    <input type="radio" name="role" id="role-patch-admin" value="patch_administrator" {{ $currentRole === 'patch_administrator' ? 'checked' : '' }}>
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="rc-icon" style="background:#e0f2fe;color:#0369a1"><i class="bi bi-eye-fill"></i></div>
+                        <div>
+                            <div class="rc-title">Patch Administrator</div>
+                            <div class="rc-desc">Read-only — can view assessments and findings. No write access.</div>
+                            <div class="mt-2 d-flex flex-wrap gap-1">
+                                <span style="background:#e0f2fe;color:#0369a1;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:5px">View Only</span>
+                                <span style="background:#fee2e2;color:#dc2626;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:5px">No Create</span>
+                                <span style="background:#fee2e2;color:#dc2626;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:5px">No Edit</span>
                                 <span style="background:#fee2e2;color:#dc2626;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:5px">No Delete</span>
                             </div>
                         </div>
@@ -214,8 +237,10 @@
         radio.addEventListener('change', function() {
             document.getElementById('card-admin').classList.remove('selected-admin');
             document.getElementById('card-assessor').classList.remove('selected-assessor');
-            if (this.value === 'administrator') document.getElementById('card-admin').classList.add('selected-admin');
-            else document.getElementById('card-assessor').classList.add('selected-assessor');
+            document.getElementById('card-patch-admin').classList.remove('selected-patch-admin');
+            if (this.value === 'administrator')       document.getElementById('card-admin').classList.add('selected-admin');
+            else if (this.value === 'assessor')       document.getElementById('card-assessor').classList.add('selected-assessor');
+            else if (this.value === 'patch_administrator') document.getElementById('card-patch-admin').classList.add('selected-patch-admin');
         });
     });
 </script>

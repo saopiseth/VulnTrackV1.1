@@ -695,6 +695,8 @@ class VulnAssessmentController extends Controller
 
     public function updateScopeGroup(Request $request, VulnAssessment $vulnAssessment)
     {
+        $this->authorize('manage', $vulnAssessment);
+
         $data = $request->validate([
             'scope_group_id' => ['nullable', 'integer', 'exists:assessment_scope_groups,id'],
         ]);

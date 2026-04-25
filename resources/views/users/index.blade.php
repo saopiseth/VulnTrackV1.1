@@ -25,8 +25,9 @@
     .btn-act { padding:.25rem .55rem; border-radius:7px; font-size:.78rem; border:1px solid #e2e8f0; background:#fff; }
     .btn-act:hover { background:#f1f5f9; }
     .role-badge { padding:.22rem .7rem; border-radius:20px; font-size:.72rem; font-weight:700; display:inline-block; }
-    .role-admin   { background:rgb(240,248,210); color:var(--primary-dark); }
-    .role-assessor { background:#f0fdf4; color:#15803d; }
+    .role-admin          { background:rgb(240,248,210); color:var(--primary-dark); }
+    .role-assessor       { background:#f0fdf4; color:#15803d; }
+    .role-patch-admin    { background:#e0f2fe; color:#0369a1; }
     .avatar-sm { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700; color:#fff; flex-shrink:0; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); }
 </style>
 
@@ -44,22 +45,28 @@
 
 {{-- Stats --}}
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="stat-mini">
             <div class="sm-val">{{ $stats['total'] }}</div>
             <div class="sm-lbl">Total Users</div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="stat-mini" style="border-left:3px solid var(--primary-dark)">
             <div class="sm-val" style="color:var(--primary-dark)">{{ $stats['administrators'] }}</div>
             <div class="sm-lbl">Administrators</div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
+    <div class="col-6 col-md-3">
         <div class="stat-mini" style="border-left:3px solid #15803d">
             <div class="sm-val" style="color:#15803d">{{ $stats['assessors'] }}</div>
             <div class="sm-lbl">Assessors</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-mini" style="border-left:3px solid #0369a1">
+            <div class="sm-val" style="color:#0369a1">{{ $stats['patch_administrators'] }}</div>
+            <div class="sm-lbl">Patch Admins</div>
         </div>
     </div>
 </div>
@@ -82,8 +89,9 @@
         <div class="col-md-3">
             <select name="role" class="form-select">
                 <option value="">All Roles</option>
-                <option value="administrator" {{ request('role') === 'administrator' ? 'selected' : '' }}>Administrator</option>
-                <option value="assessor"      {{ request('role') === 'assessor'      ? 'selected' : '' }}>Assessor</option>
+                <option value="administrator"      {{ request('role') === 'administrator'      ? 'selected' : '' }}>Administrator</option>
+                <option value="assessor"           {{ request('role') === 'assessor'           ? 'selected' : '' }}>Assessor</option>
+                <option value="patch_administrator" {{ request('role') === 'patch_administrator' ? 'selected' : '' }}>Patch Administrator</option>
             </select>
         </div>
         <div class="col-md-3 d-flex gap-2">
@@ -124,9 +132,28 @@
                     </td>
                     <td style="color:#64748b">{{ $u->email }}</td>
                     <td>
-                        <span class="role-badge {{ $u->role === 'administrator' ? 'role-admin' : 'role-assessor' }}">
-                            <i class="bi bi-{{ $u->role === 'administrator' ? 'shield-fill-check' : 'person-badge-fill' }} me-1"></i>
-                            {{ ucfirst($u->role) }}
+                        @php
+                            $roleBadgeClass = match($u->role) {
+                                'administrator'       => 'role-admin',
+                                'assessor'            => 'role-assessor',
+                                'patch_administrator' => 'role-patch-admin',
+                                default               => 'role-assessor',
+                            };
+                            $roleIcon = match($u->role) {
+                                'administrator'       => 'shield-fill-check',
+                                'assessor'            => 'person-badge-fill',
+                                'patch_administrator' => 'eye-fill',
+                                default               => 'person-badge-fill',
+                            };
+                            $roleLabel = match($u->role) {
+                                'administrator'       => 'Administrator',
+                                'assessor'            => 'Assessor',
+                                'patch_administrator' => 'Patch Admin',
+                                default               => ucfirst($u->role),
+                            };
+                        @endphp
+                        <span class="role-badge {{ $roleBadgeClass }}">
+                            <i class="bi bi-{{ $roleIcon }} me-1"></i>{{ $roleLabel }}
                         </span>
                     </td>
                     <td style="color:#94a3b8;font-size:.82rem">{{ $u->created_at->format('d M Y') }}</td>

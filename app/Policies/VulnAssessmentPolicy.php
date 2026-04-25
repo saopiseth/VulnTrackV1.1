@@ -19,10 +19,10 @@ class VulnAssessmentPolicy
         return true;
     }
 
-    /** Any authenticated user may create an assessment. */
+    /** Any authenticated user except Patch Administrators may create an assessment. */
     public function create(User $user): bool
     {
-        return true;
+        return !$user->isPatchAdministrator();
     }
 
     /** Only the owner or an administrator may edit/update an assessment. */
