@@ -561,8 +561,7 @@ class VulnAssessmentController extends Controller
         VulnAssessment $vulnAssessment,
         VulnRemediation $remediation
     ): \Illuminate\Http\RedirectResponse {
-        // Double-check ownership; route model binding already scopes by ID,
-        // but this guards against any misconfiguration.
+        $this->authorize('manage', $vulnAssessment);
         abort_unless($remediation->assessment_id === $vulnAssessment->id, 403);
 
         // Only assigned_group_id ever reaches here; the Form Request strips

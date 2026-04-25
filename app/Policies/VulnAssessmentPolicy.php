@@ -39,10 +39,11 @@ class VulnAssessmentPolicy
 
     /**
      * Only the owner or an administrator may upload scans, override OS,
-     * reclassify findings, or update remediations.
+     * reclassify findings, or assign remediations. Patch Administrators are view-only.
      */
     public function manage(User $user, VulnAssessment $assessment): bool
     {
-        return $user->isAdministrator() || $assessment->created_by === $user->id;
+        return !$user->isPatchAdministrator()
+            && ($user->isAdministrator() || $assessment->created_by === $user->id);
     }
 }
