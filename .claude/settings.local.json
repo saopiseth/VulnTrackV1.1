@@ -10,7 +10,8 @@
       "Bash(grep -n 'slaPolicy\\\\|slaCounts\\\\|userGroups\\\\|$sla ')",
       "Bash(php -r ' *)",
       "Bash(php -r \"require 'c:/xampp/htdocs/myproject/ProjectAss/vendor/autoload.php';\")",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
