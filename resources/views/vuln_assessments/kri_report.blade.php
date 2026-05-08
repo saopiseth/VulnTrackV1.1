@@ -130,7 +130,7 @@
 </div>
 
 <div class="row g-3 mb-3">
-    <div class="col-lg-4">
+    <div class="col-lg-6">
         <div class="kri-card">
             <div class="kri-label">Asset Risk Concentration</div>
             <div class="d-flex justify-content-between align-items-end">
@@ -145,29 +145,13 @@
             </div>
         </div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-lg-6">
         <div class="kri-card">
             <div class="kri-label">Remediation Workflow</div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;text-align:center">
                 <div><div style="font-weight:900;color:#dc2626;font-size:1.25rem">{{ number_format($kri['open_remediation']) }}</div><div class="kri-note">Open</div></div>
                 <div><div style="font-weight:900;color:#d97706;font-size:1.25rem">{{ number_format($kri['in_progress']) }}</div><div class="kri-note">In Progress</div></div>
                 <div><div style="font-weight:900;color:#64748b;font-size:1.25rem">{{ number_format($kri['accepted_risk']) }}</div><div class="kri-note">Accepted</div></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-4">
-        <div class="kri-card">
-            <div class="kri-label">Trend Since Baseline</div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem">
-                <div>
-                    <div style="font-weight:900;color:#dc2626;font-size:1.45rem">{{ number_format($kri['new_findings']) }}</div>
-                    <div class="kri-note">new / reopened</div>
-                </div>
-                <div style="font-size:1.2rem;color:#cbd5e1"><i class="bi bi-arrow-left-right"></i></div>
-                <div style="text-align:right">
-                    <div style="font-weight:900;color:#16a34a;font-size:1.45rem">{{ number_format($kri['resolved_findings']) }}</div>
-                    <div class="kri-note">resolved</div>
-                </div>
             </div>
         </div>
     </div>
