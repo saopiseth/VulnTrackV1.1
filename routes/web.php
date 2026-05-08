@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments/create',                                  [VulnAssessmentController::class, 'create'])->name('vuln-assessments.create');
     Route::post('/vuln-assessments',                                        [VulnAssessmentController::class, 'store'])->name('vuln-assessments.store');
     Route::get('/vuln-assessments/{vulnAssessment}',                        [VulnAssessmentController::class, 'show'])->name('vuln-assessments.show');
+    Route::get('/vuln-assessments/{vulnAssessment}/KRI-Report',              [VulnAssessmentController::class, 'kriReport'])->name('vuln-assessments.kri-report');
     Route::get('/vuln-assessments/{vulnAssessment}/findings',               [VulnAssessmentController::class, 'findings'])->name('vuln-assessments.findings');
     Route::get('/vuln-assessments/{vulnAssessment}/progress',               [VulnAssessmentController::class, 'progress'])->name('vuln-assessments.progress');
     Route::post('/vuln-assessments/{vulnAssessment}/upload',                [VulnAssessmentController::class, 'uploadScan'])->middleware('throttle:upload')->name('vuln-assessments.upload');
