@@ -718,8 +718,8 @@ class VulnAssessmentController extends Controller
             return '';
         }
         // Prefix formula-injection characters so spreadsheet apps don't execute them
-        if (in_array($value[0] ?? '', ['=', '+', '-', '@', “\t”, “\r”], true)) {
-            return “'” . $value;
+        if (in_array($value[0] ?? '', ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'" . $value;
         }
         return $value;
     }
@@ -831,13 +831,13 @@ class VulnAssessmentController extends Controller
         $user = Auth::user();
 
         // Findings grouped: severity â†’ plugin_id â†’ [vuln info + affected hosts list]
-        $rawFindings = VulnTracked::where(‘assessment_id’, $a->id)
-            ->whereIn(‘severity’, [‘Critical’, ‘High’, ‘Medium’, ‘Low’])
+        $rawFindings = VulnTracked::where('assessment_id', $a->id)
+            ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
             ->visibleTo($user)
-            ->orderByRaw("CASE severity WHEN ‘Critical’ THEN 1 WHEN ‘High’ THEN 2 WHEN ‘Medium’ THEN 3 WHEN ‘Low’ THEN 4 ELSE 5 END")
-            ->orderByDesc(‘cvss_score’)
-            ->orderBy(‘vuln_name’)
-            ->orderBy(‘ip_address’)
+            ->orderByRaw("CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
+            ->orderByDesc('cvss_score')
+            ->orderBy('vuln_name')
+            ->orderBy('ip_address')
             ->get();
 
         $findingsBySeverity = [];
