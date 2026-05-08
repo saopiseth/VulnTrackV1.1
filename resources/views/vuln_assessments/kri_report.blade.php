@@ -148,10 +148,11 @@
     <div class="col-lg-6">
         <div class="kri-card">
             <div class="kri-label">Remediation Workflow</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;text-align:center">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;text-align:center">
                 <div><div style="font-weight:900;color:#dc2626;font-size:1.25rem">{{ number_format($kri['open_remediation']) }}</div><div class="kri-note">Open</div></div>
                 <div><div style="font-weight:900;color:#d97706;font-size:1.25rem">{{ number_format($kri['in_progress']) }}</div><div class="kri-note">In Progress</div></div>
                 <div><div style="font-weight:900;color:#64748b;font-size:1.25rem">{{ number_format($kri['accepted_risk']) }}</div><div class="kri-note">Accepted</div></div>
+                <div><div style="font-weight:900;color:#16a34a;font-size:1.25rem">{{ number_format($kri['resolved_by_scan']) }}</div><div class="kri-note">Resolved</div></div>
             </div>
         </div>
     </div>
