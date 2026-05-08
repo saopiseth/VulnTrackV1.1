@@ -270,18 +270,17 @@ class VulnAssessmentController extends Controller
 
     public function kriReportPowerPoint(VulnAssessment $vulnAssessment)
     {
-        abort_unless(class_exists(\ZipArchive::class), 500, 'PowerPoint export requires the PHP zip extension.');
-
         $assessment = $vulnAssessment->load('scans.creator', 'slaPolicy');
         $data = $this->buildKriReportData($assessment);
         abort_unless($data['kri'], 404, 'No KRI data available for export.');
 
-        $path = $this->buildKriPowerPoint($assessment, $data);
-        $filename = str()->slug($assessment->name) . '_KRI_Report_' . now()->format('Ymd') . '.pptx';
+        $filename = str()->slug($assessment->name) . '_KRI_Report_' . now()->format('Ymd') . '.ppt';
 
-        return response()->download($path, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        ])->deleteFileAfterSend(true);
+        return response()
+            ->view('vuln_assessments.kri_powerpoint', array_merge(['assessment' => $assessment], $data), 200, [
+                'Content-Type'        => 'application/vnd.ms-powerpoint; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
     }
 
     private function buildKriReportData(VulnAssessment $assessment): array
