@@ -9,9 +9,7 @@
     .badge-med   { background:#e0f2fe; color:#0c4a6e; }
     .badge-low   { background:#f0fdf4; color:#166534; }
     .badge-scope { padding:.2rem .6rem; border-radius:20px; font-size:.68rem; font-weight:700; }
-    .vuln-pill   { display:inline-flex; align-items:center; gap:3px; padding:.18rem .55rem;
-                   border-radius:20px; font-size:.72rem; font-weight:700; }
-    .tbl { table-layout:fixed; min-width:1120px; }
+    .tbl { table-layout:fixed; min-width:870px; }
     .tbl th { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
               color:#64748b; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
     .tbl td { font-size:.84rem; vertical-align:top; border-bottom:1px solid #f1f5f9;
@@ -23,12 +21,10 @@
     .tbl col:nth-child(3) { width:230px; }
     .tbl col:nth-child(4) { width:150px; }
     .tbl col:nth-child(5) { width:105px; }
-    .tbl col:nth-child(6) { width:145px; }
-    .tbl col:nth-child(7) { width:105px; }
-    .tbl col:nth-child(8) { width:90px; }
-    .tbl col:nth-child(9) { width:115px; }
-    .tbl col:nth-child(10) { width:120px; }
-    .tbl col:nth-child(11) { width:64px; }
+    .tbl col:nth-child(6) { width:90px; }
+    .tbl col:nth-child(7) { width:115px; }
+    .tbl col:nth-child(8) { width:120px; }
+    .tbl col:nth-child(9) { width:64px; }
     .tbl tr:hover td { background:#fafafa; }
     .filter-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
     select.form-select, input.form-control { font-size:.83rem; border-radius:8px; }
@@ -110,7 +106,7 @@
         <div class="table-responsive">
             <table class="table tbl mb-0">
                 <colgroup>
-                    <col><col><col><col><col><col><col><col><col><col><col>
+                    <col><col><col><col><col><col><col><col><col>
                 </colgroup>
                 <thead>
                     <tr>
@@ -118,8 +114,6 @@
                         <th>Hostname</th>
                         <th>Operating System</th>
                         <th>Kernel / Build</th>
-                        <th>Vulns</th>
-                        <th>Open Ports</th>
                         <th>Scope</th>
                         <th>Env</th>
                         <th>Last Scanned</th>
@@ -164,42 +158,6 @@
                         <td>
                             @if($asset->os_kernel)
                                 <code class="cell-wrap" style="font-size:.78rem;background:#f1f5f9;padding:.15rem .45rem;border-radius:5px;color:#374151">{{ $asset->os_kernel }}</code>
-                            @else
-                                <span class="text-muted">—</span>
-                            @endif
-                        </td>
-
-                        {{-- Vuln counts --}}
-                        <td>
-                            <div style="display:flex;gap:3px;flex-wrap:wrap">
-                                @if($asset->vuln_critical > 0)
-                                <span class="vuln-pill badge-crit">C {{ $asset->vuln_critical }}</span>
-                                @endif
-                                @if($asset->vuln_high > 0)
-                                <span class="vuln-pill badge-high">H {{ $asset->vuln_high }}</span>
-                                @endif
-                                @if($asset->vuln_medium > 0)
-                                <span class="vuln-pill badge-med">M {{ $asset->vuln_medium }}</span>
-                                @endif
-                                @if($asset->vuln_low > 0)
-                                <span class="vuln-pill badge-low">L {{ $asset->vuln_low }}</span>
-                                @endif
-                                @if($asset->totalVulns() === 0)
-                                <span class="text-muted" style="font-size:.8rem">None</span>
-                                @endif
-                            </div>
-                        </td>
-
-                        {{-- Open ports --}}
-                        <td>
-                            @php $ports = $asset->openPortsArray(); @endphp
-                            @if(count($ports))
-                                <span class="cell-wrap" style="font-size:.75rem;color:#64748b">
-                                    {{ implode(', ', array_slice($ports, 0, 6)) }}
-                                    @if(count($ports) > 6)
-                                        <span class="text-muted">+{{ count($ports) - 6 }}</span>
-                                    @endif
-                                </span>
                             @else
                                 <span class="text-muted">—</span>
                             @endif
