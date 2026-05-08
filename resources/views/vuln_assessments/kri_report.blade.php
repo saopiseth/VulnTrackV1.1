@@ -113,7 +113,7 @@
         ['Critical', (int) ($stats->critical ?? 0), '#780000'],
         ['High', (int) ($stats->high ?? 0), '#dc0000'],
         ['Medium', (int) ($stats->medium ?? 0), '#fd8c00'],
-        ['Low', (int) ($stats->low ?? 0), '#808080'],
+        ['Low', (int) ($stats->low ?? 0), '#16a34a'],
     ];
     $workflowChart = [
         ['Open', $kri['open_remediation'], '#dc2626'],

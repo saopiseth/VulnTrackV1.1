@@ -520,7 +520,7 @@ class VulnAssessmentController extends Controller
             ['Critical', (int) ($stats->critical ?? 0), '780000'],
             ['High', (int) ($stats->high ?? 0), 'DC0000'],
             ['Medium', (int) ($stats->medium ?? 0), 'FD8C00'],
-            ['Low', (int) ($stats->low ?? 0), '808080'],
+            ['Low', (int) ($stats->low ?? 0), '16A34A'],
         ];
         $workflow = [
             ['Open', $kri['open_remediation'], 'DC2626'],
