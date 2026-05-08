@@ -517,10 +517,10 @@ class VulnAssessmentController extends Controller
     private function pptSlideCharts(VulnAssessment $assessment, $stats, array $kri): string
     {
         $severity = [
-            ['Critical', (int) ($stats->critical ?? 0), '991B1B'],
-            ['High', (int) ($stats->high ?? 0), 'C2410C'],
-            ['Medium', (int) ($stats->medium ?? 0), 'D97706'],
-            ['Low', (int) ($stats->low ?? 0), '64748B'],
+            ['Critical', (int) ($stats->critical ?? 0), '780000'],
+            ['High', (int) ($stats->high ?? 0), 'DC0000'],
+            ['Medium', (int) ($stats->medium ?? 0), 'FD8C00'],
+            ['Low', (int) ($stats->low ?? 0), '808080'],
         ];
         $workflow = [
             ['Open', $kri['open_remediation'], 'DC2626'],

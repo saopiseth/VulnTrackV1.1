@@ -115,10 +115,10 @@
     $slaColor = $kri['sla_breached'] > 0 ? '#dc2626' : ($kri['sla_approaching'] > 0 ? '#d97706' : '#16a34a');
     $remColor = $kri['remediation_pct'] >= 80 ? '#16a34a' : ($kri['remediation_pct'] >= 50 ? '#d97706' : '#dc2626');
     $severityChart = [
-        ['Critical', (int) ($stats->critical ?? 0), '#991b1b'],
-        ['High', (int) ($stats->high ?? 0), '#c2410c'],
-        ['Medium', (int) ($stats->medium ?? 0), '#d97706'],
-        ['Low', (int) ($stats->low ?? 0), '#64748b'],
+        ['Critical', (int) ($stats->critical ?? 0), '#780000'],
+        ['High', (int) ($stats->high ?? 0), '#dc0000'],
+        ['Medium', (int) ($stats->medium ?? 0), '#fd8c00'],
+        ['Low', (int) ($stats->low ?? 0), '#808080'],
     ];
     $workflowChart = [
         ['Open', $kri['open_remediation'], '#dc2626'],
