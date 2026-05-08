@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
 
     // Asset Inventory
     Route::get('/asset-inventory',          [AssetInventoryController::class, 'index'])->name('asset-inventory.index');
+    Route::get('/asset-inventory/export/excel', [AssetInventoryController::class, 'exportExcel'])->name('asset-inventory.export.excel');
     Route::get('/asset-inventory/{assetInventory}', [AssetInventoryController::class, 'show'])->name('asset-inventory.show');
 
     // Account

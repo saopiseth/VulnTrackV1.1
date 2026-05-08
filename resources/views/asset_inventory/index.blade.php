@@ -40,6 +40,10 @@
         <h4 class="mb-0"><i class="bi bi-pc-display-horizontal me-2" style="color:var(--primary)"></i>Asset Inventory</h4>
         <p class="mb-0">All hosts discovered from Nessus scan uploads across every assessment.</p>
     </div>
+    <a href="{{ route('asset-inventory.export.excel', request()->query()) }}"
+       class="btn btn-sm" style="background:#16a34a;color:#fff;border-radius:8px">
+        <i class="bi bi-file-earmark-excel-fill me-1"></i>Export Excel
+    </a>
 </div>
 
 {{-- Filters --}}
