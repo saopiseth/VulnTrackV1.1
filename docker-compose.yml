@@ -31,7 +31,7 @@ services:
     container_name: vulntrack_nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
       - ./public:/var/www/public:ro
       - ./storage/app/public:/var/www/storage/app/public:ro
@@ -56,8 +56,11 @@ services:
       MYSQL_USER: ${DB_USERNAME:-vulntrack}
       MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
+    ports:
+      - "3307:3306"
     volumes:
       - dbdata_brandnew:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     networks:
       - vulntrack
     healthcheck:
@@ -73,6 +76,8 @@ services:
     container_name: vulntrack_redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redissecret}
+    ports:
+      - "6379:6379"
     volumes:
       - redisdata:/data
     networks:

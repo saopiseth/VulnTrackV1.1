@@ -135,6 +135,50 @@ class ProcessScanUpload implements ShouldQueue
                     }
                 }
 
+                // ── Sync asset_inventories (global cross-assessment view) ─────
+                $ipList = array_keys($hostOsMap);
+
+                // Aggregate vuln counts per IP across ALL findings for these IPs
+                $allCounts = DB::table('vuln_findings')
+                    ->whereIn('ip_address', $ipList)
+                    ->selectRaw("ip_address, severity, COUNT(*) as cnt")
+                    ->groupBy('ip_address', 'severity')
+                    ->get()
+                    ->groupBy('ip_address');
+
+                // Collect unique open ports per IP (exclude port 0 / empty)
+                $allPorts = DB::table('vuln_findings')
+                    ->whereIn('ip_address', $ipList)
+                    ->whereRaw("port != '' AND port != '0'")
+                    ->selectRaw("ip_address, GROUP_CONCAT(DISTINCT port ORDER BY (port+0)) as ports")
+                    ->groupBy('ip_address')
+                    ->pluck('ports', 'ip_address');
+
+                foreach ($hostOsMap as $ip => $osData) {
+                    $ipCounts = $allCounts->get($ip, collect());
+                    DB::table('asset_inventories')->upsert(
+                        [[
+                            'ip_address'      => $ip,
+                            'hostname'        => $osData['hostname'] ?? null,
+                            'os'              => $osData['os_name'],
+                            'os_family'       => $osData['os_family'],
+                            'os_kernel'       => $osData['os_kernel'],
+                            'open_ports'      => $allPorts[$ip] ?? null,
+                            'vuln_critical'   => $ipCounts->where('severity', 'Critical')->sum('cnt'),
+                            'vuln_high'       => $ipCounts->where('severity', 'High')->sum('cnt'),
+                            'vuln_medium'     => $ipCounts->where('severity', 'Medium')->sum('cnt'),
+                            'vuln_low'        => $ipCounts->where('severity', 'Low')->sum('cnt'),
+                            'last_scanned_at' => $now,
+                            'created_at'      => $now,
+                            'updated_at'      => $now,
+                        ]],
+                        ['ip_address'],
+                        ['hostname', 'os', 'os_family', 'os_kernel', 'open_ports',
+                         'vuln_critical', 'vuln_high', 'vuln_medium', 'vuln_low',
+                         'last_scanned_at', 'updated_at']
+                    );
+                }
+
                 // ── Tracking engine ───────────────────────────────────────────
                 (new VulnTrackingService())->track($assessment, $scan);
             });

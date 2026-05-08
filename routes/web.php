@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AssessmentScopeController;
+use App\Http\Controllers\AssetInventoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
@@ -83,6 +84,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments/{vulnAssessment}/report/word',            [VulnAssessmentController::class, 'reportWord'])->name('vuln-assessments.report.word');
     Route::get('/vuln-assessments/{vulnAssessment}/report/excel',           [VulnAssessmentController::class, 'reportExcel'])->name('vuln-assessments.report.excel');
 
+
+    // Asset Inventory
+    Route::get('/asset-inventory',          [AssetInventoryController::class, 'index'])->name('asset-inventory.index');
+    Route::get('/asset-inventory/{assetInventory}', [AssetInventoryController::class, 'show'])->name('asset-inventory.show');
 
     // Account
     Route::get('/account/profile',           [AccountController::class, 'profile'])->name('account.profile');

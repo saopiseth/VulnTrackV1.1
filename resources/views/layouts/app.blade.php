@@ -232,6 +232,11 @@
             <div class="sidebar-label mt-2">Vulnerability Management</div>
             <ul class="list-unstyled mb-0">
                 <li class="nav-item">
+                    <a href="{{ route('asset-inventory.index') }}" class="{{ request()->routeIs('asset-inventory.*') ? 'active' : '' }}">
+                        <i class="bi bi-pc-display-horizontal"></i> Asset Inventory
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('assessment-scope.index') }}" class="{{ request()->routeIs('assessment-scope.*') ? 'active' : '' }}">
                         <i class="bi bi-diagram-3-fill"></i> Assessment Scope
                     </a>
