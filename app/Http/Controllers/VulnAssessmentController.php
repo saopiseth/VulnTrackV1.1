@@ -67,7 +67,7 @@ class VulnAssessmentController extends Controller
 
     public function show(VulnAssessment $vulnAssessment)
     {
-        $assessment  = $vulnAssessment->load('scans.creator');
+        $assessment  = $vulnAssessment->load('scans.creator', 'slaPolicy');
         $baseline    = $assessment->baselineScan();
         $latestScan  = $assessment->latestScan();
 
@@ -251,10 +251,72 @@ class VulnAssessmentController extends Controller
 
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
+        $slaPolicy = $assessment->slaPolicy ?? SlaPolicy::where('is_default', true)->first();
+        $kri = null;
+        if ($activeScan && $stats) {
+            $totalTracked = $hasTracked
+                ? VulnTracked::where('assessment_id', $assessment->id)
+                    ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                    ->count()
+                : (int) $stats->total;
+
+            $slaCounts = ['on_track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
+            if ($hasTracked && $slaPolicy) {
+                $trackedForSla = VulnTracked::where('assessment_id', $assessment->id)
+                    ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                    ->get(['severity', 'first_seen_at', 'tracking_status', 'resolved_at']);
+
+                foreach ($trackedForSla as $finding) {
+                    if (!$finding->first_seen_at) {
+                        continue;
+                    }
+
+                    [$status] = $slaPolicy->slaStatus(
+                        $finding->severity,
+                        \Carbon\Carbon::parse($finding->first_seen_at),
+                        $finding->tracking_status === VulnTracked::STATUS_RESOLVED,
+                        $finding->resolved_at ? \Carbon\Carbon::parse($finding->resolved_at) : null
+                    );
+
+                    if ($status === 'on-track') {
+                        $slaCounts['on_track']++;
+                    } elseif (isset($slaCounts[$status])) {
+                        $slaCounts[$status]++;
+                    }
+                }
+            }
+
+            $resolvedByScan = (int) ($remStats->resolved_by_scan ?? 0);
+            $activeTotal = (int) ($stats->total ?? 0);
+            $criticalHigh = (int) ($stats->critical ?? 0) + (int) ($stats->high ?? 0);
+            $riskScore = ($stats->critical * 10) + ($stats->high * 7) + ($stats->medium * 4) + ($stats->low * 1);
+
+            $kri = [
+                'risk_score'               => $riskScore,
+                'active_total'             => $activeTotal,
+                'critical_high'            => $criticalHigh,
+                'critical_high_pct'        => $activeTotal > 0 ? round(($criticalHigh / $activeTotal) * 100) : 0,
+                'active_hosts'             => $activeHostCount,
+                'mission_critical_hosts'   => $topIps->filter(fn($ip) => (int) ($ip->system_criticality ?? 0) === 1 && (int) ($ip->active_count ?? 0) > 0)->count(),
+                'remediation_pct'          => $totalTracked > 0 ? round(($resolvedByScan / $totalTracked) * 100) : 0,
+                'resolved_by_scan'         => $resolvedByScan,
+                'in_progress'              => (int) ($remStats->in_progress ?? 0),
+                'accepted_risk'            => (int) ($remStats->accepted ?? 0),
+                'open_remediation'         => (int) ($remStats->open_count ?? $activeTotal),
+                'sla_policy'               => $slaPolicy?->name,
+                'sla_on_track'             => $slaCounts['on_track'],
+                'sla_approaching'          => $slaCounts['approaching'],
+                'sla_breached'             => $slaCounts['breached'],
+                'sla_met'                  => $slaCounts['met'],
+                'new_findings'             => (int) ($comparison['new'] ?? 0),
+                'resolved_findings'        => (int) ($comparison['resolved'] ?? $resolvedByScan),
+            ];
+        }
+
         return view('vuln_assessments.show', compact(
             'assessment', 'baseline', 'latestScan', 'activeScan',
             'stats', 'topIps', 'comparison', 'hostComparison', 'activeHostCount', 'remStats',
-            'osDistribution', 'osHostCount', 'scopeGroups'
+            'osDistribution', 'osHostCount', 'scopeGroups', 'kri'
         ));
     }
 

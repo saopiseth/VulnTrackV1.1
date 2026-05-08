@@ -44,13 +44,17 @@
     .scan-baseline { background:var(--lime-muted); color:var(--lime-dark); }
     .scan-latest   { background:#dbeafe; color:#1e40af; }
 
-    /* ── Comparison delta cards ── */
-    .delta-card { border-radius:12px; padding:1.1rem 1.25rem; }
-
     /* ── Progress ── */
     .prog-bar { height:7px; border-radius:20px; background:#e8f5c2; overflow:hidden; }
     .prog-fill { height:100%; border-radius:20px; background:var(--lime); }
     .prog-thin { height:3px; border-radius:10px; background:#e2e8f0; overflow:hidden; margin-top:.25rem; }
+
+    .kri-card { border:1px solid #e2e8f0; border-radius:10px; padding:1rem; height:100%; background:#fff; }
+    .kri-label { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.55px; color:#64748b; margin-bottom:.35rem; }
+    .kri-value { font-size:1.8rem; font-weight:900; line-height:1.05; color:#0f172a; }
+    .kri-note { font-size:.73rem; color:#64748b; margin-top:.35rem; line-height:1.35; }
+    .kri-meter { height:7px; border-radius:99px; background:#e2e8f0; overflow:hidden; margin-top:.65rem; }
+    .kri-meter span { display:block; height:100%; border-radius:99px; }
 </style>
 
 {{-- ── Hero header ── --}}
@@ -227,18 +231,18 @@
 
 {{-- ── Pill tabs ── --}}
 <div class="pill-nav" role="tablist">
-    @if($comparison)
-    <button class="p-tab active" data-bs-toggle="tab" data-bs-target="#tab-comparison" role="tab">
-        <i class="bi bi-arrow-left-right me-1"></i>Comparison
+    @if($kri)
+    <button class="p-tab active" data-bs-toggle="tab" data-bs-target="#tab-kri" role="tab">
+        <i class="bi bi-speedometer2 me-1"></i>KRI Dashboard
     </button>
     @endif
     @if($topIps->count() || $assessment->scope_group_id)
-    <button class="p-tab{{ !$comparison ? ' active' : '' }}" data-bs-toggle="tab" data-bs-target="#tab-os" role="tab">
+    <button class="p-tab{{ !$kri ? ' active' : '' }}" data-bs-toggle="tab" data-bs-target="#tab-os" role="tab">
         <i class="bi bi-hdd-network me-1"></i>Vulnerable Hosts
         @if($topIps->count())<span class="cnt">{{ $topIps->count() }}</span>@endif
     </button>
     @endif
-    <button class="p-tab{{ !$comparison && !$topIps->count() && !$assessment->scope_group_id ? ' active' : '' }}" data-bs-toggle="tab" data-bs-target="#tab-scans" role="tab">
+    <button class="p-tab{{ !$kri && !$topIps->count() && !$assessment->scope_group_id ? ' active' : '' }}" data-bs-toggle="tab" data-bs-target="#tab-scans" role="tab">
         <i class="bi bi-cloud-upload me-1"></i>Scans
         <span class="cnt">{{ $assessment->scans->count() }}</span>
     </button>
@@ -246,94 +250,104 @@
 
 <div class="tab-content">
 
-
 {{-- ══════════════════════════════════════════════════════════════
-     TAB: Comparison
+     TAB: KRI Dashboard
 ══════════════════════════════════════════════════════════════ --}}
-@if($comparison)
-<div class="tab-pane fade show active" id="tab-comparison" role="tabpanel">
-@php
-    $netChange  = $comparison['new'] - $comparison['resolved'];
-    $netLabel   = $netChange > 0 ? "+{$netChange} more" : ($netChange < 0 ? abs($netChange).' fewer' : 'no change');
-    $netColor   = $netChange > 0 ? '#dc2626' : ($netChange < 0 ? '#059669' : '#64748b');
-    $netBg      = $netChange > 0 ? '#fee2e2' : ($netChange < 0 ? '#d1fae5' : '#f1f5f9');
-    $netIcon    = $netChange > 0 ? 'bi-arrow-up-right' : ($netChange < 0 ? 'bi-arrow-down-right' : 'bi-dash');
-@endphp
+@if($kri)
+<div class="tab-pane fade show active" id="tab-kri" role="tabpanel">
+    @php
+        $riskLevel = $kri['risk_score'] >= 100 ? ['Critical Risk', '#fee2e2', '#991b1b']
+            : ($kri['risk_score'] >= 50 ? ['Elevated Risk', '#ffedd5', '#c2410c']
+            : ($kri['risk_score'] >= 15 ? ['Moderate Risk', '#fef9c3', '#854d0e'] : ['Low Risk', '#dcfce7', '#166534']));
+        $slaColor = $kri['sla_breached'] > 0 ? '#dc2626' : ($kri['sla_approaching'] > 0 ? '#d97706' : '#16a34a');
+        $remColor = $kri['remediation_pct'] >= 80 ? '#16a34a' : ($kri['remediation_pct'] >= 50 ? '#d97706' : '#dc2626');
+    @endphp
 
-    {{-- ── Vulnerability delta cards ───────────────────────────────── --}}
-    <div class="row g-3 mb-3">
+    <div style="margin-bottom:1rem">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <div class="section-label mb-0"><i class="bi bi-speedometer2"></i>Vulnerability KRI Dashboard</div>
+            <span style="font-size:.72rem;color:#64748b;font-weight:600">
+                {{ $kri['sla_policy'] ? 'SLA: ' . $kri['sla_policy'] : 'No SLA policy configured' }}
+            </span>
+        </div>
 
-        {{-- Resolved --}}
-        <div class="col-md-4">
-            <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:14px;padding:1.35rem 1.4rem;height:100%">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#166534">Fixed / Resolved</span>
-                    <span style="width:32px;height:32px;border-radius:9px;background:#dcfce7;display:flex;align-items:center;justify-content:center">
-                        <i class="bi bi-patch-check-fill" style="color:#16a34a;font-size:.9rem"></i>
-                    </span>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3 col-sm-6">
+                <div class="kri-card" style="background:{{ $riskLevel[1] }};border-color:{{ $riskLevel[2] }}33">
+                    <div class="kri-label" style="color:{{ $riskLevel[2] }}">Overall Risk Score</div>
+                    <div class="kri-value" style="color:{{ $riskLevel[2] }}">{{ number_format($kri['risk_score']) }}</div>
+                    <div class="kri-note" style="color:{{ $riskLevel[2] }}">{{ $riskLevel[0] }}</div>
                 </div>
-                <div style="font-size:3rem;font-weight:900;color:#15803d;line-height:1">{{ $comparison['resolved'] }}</div>
-                <div style="font-size:.76rem;color:#166534;margin-top:.4rem;font-weight:500">
-                    Vulnerabilities eliminated since baseline
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="kri-card">
+                    <div class="kri-label">Critical / High Exposure</div>
+                    <div class="kri-value">{{ number_format($kri['critical_high']) }}</div>
+                    <div class="kri-note">{{ $kri['critical_high_pct'] }}% of active findings</div>
+                    <div class="kri-meter"><span style="width:{{ min(100, $kri['critical_high_pct']) }}%;background:#dc2626"></span></div>
                 </div>
-                @if($comparison['resolved'] > 0 && ($comparison['resolved'] + $comparison['persistent'] + $comparison['new']) > 0)
-                @php $resolvedPct = round($comparison['resolved'] / max(1,$comparison['resolved']+$comparison['persistent']+$comparison['new'])*100); @endphp
-                <div style="margin-top:.75rem;height:4px;background:#bbf7d0;border-radius:20px;overflow:hidden">
-                    <div style="height:100%;width:{{ $resolvedPct }}%;background:#16a34a;border-radius:20px"></div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="kri-card">
+                    <div class="kri-label">SLA Breached</div>
+                    <div class="kri-value" style="color:{{ $slaColor }}">{{ number_format($kri['sla_breached']) }}</div>
+                    <div class="kri-note">{{ number_format($kri['sla_approaching']) }} approaching deadline</div>
                 </div>
-                <div style="font-size:.68rem;color:#166534;margin-top:.25rem">{{ $resolvedPct }}% of total</div>
-                @endif
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="kri-card">
+                    <div class="kri-label">Remediation Completion</div>
+                    <div class="kri-value" style="color:{{ $remColor }}">{{ $kri['remediation_pct'] }}%</div>
+                    <div class="kri-note">{{ number_format($kri['resolved_by_scan']) }} scan-confirmed resolved</div>
+                    <div class="kri-meter"><span style="width:{{ min(100, $kri['remediation_pct']) }}%;background:{{ $remColor }}"></span></div>
+                </div>
             </div>
         </div>
 
-        {{-- New --}}
-        <div class="col-md-4">
-            <div style="background:#fff8f8;border:1.5px solid #fca5a5;border-radius:14px;padding:1.35rem 1.4rem;height:100%">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#991b1b">New Findings</span>
-                    <span style="width:32px;height:32px;border-radius:9px;background:#fee2e2;display:flex;align-items:center;justify-content:center">
-                        <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;font-size:.9rem"></i>
-                    </span>
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="kri-card">
+                    <div class="kri-label">Asset Risk Concentration</div>
+                    <div class="d-flex justify-content-between align-items-end">
+                        <div>
+                            <div class="kri-value">{{ number_format($kri['active_hosts']) }}</div>
+                            <div class="kri-note">hosts with active vulnerabilities</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div style="font-size:1.25rem;font-weight:900;color:#991b1b">{{ number_format($kri['mission_critical_hosts']) }}</div>
+                            <div class="kri-note">mission-critical</div>
+                        </div>
+                    </div>
                 </div>
-                <div style="font-size:3rem;font-weight:900;color:#dc2626;line-height:1">{{ $comparison['new'] }}</div>
-                <div style="font-size:.76rem;color:#991b1b;margin-top:.4rem;font-weight:500">
-                    New vulnerabilities in latest scan
-                </div>
-                @if($comparison['new'] > 0)
-                @php $newPct = round($comparison['new'] / max(1,$comparison['resolved']+$comparison['persistent']+$comparison['new'])*100); @endphp
-                <div style="margin-top:.75rem;height:4px;background:#fecaca;border-radius:20px;overflow:hidden">
-                    <div style="height:100%;width:{{ $newPct }}%;background:#dc2626;border-radius:20px"></div>
-                </div>
-                <div style="font-size:.68rem;color:#991b1b;margin-top:.25rem">{{ $newPct }}% of total</div>
-                @endif
             </div>
-        </div>
-
-        {{-- Persistent --}}
-        <div class="col-md-4">
-            <div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:14px;padding:1.35rem 1.4rem;height:100%">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#92400e">Still Persistent</span>
-                    <span style="width:32px;height:32px;border-radius:9px;background:#fef3c7;display:flex;align-items:center;justify-content:center">
-                        <i class="bi bi-arrow-repeat" style="color:#d97706;font-size:.9rem"></i>
-                    </span>
+            <div class="col-lg-4">
+                <div class="kri-card">
+                    <div class="kri-label">Remediation Workflow</div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;text-align:center">
+                        <div><div style="font-weight:900;color:#dc2626;font-size:1.25rem">{{ number_format($kri['open_remediation']) }}</div><div class="kri-note">Open</div></div>
+                        <div><div style="font-weight:900;color:#d97706;font-size:1.25rem">{{ number_format($kri['in_progress']) }}</div><div class="kri-note">In Progress</div></div>
+                        <div><div style="font-weight:900;color:#64748b;font-size:1.25rem">{{ number_format($kri['accepted_risk']) }}</div><div class="kri-note">Accepted</div></div>
+                    </div>
                 </div>
-                <div style="font-size:3rem;font-weight:900;color:#b45309;line-height:1">{{ $comparison['persistent'] }}</div>
-                <div style="font-size:.76rem;color:#92400e;margin-top:.4rem;font-weight:500">
-                    Unresolved across both scans
+            </div>
+            <div class="col-lg-4">
+                <div class="kri-card">
+                    <div class="kri-label">Trend Since Baseline</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem">
+                        <div>
+                            <div style="font-weight:900;color:#dc2626;font-size:1.45rem">{{ number_format($kri['new_findings']) }}</div>
+                            <div class="kri-note">new / reopened</div>
+                        </div>
+                        <div style="font-size:1.2rem;color:#cbd5e1"><i class="bi bi-arrow-left-right"></i></div>
+                        <div style="text-align:right">
+                            <div style="font-weight:900;color:#16a34a;font-size:1.45rem">{{ number_format($kri['resolved_findings']) }}</div>
+                            <div class="kri-note">resolved</div>
+                        </div>
+                    </div>
                 </div>
-                @if($comparison['persistent'] > 0)
-                @php $persPct = round($comparison['persistent'] / max(1,$comparison['resolved']+$comparison['persistent']+$comparison['new'])*100); @endphp
-                <div style="margin-top:.75rem;height:4px;background:#fde68a;border-radius:20px;overflow:hidden">
-                    <div style="height:100%;width:{{ $persPct }}%;background:#d97706;border-radius:20px"></div>
-                </div>
-                <div style="font-size:.68rem;color:#92400e;margin-top:.25rem">{{ $persPct }}% of total</div>
-                @endif
             </div>
         </div>
     </div>
-
-
 </div>
 @endif
 
@@ -341,7 +355,7 @@
      TAB: Vulnerable Hosts
 ══════════════════════════════════════════════════════════════ --}}
 @if($topIps->count() || $assessment->scope_group_id)
-<div class="tab-pane fade{{ !$comparison ? ' show active' : '' }}" id="tab-os" role="tabpanel">
+<div class="tab-pane fade{{ !$kri ? ' show active' : '' }}" id="tab-os" role="tabpanel">
 
     {{-- ── Scope Group picker ──────────────────────────────────────── --}}
     <div class="va-card mb-3" style="padding:1rem 1.25rem">
@@ -528,7 +542,7 @@
 {{-- ══════════════════════════════════════════════════════════════
      TAB: Scans
 ══════════════════════════════════════════════════════════════ --}}
-<div class="tab-pane fade" id="tab-scans" role="tabpanel">
+<div class="tab-pane fade{{ !$kri && !$topIps->count() && !$assessment->scope_group_id ? ' show active' : '' }}" id="tab-scans" role="tabpanel">
     @forelse($assessment->scans as $scan)
     <div class="scan-row">
         <div style="width:36px;height:36px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;
