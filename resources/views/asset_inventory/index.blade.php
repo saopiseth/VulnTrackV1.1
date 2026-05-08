@@ -11,9 +11,24 @@
     .badge-scope { padding:.2rem .6rem; border-radius:20px; font-size:.68rem; font-weight:700; }
     .vuln-pill   { display:inline-flex; align-items:center; gap:3px; padding:.18rem .55rem;
                    border-radius:20px; font-size:.72rem; font-weight:700; }
+    .tbl { table-layout:fixed; min-width:1120px; }
     .tbl th { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
               color:#64748b; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
-    .tbl td { font-size:.84rem; vertical-align:middle; border-bottom:1px solid #f1f5f9; }
+    .tbl td { font-size:.84rem; vertical-align:top; border-bottom:1px solid #f1f5f9;
+              line-height:1.35; padding-top:.7rem; padding-bottom:.7rem; }
+    .tbl .cell-wrap { display:block; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+    .tbl .cell-nowrap { white-space:nowrap; }
+    .tbl col:nth-child(1) { width:120px; }
+    .tbl col:nth-child(2) { width:150px; }
+    .tbl col:nth-child(3) { width:230px; }
+    .tbl col:nth-child(4) { width:150px; }
+    .tbl col:nth-child(5) { width:105px; }
+    .tbl col:nth-child(6) { width:145px; }
+    .tbl col:nth-child(7) { width:105px; }
+    .tbl col:nth-child(8) { width:90px; }
+    .tbl col:nth-child(9) { width:115px; }
+    .tbl col:nth-child(10) { width:120px; }
+    .tbl col:nth-child(11) { width:64px; }
     .tbl tr:hover td { background:#fafafa; }
     .filter-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
     select.form-select, input.form-control { font-size:.83rem; border-radius:8px; }
@@ -94,6 +109,9 @@
         @else
         <div class="table-responsive">
             <table class="table tbl mb-0">
+                <colgroup>
+                    <col><col><col><col><col><col><col><col><col><col><col>
+                </colgroup>
                 <thead>
                     <tr>
                         <th class="ps-3">IP Address</th>
@@ -115,13 +133,13 @@
                     <tr>
                         {{-- IP --}}
                         <td class="ps-3">
-                            <span style="font-family:monospace;font-weight:600;color:#0f172a">{{ $asset->ip_address }}</span>
+                            <span class="cell-nowrap" style="font-family:monospace;font-weight:600;color:#0f172a">{{ $asset->ip_address }}</span>
                         </td>
 
                         {{-- Hostname --}}
                         <td>
                             @if($asset->hostname)
-                                <span style="color:#374151">{{ $asset->hostname }}</span>
+                                <span class="cell-wrap" style="color:#374151">{{ $asset->hostname }}</span>
                             @else
                                 <span class="text-muted">—</span>
                             @endif
@@ -130,12 +148,12 @@
                         {{-- OS --}}
                         <td>
                             @if($asset->os)
-                            <span style="display:inline-flex;align-items:center;gap:5px">
+                            <span style="display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap">
                                 <span style="background:{{ $badge['bg'] }};color:{{ $badge['color'] }};padding:.15rem .45rem;border-radius:6px;font-size:.7rem;font-weight:700">
                                     <i class="bi {{ $badge['icon'] }}"></i>
                                     {{ $asset->os_family ?? 'Unknown' }}
                                 </span>
-                                <span style="color:#374151;font-size:.82rem">{{ Str::limit($asset->os, 40) }}</span>
+                                <span class="cell-wrap" style="color:#374151;font-size:.82rem">{{ $asset->os }}</span>
                             </span>
                             @else
                                 <span class="text-muted">—</span>
@@ -145,7 +163,7 @@
                         {{-- Kernel --}}
                         <td>
                             @if($asset->os_kernel)
-                                <code style="font-size:.78rem;background:#f1f5f9;padding:.15rem .45rem;border-radius:5px;color:#374151">{{ $asset->os_kernel }}</code>
+                                <code class="cell-wrap" style="font-size:.78rem;background:#f1f5f9;padding:.15rem .45rem;border-radius:5px;color:#374151">{{ $asset->os_kernel }}</code>
                             @else
                                 <span class="text-muted">—</span>
                             @endif
@@ -176,7 +194,7 @@
                         <td>
                             @php $ports = $asset->openPortsArray(); @endphp
                             @if(count($ports))
-                                <span style="font-size:.75rem;color:#64748b">
+                                <span class="cell-wrap" style="font-size:.75rem;color:#64748b">
                                     {{ implode(', ', array_slice($ports, 0, 6)) }}
                                     @if(count($ports) > 6)
                                         <span class="text-muted">+{{ count($ports) - 6 }}</span>
