@@ -231,39 +231,6 @@
 </div>
 
 <div class="row g-3 mb-3">
-    <div class="col-md-3 col-sm-6">
-        <div class="kri-card" style="background:{{ $riskLevel[1] }};border-color:{{ $riskLevel[2] }}33">
-            <div class="kri-label" style="color:{{ $riskLevel[2] }}">Overall Risk Score</div>
-            <div class="kri-value" style="color:{{ $riskLevel[2] }}">{{ number_format($kri['risk_score']) }}</div>
-            <div class="kri-note" style="color:{{ $riskLevel[2] }}">{{ $riskLevel[0] }}</div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="kri-card">
-            <div class="kri-label">Critical / High Exposure</div>
-            <div class="kri-value">{{ number_format($kri['critical_high']) }}</div>
-            <div class="kri-note">{{ $kri['critical_high_pct'] }}% of active findings</div>
-            <div class="kri-meter"><span style="width:{{ min(100, $kri['critical_high_pct']) }}%;background:#dc2626"></span></div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="kri-card">
-            <div class="kri-label">SLA Breached</div>
-            <div class="kri-value" style="color:{{ $slaColor }}">{{ number_format($kri['sla_breached']) }}</div>
-            <div class="kri-note">{{ number_format($kri['sla_approaching']) }} approaching deadline</div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="kri-card">
-            <div class="kri-label">Remediation Completion</div>
-            <div class="kri-value" style="color:{{ $remColor }}">{{ $kri['remediation_pct'] }}%</div>
-            <div class="kri-note">{{ number_format($kri['resolved_by_scan']) }} scan-confirmed resolved</div>
-            <div class="kri-meter"><span style="width:{{ min(100, $kri['remediation_pct']) }}%;background:{{ $remColor }}"></span></div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-3 mb-3">
     <div class="col-lg-6">
         <div class="kri-card">
             <div class="kri-label">Asset Risk Concentration</div>
