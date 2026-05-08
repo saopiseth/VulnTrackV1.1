@@ -109,11 +109,6 @@
 </div>
 @else
 @php
-    $riskLevel = $kri['risk_score'] >= 100 ? ['Critical Risk', '#fee2e2', '#991b1b']
-        : ($kri['risk_score'] >= 50 ? ['Elevated Risk', '#ffedd5', '#c2410c']
-        : ($kri['risk_score'] >= 15 ? ['Moderate Risk', '#fef9c3', '#854d0e'] : ['Low Risk', '#dcfce7', '#166534']));
-    $slaColor = $kri['sla_breached'] > 0 ? '#dc2626' : ($kri['sla_approaching'] > 0 ? '#d97706' : '#16a34a');
-    $remColor = $kri['remediation_pct'] >= 80 ? '#16a34a' : ($kri['remediation_pct'] >= 50 ? '#d97706' : '#dc2626');
     $severityChart = [
         ['Critical', (int) ($stats->critical ?? 0), '#780000'],
         ['High', (int) ($stats->high ?? 0), '#dc0000'],
@@ -288,8 +283,8 @@
                             <span style="color:#94a3b8">-</span>
                         @endif
                     </td>
-                    <td class="text-center" style="font-weight:800;color:#991b1b">{{ number_format($ip->critical) }}</td>
-                    <td class="text-center" style="font-weight:800;color:#c2410c">{{ number_format($ip->high) }}</td>
+                    <td class="text-center" style="font-weight:800;color:#780000">{{ number_format($ip->critical) }}</td>
+                    <td class="text-center" style="font-weight:800;color:#dc0000">{{ number_format($ip->high) }}</td>
                     <td class="text-center" style="font-weight:800;color:#059669">{{ number_format($ip->active_count) }}</td>
                     <td class="pe-3">{{ $ip->system_owner ?: '-' }}</td>
                 </tr>

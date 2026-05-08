@@ -503,8 +503,8 @@ class VulnAssessmentController extends Controller
         $shapes = [
             $this->pptText('Vulnerability KRI Report', 420000, 260000, 8300000, 420000, 26, '0F172A', true),
             $this->pptText($assessment->name, 420000, 720000, 8300000, 260000, 12, '64748B'),
-            $this->pptMetric('Overall Risk Score', number_format($kri['risk_score']), $riskLevel, 420000, 1400000, '991B1B'),
-            $this->pptMetric('Critical / High', number_format($kri['critical_high']), $kri['critical_high_pct'] . '% of active findings', 3450000, 1400000, 'DC2626'),
+            $this->pptMetric('Overall Risk Score', number_format($kri['risk_score']), $riskLevel, 420000, 1400000, '780000'),
+            $this->pptMetric('Critical / High', number_format($kri['critical_high']), $kri['critical_high_pct'] . '% of active findings', 3450000, 1400000, 'DC0000'),
             $this->pptMetric('SLA Breached', number_format($kri['sla_breached']), number_format($kri['sla_approaching']) . ' approaching', 6480000, 1400000, 'D97706'),
             $this->pptMetric('Remediation', $kri['remediation_pct'] . '%', number_format($kri['resolved_by_scan']) . ' resolved', 420000, 3300000, '16A34A'),
             $this->pptMetric('Active Hosts', number_format($kri['active_hosts']), number_format($kri['mission_critical_hosts']) . ' mission-critical', 3450000, 3300000, '1D4ED8'),
@@ -555,8 +555,8 @@ class VulnAssessmentController extends Controller
         $y = 1160000;
         $shapes[] = $this->pptText('IP Address', 500000, $y, 1600000, 240000, 11, '64748B', true);
         $shapes[] = $this->pptText('Hostname', 2200000, $y, 2100000, 240000, 11, '64748B', true);
-        $shapes[] = $this->pptText('Critical', 4600000, $y, 900000, 240000, 11, '991B1B', true);
-        $shapes[] = $this->pptText('High', 5700000, $y, 900000, 240000, 11, 'C2410C', true);
+        $shapes[] = $this->pptText('Critical', 4600000, $y, 900000, 240000, 11, '780000', true);
+        $shapes[] = $this->pptText('High', 5700000, $y, 900000, 240000, 11, 'DC0000', true);
         $shapes[] = $this->pptText('Active', 6800000, $y, 900000, 240000, 11, '059669', true);
         $shapes[] = $this->pptText('Owner', 7900000, $y, 1400000, 240000, 11, '64748B', true);
 
@@ -566,8 +566,8 @@ class VulnAssessmentController extends Controller
             $shapes[] = $this->pptRect(430000, $y - 60000, 8800000, 360000, $fill, 'E2E8F0');
             $shapes[] = $this->pptText($ip->ip_address, 500000, $y, 1600000, 220000, 10, '0F172A', true);
             $shapes[] = $this->pptText($ip->hostname ?: '-', 2200000, $y, 2100000, 220000, 10, '475569');
-            $shapes[] = $this->pptText((string) $ip->critical, 4700000, $y, 600000, 220000, 10, '991B1B', true);
-            $shapes[] = $this->pptText((string) $ip->high, 5800000, $y, 600000, 220000, 10, 'C2410C', true);
+            $shapes[] = $this->pptText((string) $ip->critical, 4700000, $y, 600000, 220000, 10, '780000', true);
+            $shapes[] = $this->pptText((string) $ip->high, 5800000, $y, 600000, 220000, 10, 'DC0000', true);
             $shapes[] = $this->pptText((string) $ip->active_count, 6900000, $y, 600000, 220000, 10, '059669', true);
             $shapes[] = $this->pptText($ip->system_owner ?: '-', 7900000, $y, 1400000, 220000, 10, '475569');
         }
