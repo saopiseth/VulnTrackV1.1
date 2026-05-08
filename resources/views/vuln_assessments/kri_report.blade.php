@@ -36,6 +36,12 @@
         white-space:nowrap;
     }
     .kri-table td { font-size:.82rem; vertical-align:middle; }
+    .kri-chart { border:1px solid #e2e8f0; border-radius:10px; padding:1rem; background:#fff; height:100%; }
+    .kri-chart-row { display:grid; grid-template-columns:82px 1fr 44px; align-items:center; gap:.65rem; margin:.65rem 0; }
+    .kri-chart-label { font-size:.76rem; color:#475569; font-weight:700; }
+    .kri-chart-track { height:12px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+    .kri-chart-fill { height:100%; border-radius:99px; min-width:3px; }
+    .kri-chart-value { font-size:.76rem; color:#64748b; font-weight:800; text-align:right; }
 </style>
 
 <div class="kri-page-head">
@@ -69,6 +75,10 @@
                    style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none">
                     <i class="bi bi-table me-1"></i>Findings
                 </a>
+                <a href="{{ route('vuln-assessments.kri-report.powerpoint', $assessment) }}" class="btn btn-sm"
+                   style="background:#1d4ed8;color:#fff;border-radius:8px;font-weight:600;border:none">
+                    <i class="bi bi-file-earmark-ppt-fill me-1"></i>PowerPoint
+                </a>
             @endif
         </div>
     </div>
@@ -87,6 +97,24 @@
         : ($kri['risk_score'] >= 15 ? ['Moderate Risk', '#fef9c3', '#854d0e'] : ['Low Risk', '#dcfce7', '#166534']));
     $slaColor = $kri['sla_breached'] > 0 ? '#dc2626' : ($kri['sla_approaching'] > 0 ? '#d97706' : '#16a34a');
     $remColor = $kri['remediation_pct'] >= 80 ? '#16a34a' : ($kri['remediation_pct'] >= 50 ? '#d97706' : '#dc2626');
+    $severityChart = [
+        ['Critical', (int) ($stats->critical ?? 0), '#991b1b'],
+        ['High', (int) ($stats->high ?? 0), '#c2410c'],
+        ['Medium', (int) ($stats->medium ?? 0), '#d97706'],
+        ['Low', (int) ($stats->low ?? 0), '#64748b'],
+    ];
+    $workflowChart = [
+        ['Open', $kri['open_remediation'], '#dc2626'],
+        ['In Progress', $kri['in_progress'], '#d97706'],
+        ['Accepted', $kri['accepted_risk'], '#64748b'],
+        ['Resolved', $kri['resolved_by_scan'], '#16a34a'],
+    ];
+    $slaChart = [
+        ['Breached', $kri['sla_breached'], '#dc2626'],
+        ['Approaching', $kri['sla_approaching'], '#d97706'],
+        ['On Track', $kri['sla_on_track'], '#16a34a'],
+        ['Met', $kri['sla_met'], '#0ea5e9'],
+    ];
 @endphp
 
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -94,6 +122,49 @@
     <span style="font-size:.75rem;color:#64748b;font-weight:600">
         {{ $kri['sla_policy'] ? 'SLA: ' . $kri['sla_policy'] : 'No SLA policy configured' }}
     </span>
+</div>
+
+<div class="kri-section-title"><i class="bi bi-bar-chart-fill"></i>KRI Charts</div>
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="kri-chart">
+            <div class="kri-label">Active Severity Distribution</div>
+            @php $severityMax = max(1, collect($severityChart)->max(fn($row) => $row[1])); @endphp
+            @foreach($severityChart as [$label, $value, $color])
+                <div class="kri-chart-row">
+                    <div class="kri-chart-label">{{ $label }}</div>
+                    <div class="kri-chart-track"><div class="kri-chart-fill" style="width:{{ round(($value / $severityMax) * 100) }}%;background:{{ $color }}"></div></div>
+                    <div class="kri-chart-value">{{ number_format($value) }}</div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="kri-chart">
+            <div class="kri-label">Remediation Workflow</div>
+            @php $workflowMax = max(1, collect($workflowChart)->max(fn($row) => $row[1])); @endphp
+            @foreach($workflowChart as [$label, $value, $color])
+                <div class="kri-chart-row">
+                    <div class="kri-chart-label">{{ $label }}</div>
+                    <div class="kri-chart-track"><div class="kri-chart-fill" style="width:{{ round(($value / $workflowMax) * 100) }}%;background:{{ $color }}"></div></div>
+                    <div class="kri-chart-value">{{ number_format($value) }}</div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="kri-chart">
+            <div class="kri-label">SLA Health</div>
+            @php $slaMax = max(1, collect($slaChart)->max(fn($row) => $row[1])); @endphp
+            @foreach($slaChart as [$label, $value, $color])
+                <div class="kri-chart-row">
+                    <div class="kri-chart-label">{{ $label }}</div>
+                    <div class="kri-chart-track"><div class="kri-chart-fill" style="width:{{ round(($value / $slaMax) * 100) }}%;background:{{ $color }}"></div></div>
+                    <div class="kri-chart-value">{{ number_format($value) }}</div>
+                </div>
+            @endforeach
+        </div>
+    </div>
 </div>
 
 <div class="row g-3 mb-3">

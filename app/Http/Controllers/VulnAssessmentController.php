@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Storage;
 
 class VulnAssessmentController extends Controller
 {
+    private int $pptShapeId = 10;
+
     public function index()
     {
         $assessments = VulnAssessment::with(['creator', 'scans'])
@@ -266,6 +268,22 @@ class VulnAssessmentController extends Controller
         return view('vuln_assessments.kri_report', array_merge(['assessment' => $assessment], $data));
     }
 
+    public function kriReportPowerPoint(VulnAssessment $vulnAssessment)
+    {
+        abort_unless(class_exists(\ZipArchive::class), 500, 'PowerPoint export requires the PHP zip extension.');
+
+        $assessment = $vulnAssessment->load('scans.creator', 'slaPolicy');
+        $data = $this->buildKriReportData($assessment);
+        abort_unless($data['kri'], 404, 'No KRI data available for export.');
+
+        $path = $this->buildKriPowerPoint($assessment, $data);
+        $filename = str()->slug($assessment->name) . '_KRI_Report_' . now()->format('Ymd') . '.pptx';
+
+        return response()->download($path, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        ])->deleteFileAfterSend(true);
+    }
+
     private function buildKriReportData(VulnAssessment $assessment): array
     {
         $baseline = $assessment->baselineScan();
@@ -440,6 +458,211 @@ class VulnAssessmentController extends Controller
         }
 
         return compact('baseline', 'latestScan', 'activeScan', 'stats', 'topIps', 'activeHostCount', 'remStats', 'comparison', 'kri');
+    }
+
+    private function buildKriPowerPoint(VulnAssessment $assessment, array $data): string
+    {
+        $kri = $data['kri'];
+        $stats = $data['stats'];
+        $topIps = $data['topIps'];
+        $path = storage_path('app/kri-report-' . $assessment->uuid . '-' . uniqid() . '.pptx');
+        if (!is_dir(dirname($path))) {
+            mkdir(dirname($path), 0775, true);
+        }
+        $this->pptShapeId = 10;
+
+        $slides = [
+            $this->pptSlideExecutive($assessment, $kri),
+            $this->pptSlideCharts($assessment, $stats, $kri),
+            $this->pptSlideHosts($assessment, $topIps),
+        ];
+
+        $zip = new \ZipArchive();
+        $zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', $this->pptContentTypes(count($slides)));
+        $zip->addFromString('_rels/.rels', $this->pptRootRels());
+        $zip->addFromString('docProps/app.xml', $this->pptAppXml(count($slides)));
+        $zip->addFromString('docProps/core.xml', $this->pptCoreXml($assessment->name));
+        $zip->addFromString('ppt/presentation.xml', $this->pptPresentationXml(count($slides)));
+        $zip->addFromString('ppt/_rels/presentation.xml.rels', $this->pptPresentationRels(count($slides)));
+
+        foreach ($slides as $i => $slide) {
+            $n = $i + 1;
+            $zip->addFromString("ppt/slides/slide{$n}.xml", $slide);
+            $zip->addFromString("ppt/slides/_rels/slide{$n}.xml.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>');
+        }
+
+        $zip->close();
+
+        return $path;
+    }
+
+    private function pptSlideExecutive(VulnAssessment $assessment, array $kri): string
+    {
+        $riskLevel = $kri['risk_score'] >= 100 ? 'Critical Risk' : ($kri['risk_score'] >= 50 ? 'Elevated Risk' : ($kri['risk_score'] >= 15 ? 'Moderate Risk' : 'Low Risk'));
+        $shapes = [
+            $this->pptText('Vulnerability KRI Report', 420000, 260000, 8300000, 420000, 26, '0F172A', true),
+            $this->pptText($assessment->name, 420000, 720000, 8300000, 260000, 12, '64748B'),
+            $this->pptMetric('Overall Risk Score', number_format($kri['risk_score']), $riskLevel, 420000, 1400000, '991B1B'),
+            $this->pptMetric('Critical / High', number_format($kri['critical_high']), $kri['critical_high_pct'] . '% of active findings', 3450000, 1400000, 'DC2626'),
+            $this->pptMetric('SLA Breached', number_format($kri['sla_breached']), number_format($kri['sla_approaching']) . ' approaching', 6480000, 1400000, 'D97706'),
+            $this->pptMetric('Remediation', $kri['remediation_pct'] . '%', number_format($kri['resolved_by_scan']) . ' resolved', 420000, 3300000, '16A34A'),
+            $this->pptMetric('Active Hosts', number_format($kri['active_hosts']), number_format($kri['mission_critical_hosts']) . ' mission-critical', 3450000, 3300000, '1D4ED8'),
+            $this->pptMetric('Accepted Risk', number_format($kri['accepted_risk']), 'workflow exceptions', 6480000, 3300000, '64748B'),
+        ];
+
+        return $this->pptSlide($shapes);
+    }
+
+    private function pptSlideCharts(VulnAssessment $assessment, $stats, array $kri): string
+    {
+        $severity = [
+            ['Critical', (int) ($stats->critical ?? 0), '991B1B'],
+            ['High', (int) ($stats->high ?? 0), 'C2410C'],
+            ['Medium', (int) ($stats->medium ?? 0), 'D97706'],
+            ['Low', (int) ($stats->low ?? 0), '64748B'],
+        ];
+        $workflow = [
+            ['Open', $kri['open_remediation'], 'DC2626'],
+            ['In Progress', $kri['in_progress'], 'D97706'],
+            ['Accepted', $kri['accepted_risk'], '64748B'],
+            ['Resolved', $kri['resolved_by_scan'], '16A34A'],
+        ];
+        $sla = [
+            ['Breached', $kri['sla_breached'], 'DC2626'],
+            ['Approaching', $kri['sla_approaching'], 'D97706'],
+            ['On Track', $kri['sla_on_track'], '16A34A'],
+            ['Met', $kri['sla_met'], '0EA5E9'],
+        ];
+
+        $shapes = [
+            $this->pptText('KRI Charts', 420000, 260000, 8300000, 420000, 25, '0F172A', true),
+            $this->pptBarChart('Active Severity Distribution', $severity, 420000, 980000),
+            $this->pptBarChart('Remediation Workflow', $workflow, 420000, 3000000),
+            $this->pptBarChart('SLA Health', $sla, 5200000, 980000),
+        ];
+
+        return $this->pptSlide($shapes);
+    }
+
+    private function pptSlideHosts(VulnAssessment $assessment, $topIps): string
+    {
+        $shapes = [
+            $this->pptText('Highest Risk Hosts', 420000, 260000, 8300000, 420000, 25, '0F172A', true),
+            $this->pptText('Top hosts by active findings and critical/high exposure', 420000, 690000, 8300000, 260000, 12, '64748B'),
+        ];
+
+        $y = 1160000;
+        $shapes[] = $this->pptText('IP Address', 500000, $y, 1600000, 240000, 11, '64748B', true);
+        $shapes[] = $this->pptText('Hostname', 2200000, $y, 2100000, 240000, 11, '64748B', true);
+        $shapes[] = $this->pptText('Critical', 4600000, $y, 900000, 240000, 11, '991B1B', true);
+        $shapes[] = $this->pptText('High', 5700000, $y, 900000, 240000, 11, 'C2410C', true);
+        $shapes[] = $this->pptText('Active', 6800000, $y, 900000, 240000, 11, '059669', true);
+        $shapes[] = $this->pptText('Owner', 7900000, $y, 1400000, 240000, 11, '64748B', true);
+
+        foreach ($topIps->take(8)->values() as $i => $ip) {
+            $y = 1500000 + ($i * 420000);
+            $fill = $i % 2 === 0 ? 'F8FAFC' : 'FFFFFF';
+            $shapes[] = $this->pptRect(430000, $y - 60000, 8800000, 360000, $fill, 'E2E8F0');
+            $shapes[] = $this->pptText($ip->ip_address, 500000, $y, 1600000, 220000, 10, '0F172A', true);
+            $shapes[] = $this->pptText($ip->hostname ?: '-', 2200000, $y, 2100000, 220000, 10, '475569');
+            $shapes[] = $this->pptText((string) $ip->critical, 4700000, $y, 600000, 220000, 10, '991B1B', true);
+            $shapes[] = $this->pptText((string) $ip->high, 5800000, $y, 600000, 220000, 10, 'C2410C', true);
+            $shapes[] = $this->pptText((string) $ip->active_count, 6900000, $y, 600000, 220000, 10, '059669', true);
+            $shapes[] = $this->pptText($ip->system_owner ?: '-', 7900000, $y, 1400000, 220000, 10, '475569');
+        }
+
+        return $this->pptSlide($shapes);
+    }
+
+    private function pptBarChart(string $title, array $rows, int $x, int $y): string
+    {
+        $max = max(1, ...array_map(fn($row) => (int) $row[1], $rows));
+        $shapes = [$this->pptText($title, $x, $y, 3800000, 260000, 14, '0F172A', true)];
+        foreach ($rows as $i => [$label, $value, $color]) {
+            $rowY = $y + 430000 + ($i * 360000);
+            $width = (int) round(((int) $value / $max) * 2200000);
+            $shapes[] = $this->pptText($label, $x, $rowY, 950000, 220000, 10, '475569', true);
+            $shapes[] = $this->pptRect($x + 1050000, $rowY + 35000, 2200000, 130000, 'E2E8F0', 'E2E8F0');
+            $shapes[] = $this->pptRect($x + 1050000, $rowY + 35000, max(50000, $width), 130000, $color, $color);
+            $shapes[] = $this->pptText(number_format($value), $x + 3400000, $rowY, 500000, 220000, 10, '64748B', true);
+        }
+        return implode('', $shapes);
+    }
+
+    private function pptMetric(string $label, string $value, string $note, int $x, int $y, string $color): string
+    {
+        return $this->pptRect($x, $y, 2600000, 1350000, 'FFFFFF', 'E2E8F0')
+            . $this->pptText($label, $x + 170000, $y + 150000, 2200000, 220000, 10, '64748B', true)
+            . $this->pptText($value, $x + 170000, $y + 430000, 2200000, 430000, 24, $color, true)
+            . $this->pptText($note, $x + 170000, $y + 920000, 2200000, 220000, 10, '64748B');
+    }
+
+    private function pptSlide(array $shapes): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
+            . '<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="F8FAFC"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>'
+            . '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+            . implode('', $shapes)
+            . '</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>';
+    }
+
+    private function pptText(string $text, int $x, int $y, int $w, int $h, int $pt = 12, string $color = '0F172A', bool $bold = false): string
+    {
+        $id = ++$this->pptShapeId;
+        $safe = e($text);
+        $boldAttr = $bold ? ' b="1"' : '';
+        return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Text"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="' . ($pt * 100) . '"' . $boldAttr . '><a:solidFill><a:srgbClr val="' . $color . '"/></a:solidFill></a:rPr><a:t>' . $safe . '</a:t></a:r></a:p></p:txBody></p:sp>';
+    }
+
+    private function pptRect(int $x, int $y, int $w, int $h, string $fill, string $line): string
+    {
+        $id = ++$this->pptShapeId;
+        return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Box"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="' . $fill . '"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="' . $line . '"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
+    }
+
+    private function pptContentTypes(int $slideCount): string
+    {
+        $slides = '';
+        for ($i = 1; $i <= $slideCount; $i++) {
+            $slides .= '<Override PartName="/ppt/slides/slide' . $i . '.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>';
+        }
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' . $slides . '</Types>';
+    }
+
+    private function pptRootRels(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>';
+    }
+
+    private function pptPresentationXml(int $slideCount): string
+    {
+        $ids = '';
+        for ($i = 1; $i <= $slideCount; $i++) {
+            $ids .= '<p:sldId id="' . (255 + $i) . '" r:id="rId' . $i . '"/>';
+        }
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldIdLst>' . $ids . '</p:sldIdLst><p:sldSz cx="10000000" cy="5625000" type="wide"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>';
+    }
+
+    private function pptPresentationRels(int $slideCount): string
+    {
+        $rels = '';
+        for ($i = 1; $i <= $slideCount; $i++) {
+            $rels .= '<Relationship Id="rId' . $i . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide' . $i . '.xml"/>';
+        }
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . $rels . '</Relationships>';
+    }
+
+    private function pptAppXml(int $slideCount): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>VulnTrack</Application><PresentationFormat>Widescreen</PresentationFormat><Slides>' . $slideCount . '</Slides></Properties>';
+    }
+
+    private function pptCoreXml(string $title): string
+    {
+        $now = now()->toAtomString();
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>' . e($title) . ' KRI Report</dc:title><dc:creator>VulnTrack</dc:creator><cp:lastModifiedBy>VulnTrack</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">' . $now . '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' . $now . '</dcterms:modified></cp:coreProperties>';
     }
 
     public function findings(Request $request, VulnAssessment $vulnAssessment)
