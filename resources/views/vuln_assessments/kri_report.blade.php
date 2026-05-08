@@ -37,11 +37,28 @@
     }
     .kri-table td { font-size:.82rem; vertical-align:middle; }
     .kri-chart { border:1px solid #e2e8f0; border-radius:10px; padding:1rem; background:#fff; height:100%; }
-    .kri-chart-row { display:grid; grid-template-columns:82px 1fr 44px; align-items:center; gap:.65rem; margin:.65rem 0; }
-    .kri-chart-label { font-size:.76rem; color:#475569; font-weight:700; }
-    .kri-chart-track { height:12px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
-    .kri-chart-fill { height:100%; border-radius:99px; min-width:3px; }
-    .kri-chart-value { font-size:.76rem; color:#64748b; font-weight:800; text-align:right; }
+    .kri-doughnut-wrap { display:flex; align-items:center; gap:1rem; margin-top:.65rem; }
+    .kri-doughnut {
+        width:132px; height:132px; border-radius:50%; flex-shrink:0;
+        display:grid; place-items:center; position:relative;
+    }
+    .kri-doughnut::after {
+        content:""; width:76px; height:76px; border-radius:50%; background:#fff; position:absolute;
+        box-shadow:inset 0 0 0 1px #e2e8f0;
+    }
+    .kri-doughnut-center { position:relative; z-index:1; text-align:center; line-height:1.05; }
+    .kri-doughnut-total { display:block; color:#0f172a; font-size:1.25rem; font-weight:900; }
+    .kri-doughnut-caption { display:block; color:#94a3b8; font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.35px; }
+    .kri-legend { flex:1; min-width:0; }
+    .kri-legend-row { display:grid; grid-template-columns:12px 1fr auto; align-items:center; gap:.5rem; margin:.42rem 0; }
+    .kri-legend-dot { width:10px; height:10px; border-radius:50%; }
+    .kri-legend-label { color:#475569; font-size:.75rem; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .kri-legend-value { color:#64748b; font-size:.75rem; font-weight:800; }
+    @media (max-width: 575.98px) {
+        .kri-doughnut-wrap { align-items:flex-start; }
+        .kri-doughnut { width:112px; height:112px; }
+        .kri-doughnut::after { width:64px; height:64px; }
+    }
 </style>
 
 <div class="kri-page-head">
@@ -115,6 +132,25 @@
         ['On Track', $kri['sla_on_track'], '#16a34a'],
         ['Met', $kri['sla_met'], '#0ea5e9'],
     ];
+    $doughnutStyle = function (array $rows): string {
+        $total = max(1, collect($rows)->sum(fn($row) => (int) $row[1]));
+        $cursor = 0;
+        $segments = [];
+
+        foreach ($rows as [$label, $value, $color]) {
+            $value = (int) $value;
+            if ($value <= 0) {
+                continue;
+            }
+
+            $start = round(($cursor / $total) * 360, 2);
+            $cursor += $value;
+            $end = round(($cursor / $total) * 360, 2);
+            $segments[] = "{$color} {$start}deg {$end}deg";
+        }
+
+        return $segments ? 'conic-gradient(' . implode(', ', $segments) . ')' : 'conic-gradient(#e2e8f0 0deg 360deg)';
+    };
 @endphp
 
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -129,40 +165,67 @@
     <div class="col-lg-4">
         <div class="kri-chart">
             <div class="kri-label">Active Severity Distribution</div>
-            @php $severityMax = max(1, collect($severityChart)->max(fn($row) => $row[1])); @endphp
-            @foreach($severityChart as [$label, $value, $color])
-                <div class="kri-chart-row">
-                    <div class="kri-chart-label">{{ $label }}</div>
-                    <div class="kri-chart-track"><div class="kri-chart-fill" style="width:{{ round(($value / $severityMax) * 100) }}%;background:{{ $color }}"></div></div>
-                    <div class="kri-chart-value">{{ number_format($value) }}</div>
+            <div class="kri-doughnut-wrap">
+                <div class="kri-doughnut" style="background:{{ $doughnutStyle($severityChart) }}">
+                    <div class="kri-doughnut-center">
+                        <span class="kri-doughnut-total">{{ number_format(collect($severityChart)->sum(fn($row) => $row[1])) }}</span>
+                        <span class="kri-doughnut-caption">Active</span>
+                    </div>
                 </div>
-            @endforeach
+                <div class="kri-legend">
+                    @foreach($severityChart as [$label, $value, $color])
+                    <div class="kri-legend-row">
+                        <span class="kri-legend-dot" style="background:{{ $color }}"></span>
+                        <span class="kri-legend-label">{{ $label }}</span>
+                        <span class="kri-legend-value">{{ number_format($value) }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
         </div>
     </div>
     <div class="col-lg-4">
         <div class="kri-chart">
             <div class="kri-label">Remediation Workflow</div>
-            @php $workflowMax = max(1, collect($workflowChart)->max(fn($row) => $row[1])); @endphp
-            @foreach($workflowChart as [$label, $value, $color])
-                <div class="kri-chart-row">
-                    <div class="kri-chart-label">{{ $label }}</div>
-                    <div class="kri-chart-track"><div class="kri-chart-fill" style="width:{{ round(($value / $workflowMax) * 100) }}%;background:{{ $color }}"></div></div>
-                    <div class="kri-chart-value">{{ number_format($value) }}</div>
+            <div class="kri-doughnut-wrap">
+                <div class="kri-doughnut" style="background:{{ $doughnutStyle($workflowChart) }}">
+                    <div class="kri-doughnut-center">
+                        <span class="kri-doughnut-total">{{ number_format(collect($workflowChart)->sum(fn($row) => $row[1])) }}</span>
+                        <span class="kri-doughnut-caption">Items</span>
+                    </div>
                 </div>
-            @endforeach
+                <div class="kri-legend">
+                    @foreach($workflowChart as [$label, $value, $color])
+                    <div class="kri-legend-row">
+                        <span class="kri-legend-dot" style="background:{{ $color }}"></span>
+                        <span class="kri-legend-label">{{ $label }}</span>
+                        <span class="kri-legend-value">{{ number_format($value) }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
         </div>
     </div>
     <div class="col-lg-4">
         <div class="kri-chart">
             <div class="kri-label">SLA Health</div>
-            @php $slaMax = max(1, collect($slaChart)->max(fn($row) => $row[1])); @endphp
-            @foreach($slaChart as [$label, $value, $color])
-                <div class="kri-chart-row">
-                    <div class="kri-chart-label">{{ $label }}</div>
-                    <div class="kri-chart-track"><div class="kri-chart-fill" style="width:{{ round(($value / $slaMax) * 100) }}%;background:{{ $color }}"></div></div>
-                    <div class="kri-chart-value">{{ number_format($value) }}</div>
+            <div class="kri-doughnut-wrap">
+                <div class="kri-doughnut" style="background:{{ $doughnutStyle($slaChart) }}">
+                    <div class="kri-doughnut-center">
+                        <span class="kri-doughnut-total">{{ number_format(collect($slaChart)->sum(fn($row) => $row[1])) }}</span>
+                        <span class="kri-doughnut-caption">SLA</span>
+                    </div>
                 </div>
-            @endforeach
+                <div class="kri-legend">
+                    @foreach($slaChart as [$label, $value, $color])
+                    <div class="kri-legend-row">
+                        <span class="kri-legend-dot" style="background:{{ $color }}"></span>
+                        <span class="kri-legend-label">{{ $label }}</span>
+                        <span class="kri-legend-value">{{ number_format($value) }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
         </div>
     </div>
 </div>
