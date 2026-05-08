@@ -72,6 +72,24 @@
             letter-spacing: 1px; text-transform: uppercase;
             padding: .75rem .75rem .35rem;
         }
+        .sidebar-section-head {
+            display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+            padding: .75rem .75rem .35rem;
+        }
+        .sidebar-section-head .sidebar-label { padding: 0; }
+        .sidebar-collapse-btn {
+            width: 24px; height: 24px; border: 0; border-radius: 7px;
+            background: transparent; color: #94a3b8;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background .2s, color .2s, transform .2s;
+        }
+        .sidebar-collapse-btn:hover {
+            background: color-mix(in srgb, var(--primary) 12%, white);
+            color: var(--primary-dark);
+        }
+        .sidebar-collapse-btn i { font-size: .9rem; transition: transform .2s; }
+        .sidebar-section.is-collapsed .sidebar-collapse-btn i { transform: rotate(-90deg); }
+        .sidebar-section.is-collapsed .sidebar-section-body { display: none; }
         .nav-item a {
             display: flex; align-items: center; gap: .75rem;
             padding: .6rem .85rem; border-radius: 10px;
@@ -229,29 +247,37 @@
                 @endcan
             </ul>
 
-            <div class="sidebar-label mt-2">Vulnerability Management</div>
-            <ul class="list-unstyled mb-0">
-                <li class="nav-item">
-                    <a href="{{ route('asset-inventory.index') }}" class="{{ request()->routeIs('asset-inventory.*') ? 'active' : '' }}">
-                        <i class="bi bi-pc-display-horizontal"></i> Asset Inventory
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('assessment-scope.index') }}" class="{{ request()->routeIs('assessment-scope.*') ? 'active' : '' }}">
-                        <i class="bi bi-diagram-3-fill"></i> Assessment Scope
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('vuln-assessments.index') }}" class="{{ request()->routeIs('vuln-assessments.*') ? 'active' : '' }}">
-                        <i class="bi bi-bug-fill"></i> Vulnerability Tracking
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{{ route('sla-policies.index') }}" class="{{ request()->routeIs('sla-policies.*') ? 'active' : '' }}">
-                        <i class="bi bi-stopwatch-fill"></i> SLA Policies
-                    </a>
-                </li>
-            </ul>
+            <div class="sidebar-section mt-2" id="vulnMgmtSection">
+                <div class="sidebar-section-head">
+                    <div class="sidebar-label">Vulnerability Management</div>
+                    <button type="button" class="sidebar-collapse-btn" id="vulnMgmtCollapseBtn"
+                            aria-controls="vulnMgmtLinks" aria-expanded="true" title="Collapse Vulnerability Management">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
+                <ul class="list-unstyled mb-0 sidebar-section-body" id="vulnMgmtLinks">
+                    <li class="nav-item">
+                        <a href="{{ route('asset-inventory.index') }}" class="{{ request()->routeIs('asset-inventory.*') ? 'active' : '' }}">
+                            <i class="bi bi-pc-display-horizontal"></i> Asset Inventory
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('assessment-scope.index') }}" class="{{ request()->routeIs('assessment-scope.*') ? 'active' : '' }}">
+                            <i class="bi bi-diagram-3-fill"></i> Assessment Scope
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('vuln-assessments.index') }}" class="{{ request()->routeIs('vuln-assessments.*') ? 'active' : '' }}">
+                            <i class="bi bi-bug-fill"></i> Vulnerability Tracking
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('sla-policies.index') }}" class="{{ request()->routeIs('sla-policies.*') ? 'active' : '' }}">
+                            <i class="bi bi-stopwatch-fill"></i> SLA Policies
+                        </a>
+                    </li>
+                </ul>
+            </div>
 
             <div class="sidebar-label mt-2">Account</div>
             <ul class="list-unstyled mb-0">
@@ -335,6 +361,26 @@
         const sidebar = document.getElementById('sidebar');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+        }
+
+        const vulnMgmtSection = document.getElementById('vulnMgmtSection');
+        const vulnMgmtCollapseBtn = document.getElementById('vulnMgmtCollapseBtn');
+        const vulnMgmtStorageKey = 'sidebar.vulnerabilityManagement.collapsed';
+
+        if (vulnMgmtSection && vulnMgmtCollapseBtn) {
+            const setVulnMgmtCollapsed = (collapsed) => {
+                vulnMgmtSection.classList.toggle('is-collapsed', collapsed);
+                vulnMgmtCollapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                vulnMgmtCollapseBtn.title = collapsed ? 'Expand Vulnerability Management' : 'Collapse Vulnerability Management';
+            };
+
+            setVulnMgmtCollapsed(localStorage.getItem(vulnMgmtStorageKey) === '1');
+
+            vulnMgmtCollapseBtn.addEventListener('click', () => {
+                const collapsed = !vulnMgmtSection.classList.contains('is-collapsed');
+                setVulnMgmtCollapsed(collapsed);
+                localStorage.setItem(vulnMgmtStorageKey, collapsed ? '1' : '0');
+            });
         }
     </script>
     @stack('scripts')
