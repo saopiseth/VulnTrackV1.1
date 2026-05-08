@@ -31,28 +31,6 @@
     </div>
 </div>
 
-{{-- Stats --}}
-<div class="row g-3 mb-3">
-    @foreach([
-        ['Total Assets',     $total,    'bi-hdd-stack-fill',  '#dbeafe','#1e40af'],
-        ['Active',           $active,   'bi-check-circle-fill','#dcfce7','#166534'],
-        ['With Critical',    $withCrit, 'bi-shield-fill-x',   '#fee2e2','#991b1b'],
-        ['With High',        $withHigh, 'bi-exclamation-triangle-fill','#fef3c7','#92400e'],
-    ] as [$label, $val, $icon, $bg, $col])
-    <div class="col-6 col-md-3">
-        <div class="card stat-widget" style="background:{{ $bg }}">
-            <div class="sw-icon" style="background:{{ $col }}22">
-                <i class="bi {{ $icon }}" style="color:{{ $col }}"></i>
-            </div>
-            <div>
-                <div class="sw-label" style="color:{{ $col }}">{{ $label }}</div>
-                <div class="sw-value" style="color:{{ $col }}">{{ number_format($val) }}</div>
-            </div>
-        </div>
-    </div>
-    @endforeach
-</div>
-
 {{-- Filters --}}
 <form method="GET" action="{{ route('asset-inventory.index') }}" class="filter-card">
     <div class="row g-2 align-items-end">
