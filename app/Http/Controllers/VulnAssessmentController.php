@@ -27,6 +27,7 @@ class VulnAssessmentController extends Controller
     private int $pptShapeId = 10;
     private float $pptScaleX = 1.0;
     private float $pptScaleY = 1.0;
+    private float $pptFontScale = 1.0;
     private array $pptTheme = [];
 
     public function index()
@@ -670,6 +671,7 @@ class VulnAssessmentController extends Controller
     {
         $id = ++$this->pptShapeId;
         [$x, $y, $w, $h] = $this->pptScaleBox($x, $y, $w, $h);
+        $pt = $this->pptScalePoint($pt);
         $safe = $this->pptXml($text);
         $boldAttr = $bold ? ' b="1"' : '';
         return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Text"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="' . ($pt * 100) . '"' . $boldAttr . '><a:solidFill><a:srgbClr val="' . $color . '"/></a:solidFill><a:latin typeface="Segoe UI"/><a:ea typeface="Aptos"/><a:cs typeface="Calibri"/></a:rPr><a:t>' . $safe . '</a:t></a:r></a:p></p:txBody></p:sp>';
@@ -835,6 +837,32 @@ class VulnAssessmentController extends Controller
 
         $hole = imagecolorallocate($image, 255, 255, 255);
         imagefilledellipse($image, $cx, $cy, $inner, $inner, $hole);
+        $ring = imagecolorallocate($image, 226, 232, 240);
+        imageellipse($image, $cx, $cy, $outer, $outer, $ring);
+        imageellipse($image, $cx, $cy, $inner, $inner, $ring);
+
+        $dark = imagecolorallocate($image, 30, 41, 59);
+        $muted = imagecolorallocate($image, 100, 116, 139);
+        $totalText = number_format($total);
+        $labelText = 'Total';
+        $totalFont = 5;
+        $labelFont = 3;
+        imagestring(
+            $image,
+            $totalFont,
+            (int) ($cx - (imagefontwidth($totalFont) * strlen($totalText) / 2)),
+            $cy - 28,
+            $totalText,
+            $dark
+        );
+        imagestring(
+            $image,
+            $labelFont,
+            (int) ($cx - (imagefontwidth($labelFont) * strlen($labelText) / 2)),
+            $cy + 8,
+            $labelText,
+            $muted
+        );
 
         ob_start();
         imagepng($image);
@@ -1032,11 +1060,13 @@ class VulnAssessmentController extends Controller
         if (preg_match('/<p:sldSz[^>]*cx="(\d+)"[^>]*cy="(\d+)"/', $xml, $matches)) {
             $this->pptScaleX = max(0.1, ((int) $matches[1]) / 12192000);
             $this->pptScaleY = max(0.1, ((int) $matches[2]) / 6858000);
+            $this->pptFontScale = max(0.75, min(2.5, min($this->pptScaleX, $this->pptScaleY)));
             return;
         }
 
         $this->pptScaleX = 1.0;
         $this->pptScaleY = 1.0;
+        $this->pptFontScale = 1.0;
     }
 
     private function pptScaleBox(int $x, int $y, int $w, int $h): array
@@ -1047,6 +1077,11 @@ class VulnAssessmentController extends Controller
             (int) round($w * $this->pptScaleX),
             (int) round($h * $this->pptScaleY),
         ];
+    }
+
+    private function pptScalePoint(int $pt): int
+    {
+        return max(8, (int) round($pt * $this->pptFontScale));
     }
 
     private function pptSlideMasterXml(): string
