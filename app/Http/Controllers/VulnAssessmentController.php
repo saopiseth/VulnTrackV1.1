@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AssessmentScope;
 use App\Models\AssessmentScopeGroup;
 use App\Models\AuditLog;
+use App\Models\SiteSetting;
 use App\Models\SlaPolicy;
 use App\Models\UserGroup;
 use App\Models\VulnAssessment;
@@ -26,6 +27,7 @@ class VulnAssessmentController extends Controller
     private int $pptShapeId = 10;
     private float $pptScaleX = 1.0;
     private float $pptScaleY = 1.0;
+    private array $pptTheme = [];
 
     public function index()
     {
@@ -475,6 +477,7 @@ class VulnAssessmentController extends Controller
         abort_unless(is_file($templatePath), 500, 'PowerPoint export template is missing.');
 
         $this->pptShapeId = 10;
+        $this->pptTheme = $this->pptThemeColors();
         $charts = $this->pptKriChartData($stats, $kri);
         $media = [
             'severity' => $this->pptDoughnutChartPng($charts['severity']),
@@ -541,17 +544,18 @@ class VulnAssessmentController extends Controller
 
     private function pptSlideExecutive(VulnAssessment $assessment, array $kri): string
     {
+        $theme = $this->pptTheme;
         $riskLevel = $kri['risk_score'] >= 100 ? 'Critical Risk' : ($kri['risk_score'] >= 50 ? 'Elevated Risk' : ($kri['risk_score'] >= 15 ? 'Moderate Risk' : 'Low Risk'));
         $shapes = [
-            $this->pptRect(0, 0, 12192000, 900000, '0F172A', '0F172A', 'rect'),
-            $this->pptText('Vulnerability KRI Report', 430000, 260000, 6500000, 380000, 24, 'FFFFFF', true),
-            $this->pptText($assessment->name . ' | Generated ' . now()->format('d M Y'), 7350000, 330000, 4100000, 260000, 11, 'CBD5E1'),
-            $this->pptText('Executive Summary', 430000, 1180000, 5200000, 360000, 22, '0F172A', true),
-            $this->pptText('Key risk indicators highlight current exposure, remediation progress, SLA posture, and host concentration for governance review.', 430000, 1600000, 9000000, 280000, 11, '475569'),
-            $this->pptMetric('Risk Score', number_format($kri['risk_score']), $riskLevel, 430000, 2200000, '780000'),
-            $this->pptMetric('Critical / High Exposure', number_format($kri['critical_high']), $kri['critical_high_pct'] . '% of active findings', 3330000, 2200000, 'DC0000'),
-            $this->pptMetric('SLA Breached', number_format($kri['sla_breached']), number_format($kri['sla_approaching']) . ' approaching deadline', 6230000, 2200000, 'D97706'),
-            $this->pptMetric('Remediation Complete', $kri['remediation_pct'] . '%', number_format($kri['resolved_by_scan']) . ' scan-confirmed resolved', 9130000, 2200000, '16A34A'),
+            $this->pptGradientRect(0, 0, 12192000, 900000, $theme['secondary'], $theme['primary'], 'rect'),
+            $this->pptText('Vulnerability KRI Report', 430000, 260000, 6500000, 380000, 30, $theme['onDark'], true),
+            $this->pptText($assessment->name . ' | Generated ' . now()->format('d M Y'), 7350000, 330000, 4100000, 260000, 13, $theme['onDarkMuted']),
+            $this->pptText('Executive Summary', 430000, 1180000, 5200000, 360000, 24, $theme['secondary'], true),
+            $this->pptText('Key risk indicators highlight current exposure, remediation progress, SLA posture, and host concentration for governance review.', 430000, 1600000, 9000000, 280000, 14, $theme['muted']),
+            $this->pptMetric('Risk Score', number_format($kri['risk_score']), $riskLevel, 430000, 2200000, $theme['severity']['Critical']),
+            $this->pptMetric('Critical / High Exposure', number_format($kri['critical_high']), $kri['critical_high_pct'] . '% of active findings', 3330000, 2200000, $theme['severity']['High']),
+            $this->pptMetric('SLA Breached', number_format($kri['sla_breached']), number_format($kri['sla_approaching']) . ' approaching deadline', 6230000, 2200000, $theme['severity']['Medium']),
+            $this->pptMetric('Remediation Complete', $kri['remediation_pct'] . '%', number_format($kri['resolved_by_scan']) . ' scan-confirmed resolved', 9130000, 2200000, $theme['success']),
             $this->pptInsightBox('Management Focus', [
                 'Prioritize critical and high vulnerabilities on the highest-risk hosts.',
                 'Track accepted-risk exceptions separately from remediation completion.',
@@ -575,16 +579,17 @@ class VulnAssessmentController extends Controller
 
     private function pptSlideRemediation(VulnAssessment $assessment, array $charts, array $kri): string
     {
+        $theme = $this->pptTheme;
         $shapes = [
             $this->pptSlideTitle('SLA Health And Action Plan', 'SLA status, deadline pressure, and remediation completion for operational governance.'),
             $this->pptChartPanel('SLA Health', 'Breached and approaching items require owner follow-up before the next governance checkpoint.', 'rId2', $charts['sla'], 430000, 1250000),
-            $this->pptRect(6250000, 1250000, 5400000, 4050000, 'FFFFFF', 'D9E2EF'),
-            $this->pptText('KRI Action Summary', 6550000, 1530000, 4200000, 280000, 18, '0F172A', true),
-            $this->pptText('SLA policy: ' . ($kri['sla_policy'] ?: 'No SLA policy configured'), 6550000, 1940000, 4200000, 240000, 11, '475569'),
-            $this->pptMetric('On Track', number_format($kri['sla_on_track']), 'active items inside SLA', 6550000, 2420000, '16A34A'),
-            $this->pptMetric('Approaching', number_format($kri['sla_approaching']), 'requires near-term attention', 9200000, 2420000, 'D97706'),
-            $this->pptMetric('Breached', number_format($kri['sla_breached']), 'escalate to owners', 6550000, 3950000, 'DC2626'),
-            $this->pptMetric('Resolved', number_format($kri['resolved_by_scan']), 'scan-confirmed closures', 9200000, 3950000, '16A34A'),
+            $this->pptRect(6250000, 1250000, 5400000, 4050000, $theme['surface'], $theme['border']),
+            $this->pptText('KRI Action Summary', 6550000, 1530000, 4200000, 280000, 20, $theme['secondary'], true),
+            $this->pptText('SLA policy: ' . ($kri['sla_policy'] ?: 'No SLA policy configured'), 6550000, 1940000, 4200000, 240000, 13, $theme['muted']),
+            $this->pptMetric('On Track', number_format($kri['sla_on_track']), 'active items inside SLA', 6550000, 2420000, $theme['success']),
+            $this->pptMetric('Approaching', number_format($kri['sla_approaching']), 'requires near-term attention', 9200000, 2420000, $theme['severity']['Medium']),
+            $this->pptMetric('Breached', number_format($kri['sla_breached']), 'escalate to owners', 6550000, 3950000, $theme['severity']['Critical']),
+            $this->pptMetric('Resolved', number_format($kri['resolved_by_scan']), 'scan-confirmed closures', 9200000, 3950000, $theme['success']),
         ];
 
         return $this->pptSlide($shapes);
@@ -592,29 +597,30 @@ class VulnAssessmentController extends Controller
 
     private function pptSlideHosts(VulnAssessment $assessment, $topIps): string
     {
+        $theme = $this->pptTheme;
         $shapes = [
             $this->pptSlideTitle('Highest Risk Hosts', 'Top hosts by active findings and critical/high exposure.'),
-            $this->pptRect(430000, 1160000, 11000000, 420000, 'E2E8F0', 'E2E8F0', 'rect'),
+            $this->pptRect(430000, 1160000, 11000000, 420000, $theme['primary'], $theme['primary'], 'rect'),
         ];
 
         $y = 1260000;
-        $shapes[] = $this->pptText('IP Address', 500000, $y, 1600000, 240000, 11, '64748B', true);
-        $shapes[] = $this->pptText('Hostname', 2200000, $y, 2100000, 240000, 11, '64748B', true);
-        $shapes[] = $this->pptText('Critical', 4600000, $y, 900000, 240000, 11, '780000', true);
-        $shapes[] = $this->pptText('High', 5700000, $y, 900000, 240000, 11, 'DC0000', true);
-        $shapes[] = $this->pptText('Active', 6800000, $y, 900000, 240000, 11, '059669', true);
-        $shapes[] = $this->pptText('Owner', 7900000, $y, 1400000, 240000, 11, '64748B', true);
+        $shapes[] = $this->pptText('IP Address', 500000, $y, 1600000, 240000, 12, $theme['onDark'], true);
+        $shapes[] = $this->pptText('Hostname', 2200000, $y, 2100000, 240000, 12, $theme['onDark'], true);
+        $shapes[] = $this->pptText('Critical', 4600000, $y, 900000, 240000, 12, $theme['onDark'], true);
+        $shapes[] = $this->pptText('High', 5700000, $y, 900000, 240000, 12, $theme['onDark'], true);
+        $shapes[] = $this->pptText('Active', 6800000, $y, 900000, 240000, 12, $theme['onDark'], true);
+        $shapes[] = $this->pptText('Owner', 7900000, $y, 1400000, 240000, 12, $theme['onDark'], true);
 
         foreach ($topIps->take(8)->values() as $i => $ip) {
             $y = 1740000 + ($i * 420000);
-            $fill = $i % 2 === 0 ? 'F8FAFC' : 'FFFFFF';
-            $shapes[] = $this->pptRect(430000, $y - 60000, 11000000, 360000, $fill, 'E2E8F0', 'rect');
-            $shapes[] = $this->pptText($ip->ip_address, 500000, $y, 1600000, 220000, 10, '0F172A', true);
-            $shapes[] = $this->pptText($ip->hostname ?: '-', 2200000, $y, 2100000, 220000, 10, '475569');
-            $shapes[] = $this->pptText((string) $ip->critical, 4700000, $y, 600000, 220000, 10, '780000', true);
-            $shapes[] = $this->pptText((string) $ip->high, 5800000, $y, 600000, 220000, 10, 'DC0000', true);
-            $shapes[] = $this->pptText((string) $ip->active_count, 6900000, $y, 600000, 220000, 10, '059669', true);
-            $shapes[] = $this->pptText($ip->system_owner ?: '-', 7900000, $y, 1400000, 220000, 10, '475569');
+            $fill = $i % 2 === 0 ? $theme['background'] : $theme['surface'];
+            $shapes[] = $this->pptRect(430000, $y - 60000, 11000000, 360000, $fill, $theme['border'], 'rect');
+            $shapes[] = $this->pptText($ip->ip_address, 500000, $y, 1600000, 220000, 11, $theme['secondary'], true);
+            $shapes[] = $this->pptText($ip->hostname ?: '-', 2200000, $y, 2100000, 220000, 11, $theme['muted']);
+            $shapes[] = $this->pptBadge((string) $ip->critical, 4620000, $y - 20000, $theme['severity']['Critical']);
+            $shapes[] = $this->pptBadge((string) $ip->high, 5720000, $y - 20000, $theme['severity']['High']);
+            $shapes[] = $this->pptText((string) $ip->active_count, 6900000, $y, 600000, 220000, 11, $theme['success'], true);
+            $shapes[] = $this->pptText($ip->system_owner ?: '-', 7900000, $y, 1400000, 220000, 11, $theme['muted']);
         }
 
         return $this->pptSlide($shapes);
@@ -637,20 +643,25 @@ class VulnAssessmentController extends Controller
 
     private function pptMetric(string $label, string $value, string $note, int $x, int $y, string $color, int $w = 2400000, int $h = 1220000): string
     {
-        return $this->pptRect($x, $y, $w, $h, 'FFFFFF', 'D9E2EF')
+        $theme = $this->pptTheme;
+
+        return $this->pptRect($x, $y, $w, $h, $theme['surface'], $theme['border'])
             . $this->pptRect($x, $y, 65000, $h, $color, $color, 'rect')
-            . $this->pptText($label, $x + 170000, $y + 150000, $w - 300000, 220000, 9, '64748B', true)
+            . $this->pptText($label, $x + 170000, $y + 150000, $w - 300000, 220000, 11, $theme['muted'], true)
             . $this->pptText($value, $x + 170000, $y + 420000, $w - 300000, 380000, 22, $color, true)
-            . $this->pptText($note, $x + 170000, $y + 860000, $w - 300000, 240000, 9, '64748B');
+            . $this->pptText($note, $x + 170000, $y + 860000, $w - 300000, 240000, 11, $theme['muted']);
     }
 
     private function pptSlide(array $shapes): string
     {
+        $background = $this->pptTheme['background'] ?? 'F8FAFC';
+        $content = implode('', $shapes) . $this->pptFooter();
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
-            . '<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="F8FAFC"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>'
+            . '<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="' . $background . '"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>'
             . '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
-            . implode('', $shapes)
+            . $content
             . '</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>';
     }
 
@@ -660,7 +671,7 @@ class VulnAssessmentController extends Controller
         [$x, $y, $w, $h] = $this->pptScaleBox($x, $y, $w, $h);
         $safe = $this->pptXml($text);
         $boldAttr = $bold ? ' b="1"' : '';
-        return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Text"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="' . ($pt * 100) . '"' . $boldAttr . '><a:solidFill><a:srgbClr val="' . $color . '"/></a:solidFill></a:rPr><a:t>' . $safe . '</a:t></a:r></a:p></p:txBody></p:sp>';
+        return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Text"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="' . ($pt * 100) . '"' . $boldAttr . '><a:solidFill><a:srgbClr val="' . $color . '"/></a:solidFill><a:latin typeface="Segoe UI"/><a:ea typeface="Aptos"/><a:cs typeface="Calibri"/></a:rPr><a:t>' . $safe . '</a:t></a:r></a:p></p:txBody></p:sp>';
     }
 
     private function pptRect(int $x, int $y, int $w, int $h, string $fill, string $line, string $shape = 'roundRect'): string
@@ -670,18 +681,48 @@ class VulnAssessmentController extends Controller
         return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Box"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="' . $shape . '"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="' . $fill . '"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="' . $line . '"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
     }
 
+    private function pptGradientRect(int $x, int $y, int $w, int $h, string $start, string $end, string $shape = 'roundRect'): string
+    {
+        $id = ++$this->pptShapeId;
+        [$x, $y, $w, $h] = $this->pptScaleBox($x, $y, $w, $h);
+
+        return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Gradient"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="' . $shape . '"><a:avLst/></a:prstGeom><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="' . $start . '"/></a:gs><a:gs pos="100000"><a:srgbClr val="' . $end . '"/></a:gs></a:gsLst><a:lin ang="0" scaled="1"/></a:gradFill><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
+    }
+
+    private function pptBadge(string $text, int $x, int $y, string $color): string
+    {
+        return $this->pptRect($x, $y, 620000, 260000, $this->pptTint($color, 0.88), $this->pptTint($color, 0.55))
+            . $this->pptText($text, $x + 40000, $y + 45000, 540000, 150000, 10, $color, true);
+    }
+
+    private function pptFooter(): string
+    {
+        $theme = $this->pptTheme;
+        $company = SiteSetting::get('company_name', 'VulnTrack') ?: 'VulnTrack';
+
+        return $this->pptRect(430000, 6500000, 11330000, 35000, $theme['accent'], $theme['accent'], 'rect')
+            . $this->pptRect(430000, 6380000, 120000, 120000, $theme['primary'], $theme['primary'], 'ellipse')
+            . $this->pptText($company . ' | Vulnerability KRI Report', 610000, 6325000, 5200000, 220000, 10, $theme['muted'])
+            . $this->pptText('Generated ' . now()->format('d M Y'), 9200000, 6325000, 2300000, 220000, 10, $theme['muted']);
+    }
+
     private function pptSlideTitle(string $title, string $subtitle): string
     {
-        return $this->pptRect(0, 0, 12192000, 820000, '0F172A', '0F172A', 'rect')
-            . $this->pptText($title, 430000, 220000, 6900000, 320000, 22, 'FFFFFF', true)
-            . $this->pptText($subtitle, 430000, 900000, 9000000, 280000, 11, '475569');
+        $theme = $this->pptTheme;
+
+        return $this->pptGradientRect(0, 0, 12192000, 820000, $theme['secondary'], $theme['primary'], 'rect')
+            . $this->pptText($title, 430000, 220000, 6900000, 320000, 24, $theme['onDark'], true)
+            . $this->pptText($subtitle, 430000, 900000, 9000000, 280000, 13, $theme['muted']);
     }
 
     private function pptChartPanel(string $title, string $note, string $relId, array $rows, int $x, int $y): string
     {
-        return $this->pptRect($x, $y, 5400000, 4350000, 'FFFFFF', 'D9E2EF')
-            . $this->pptText($title, $x + 280000, $y + 260000, 4200000, 280000, 16, '0F172A', true)
-            . $this->pptText($note, $x + 280000, $y + 610000, 4500000, 420000, 10, '64748B')
+        $theme = $this->pptTheme;
+
+        return $this->pptRect($x, $y, 5400000, 4350000, $theme['surface'], $theme['border'])
+            . $this->pptRect($x, $y, 5400000, 90000, $theme['accent'], $theme['accent'], 'rect')
+            . $this->pptText($title, $x + 280000, $y + 260000, 4200000, 280000, 18, $theme['secondary'], true)
+            . $this->pptText($note, $x + 280000, $y + 610000, 4500000, 420000, 12, $theme['muted'])
             . $this->pptImage($relId, $title, $x + 390000, $y + 1150000, 2350000, 2350000)
             . $this->pptLegend($rows, $x + 2920000, $y + 1260000, 2050000);
     }
@@ -695,8 +736,8 @@ class VulnAssessmentController extends Controller
             $rowY = $y + ($i * 430000);
             $pct = $total > 0 ? round(((int) $value / $total) * 100) : 0;
             $shapes .= $this->pptRect($x, $rowY + 35000, 170000, 170000, $color, $color, 'rect');
-            $shapes .= $this->pptText($label, $x + 240000, $rowY, 1050000, 220000, 10, '334155', true);
-            $shapes .= $this->pptText(number_format($value) . ' (' . $pct . '%)', $x + 1350000, $rowY, $w - 1350000, 220000, 10, '64748B');
+            $shapes .= $this->pptText($label, $x + 240000, $rowY, 1050000, 220000, 12, $this->pptTheme['secondary'], true);
+            $shapes .= $this->pptText(number_format($value) . ' (' . $pct . '%)', $x + 1350000, $rowY, $w - 1350000, 220000, 12, $this->pptTheme['muted']);
         }
 
         return $shapes;
@@ -704,13 +745,15 @@ class VulnAssessmentController extends Controller
 
     private function pptInsightBox(string $title, array $items, int $x, int $y, int $w, int $h): string
     {
-        $shapes = $this->pptRect($x, $y, $w, $h, 'FFFFFF', 'D9E2EF')
-            . $this->pptText($title, $x + 280000, $y + 210000, $w - 560000, 260000, 15, '0F172A', true);
+        $theme = $this->pptTheme;
+        $shapes = $this->pptRect($x, $y, $w, $h, $theme['surface'], $theme['border'])
+            . $this->pptRect($x, $y, $w, 85000, $theme['accent'], $theme['accent'], 'rect')
+            . $this->pptText($title, $x + 280000, $y + 210000, $w - 560000, 260000, 17, $theme['secondary'], true);
 
         foreach ($items as $i => $item) {
             $rowY = $y + 600000 + ($i * 300000);
-            $shapes .= $this->pptRect($x + 300000, $rowY + 65000, 90000, 90000, '1D4ED8', '1D4ED8', 'ellipse');
-            $shapes .= $this->pptText($item, $x + 470000, $rowY, $w - 760000, 230000, 10, '475569');
+            $shapes .= $this->pptRect($x + 300000, $rowY + 65000, 90000, 90000, $theme['primary'], $theme['primary'], 'ellipse');
+            $shapes .= $this->pptText($item, $x + 470000, $rowY, $w - 760000, 230000, 12, $theme['muted']);
         }
 
         return $shapes;
@@ -727,24 +770,26 @@ class VulnAssessmentController extends Controller
 
     private function pptKriChartData($stats, array $kri): array
     {
+        $severity = $this->pptTheme['severity'];
+
         return [
             'severity' => [
-                ['Critical', (int) ($stats->critical ?? 0), '780000'],
-                ['High', (int) ($stats->high ?? 0), 'DC0000'],
-                ['Medium', (int) ($stats->medium ?? 0), 'FD8C00'],
-                ['Low', (int) ($stats->low ?? 0), '16A34A'],
+                ['Critical', (int) ($stats->critical ?? 0), $severity['Critical']],
+                ['High', (int) ($stats->high ?? 0), $severity['High']],
+                ['Medium', (int) ($stats->medium ?? 0), $severity['Medium']],
+                ['Low', (int) ($stats->low ?? 0), $severity['Low']],
             ],
             'workflow' => [
-                ['Open', (int) ($kri['open_remediation'] ?? 0), 'DC2626'],
-                ['In Progress', (int) ($kri['in_progress'] ?? 0), 'D97706'],
-                ['Accepted', (int) ($kri['accepted_risk'] ?? 0), '64748B'],
-                ['Resolved', (int) ($kri['resolved_by_scan'] ?? 0), '16A34A'],
+                ['Open', (int) ($kri['open_remediation'] ?? 0), $severity['Critical']],
+                ['In Progress', (int) ($kri['in_progress'] ?? 0), $severity['Medium']],
+                ['Accepted', (int) ($kri['accepted_risk'] ?? 0), $this->pptTheme['muted']],
+                ['Resolved', (int) ($kri['resolved_by_scan'] ?? 0), $this->pptTheme['success']],
             ],
             'sla' => [
-                ['Breached', (int) ($kri['sla_breached'] ?? 0), 'DC2626'],
-                ['Approaching', (int) ($kri['sla_approaching'] ?? 0), 'D97706'],
-                ['On Track', (int) ($kri['sla_on_track'] ?? 0), '16A34A'],
-                ['Met', (int) ($kri['sla_met'] ?? 0), '0EA5E9'],
+                ['Breached', (int) ($kri['sla_breached'] ?? 0), $severity['Critical']],
+                ['Approaching', (int) ($kri['sla_approaching'] ?? 0), $severity['Medium']],
+                ['On Track', (int) ($kri['sla_on_track'] ?? 0), $this->pptTheme['success']],
+                ['Met', (int) ($kri['sla_met'] ?? 0), $this->pptTheme['accent']],
             ],
         ];
     }
@@ -807,6 +852,59 @@ class VulnAssessmentController extends Controller
             hexdec(substr($hex, 2, 2)),
             hexdec(substr($hex, 4, 2)),
         ];
+    }
+
+    private function pptThemeColors(): array
+    {
+        $primary = $this->pptSettingColor('theme_color', $this->pptSettingColor('theme_primary', '#2563EB'));
+        $secondary = $this->pptSettingColor('theme_secondary_color', '#1E293B');
+        $accent = $this->pptSettingColor('theme_accent_color', $this->pptSettingColor('report_accent_color', '#0EA5E9'));
+
+        return [
+            'primary'     => $primary,
+            'secondary'   => $secondary,
+            'accent'      => $accent,
+            'background'  => $this->pptTint($primary, 0.94),
+            'surface'     => 'FFFFFF',
+            'border'      => $this->pptTint($secondary, 0.82),
+            'muted'       => '64748B',
+            'onDark'      => 'FFFFFF',
+            'onDarkMuted' => 'DBEAFE',
+            'success'     => '16A34A',
+            'severity'    => [
+                'Critical' => 'DC2626',
+                'High'     => 'EA580C',
+                'Medium'   => 'D97706',
+                'Low'      => $primary,
+                'Info'     => '64748B',
+            ],
+        ];
+    }
+
+    private function pptSettingColor(string $key, string $default): string
+    {
+        return $this->pptColor(SiteSetting::get($key, $default), $default);
+    }
+
+    private function pptColor(mixed $value, string $default): string
+    {
+        $value = (string) ($value ?: $default);
+        $value = preg_match('/^#[0-9a-fA-F]{6}$/', $value) ? $value : $default;
+
+        return strtoupper(ltrim($value, '#'));
+    }
+
+    private function pptTint(string $hex, float $amount): string
+    {
+        [$r, $g, $b] = $this->pptHexToRgb($hex);
+        $amount = max(0, min(1, $amount));
+
+        return sprintf(
+            '%02X%02X%02X',
+            (int) round($r + ((255 - $r) * $amount)),
+            (int) round($g + ((255 - $g) * $amount)),
+            (int) round($b + ((255 - $b) * $amount)),
+        );
     }
 
     private function pptContentTypes(int $slideCount): string
