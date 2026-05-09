@@ -224,12 +224,19 @@
                         <div style="font-weight:600">{{ $f->plugin_id }}</div>
                         @if($f->cve)<div style="color:#64748b;font-size:.72rem">{{ $f->cve }}</div>@endif
                     </td>
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;max-width:240px">
-                        <div style="font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->vuln_name }}">{{ $f->vuln_name }}</div>
-                        @if($f->description)
-                        <div style="font-size:.73rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->description }}">{{ Str::limit($f->description, 65) }}</div>
-                        @endif
-                    </td>
+                <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;max-width:240px">
+                    <a href="#"
+                       data-bs-toggle="modal"
+                       data-bs-target="#detailModal{{ $f->id }}"
+                       aria-label="View details for {{ $f->vuln_name }}"
+                       style="display:block;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none"
+                       title="{{ $f->vuln_name }}">
+                        {{ $f->vuln_name }}
+                    </a>
+                    @if($f->description)
+                    <div style="font-size:.73rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->description }}">{{ Str::limit($f->description, 65) }}</div>
+                    @endif
+                </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <div style="font-family:monospace;font-weight:600;color:#0f172a;font-size:.8rem">{{ $f->ip_address }}</div>
                         @if($f->hostname)
