@@ -478,6 +478,11 @@ class VulnAssessmentController extends Controller
 
         $this->pptShapeId = 10;
         $this->pptTheme = $this->pptThemeColors();
+
+        $template = new \ZipArchive();
+        abort_unless($template->open($templatePath) === true, 500, 'Unable to open PowerPoint export template.');
+        $this->pptApplyTemplateScale($template);
+
         $charts = $this->pptKriChartData($stats, $kri);
         $media = [
             'severity' => $this->pptDoughnutChartPng($charts['severity']),
@@ -491,10 +496,6 @@ class VulnAssessmentController extends Controller
             $this->pptSlideRemediation($assessment, $charts, $kri),
             $this->pptSlideHosts($assessment, $topIps),
         ];
-
-        $template = new \ZipArchive();
-        abort_unless($template->open($templatePath) === true, 500, 'Unable to open PowerPoint export template.');
-        $this->pptApplyTemplateScale($template);
 
         $zip = new \ZipArchive();
         abort_unless($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true, 500, 'Unable to create PowerPoint export.');
