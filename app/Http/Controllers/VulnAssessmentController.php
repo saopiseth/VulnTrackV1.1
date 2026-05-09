@@ -469,14 +469,14 @@ class VulnAssessmentController extends Controller
         $kri = $data['kri'];
         $stats = $data['stats'];
         $topIps = $data['topIps'];
+        $templatePath = resource_path('pptx/kri_template.pptx');
         $path = storage_path('app/kri-report-' . $assessment->uuid . '-' . uniqid() . '.pptx');
         if (!is_dir(dirname($path))) {
             mkdir(dirname($path), 0775, true);
         }
+        abort_unless(is_file($templatePath), 500, 'PowerPoint export template is missing.');
 
         $this->pptShapeId = 10;
-        $this->pptScaleX = 1.0;
-        $this->pptScaleY = 1.0;
         $this->pptTheme = $this->pptThemeColors();
         $charts = $this->pptKriChartData($stats, $kri);
         $media = [
@@ -492,23 +492,34 @@ class VulnAssessmentController extends Controller
             $this->pptSlideHosts($assessment, $topIps),
         ];
 
+        $template = new \ZipArchive();
+        abort_unless($template->open($templatePath) === true, 500, 'Unable to open PowerPoint export template.');
+        $this->pptApplyTemplateScale($template);
+
         $zip = new \ZipArchive();
         abort_unless($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true, 500, 'Unable to create PowerPoint export.');
 
-        $zip->addFromString('[Content_Types].xml', $this->pptContentTypes(count($slides)));
-        $zip->addFromString('_rels/.rels', $this->pptRootRels());
-        $zip->addFromString('ppt/presentation.xml', $this->pptPresentationXml(count($slides)));
-        $zip->addFromString('ppt/_rels/presentation.xml.rels', $this->pptPresentationRels(count($slides)));
-        $zip->addFromString('ppt/presProps.xml', $this->pptPresPropsXml());
-        $zip->addFromString('ppt/viewProps.xml', $this->pptViewPropsXml());
-        $zip->addFromString('ppt/tableStyles.xml', $this->pptTableStylesXml());
-        $zip->addFromString('ppt/slideMasters/slideMaster1.xml', $this->pptSlideMasterXml());
-        $zip->addFromString('ppt/slideMasters/_rels/slideMaster1.xml.rels', $this->pptSlideMasterRels());
-        $zip->addFromString('ppt/slideLayouts/slideLayout1.xml', $this->pptSlideLayoutXml());
-        $zip->addFromString('ppt/slideLayouts/_rels/slideLayout1.xml.rels', $this->pptSlideLayoutRels());
-        $zip->addFromString('ppt/theme/theme1.xml', $this->pptThemeXml());
-        $zip->addFromString('docProps/app.xml', $this->pptAppXml(count($slides)));
-        $zip->addFromString('docProps/core.xml', $this->pptCoreXml($assessment->name));
+        $dynamicParts = [
+            '[Content_Types].xml',
+            'ppt/presentation.xml',
+            'ppt/_rels/presentation.xml.rels',
+        ];
+
+        for ($i = 0; $i < $template->numFiles; $i++) {
+            $name = $template->getNameIndex($i);
+            if (!$name || in_array($name, $dynamicParts, true) || $this->pptShouldSkipTemplatePart($name)) {
+                continue;
+            }
+
+            $contents = $template->getFromIndex($i);
+            if ($contents !== false) {
+                $zip->addFromString($name, $contents);
+            }
+        }
+
+        $zip->addFromString('[Content_Types].xml', $this->pptTemplateContentTypes($template, count($slides), true));
+        $zip->addFromString('ppt/presentation.xml', $this->pptTemplatePresentationXml($template, count($slides)));
+        $zip->addFromString('ppt/_rels/presentation.xml.rels', $this->pptTemplatePresentationRels($template, count($slides)));
         $zip->addFromString('ppt/media/kri_severity.png', $media['severity']);
         $zip->addFromString('ppt/media/kri_workflow.png', $media['workflow']);
         $zip->addFromString('ppt/media/kri_sla.png', $media['sla']);
@@ -526,6 +537,7 @@ class VulnAssessmentController extends Controller
         }
 
         abort_unless($zip->close(), 500, 'Unable to finalize PowerPoint export.');
+        $template->close();
 
         return $path;
     }
@@ -927,7 +939,8 @@ class VulnAssessmentController extends Controller
         $rels .= '<Relationship Id="rId' . ($slideCount + 1) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>';
         $rels .= '<Relationship Id="rId' . ($slideCount + 2) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/>';
         $rels .= '<Relationship Id="rId' . ($slideCount + 3) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps" Target="viewProps.xml"/>';
-        $rels .= '<Relationship Id="rId' . ($slideCount + 4) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>';
+        $rels .= '<Relationship Id="rId' . ($slideCount + 4) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>';
+        $rels .= '<Relationship Id="rId' . ($slideCount + 5) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>';
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . $rels . '</Relationships>';
     }
 
@@ -1009,10 +1022,7 @@ class VulnAssessmentController extends Controller
 
     private function pptShouldSkipTemplatePart(string $name): bool
     {
-        return str_starts_with($name, 'ppt/slides/')
-            || str_starts_with($name, 'ppt/notesSlides/')
-            || str_starts_with($name, 'ppt/comments/')
-            || str_starts_with($name, 'ppt/slideComments/');
+        return str_starts_with($name, 'ppt/slides/');
     }
 
     private function pptApplyTemplateScale(\ZipArchive $template): void
