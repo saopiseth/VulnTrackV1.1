@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Storage;
 class VulnAssessmentController extends Controller
 {
     private int $pptShapeId = 10;
+    private float $pptScaleX = 1.0;
+    private float $pptScaleY = 1.0;
 
     public function index()
     {
@@ -489,6 +491,7 @@ class VulnAssessmentController extends Controller
 
         $template = new \ZipArchive();
         abort_unless($template->open($templatePath) === true, 500, 'Unable to open PowerPoint export template.');
+        $this->pptApplyTemplateScale($template);
 
         $zip = new \ZipArchive();
         abort_unless($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true, 500, 'Unable to create PowerPoint export.');
@@ -501,7 +504,7 @@ class VulnAssessmentController extends Controller
 
         for ($i = 0; $i < $template->numFiles; $i++) {
             $name = $template->getNameIndex($i);
-            if (!$name || in_array($name, $dynamicParts, true)) {
+            if (!$name || in_array($name, $dynamicParts, true) || $this->pptShouldSkipTemplatePart($name)) {
                 continue;
             }
 
@@ -654,6 +657,7 @@ class VulnAssessmentController extends Controller
     private function pptText(string $text, int $x, int $y, int $w, int $h, int $pt = 12, string $color = '0F172A', bool $bold = false): string
     {
         $id = ++$this->pptShapeId;
+        [$x, $y, $w, $h] = $this->pptScaleBox($x, $y, $w, $h);
         $safe = $this->pptXml($text);
         $boldAttr = $bold ? ' b="1"' : '';
         return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Text"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="' . ($pt * 100) . '"' . $boldAttr . '><a:solidFill><a:srgbClr val="' . $color . '"/></a:solidFill></a:rPr><a:t>' . $safe . '</a:t></a:r></a:p></p:txBody></p:sp>';
@@ -662,6 +666,7 @@ class VulnAssessmentController extends Controller
     private function pptRect(int $x, int $y, int $w, int $h, string $fill, string $line, string $shape = 'roundRect'): string
     {
         $id = ++$this->pptShapeId;
+        [$x, $y, $w, $h] = $this->pptScaleBox($x, $y, $w, $h);
         return '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="Box"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="' . $shape . '"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="' . $fill . '"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="' . $line . '"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>';
     }
 
@@ -714,6 +719,7 @@ class VulnAssessmentController extends Controller
     private function pptImage(string $relId, string $name, int $x, int $y, int $w, int $h): string
     {
         $id = ++$this->pptShapeId;
+        [$x, $y, $w, $h] = $this->pptScaleBox($x, $y, $w, $h);
         $safeName = $this->pptXml($name);
 
         return '<p:pic><p:nvPicPr><p:cNvPr id="' . $id . '" name="' . $safeName . '"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="' . $relId . '"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="' . $x . '" y="' . $y . '"/><a:ext cx="' . $w . '" cy="' . $h . '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>';
@@ -867,6 +873,8 @@ class VulnAssessmentController extends Controller
     private function pptTemplateContentTypes(\ZipArchive $template, int $slideCount, bool $includePng = false): string
     {
         $xml = $this->pptTemplatePart($template, '[Content_Types].xml');
+        $xml = preg_replace('#<Override PartName="/ppt/slides/slide\d+\.xml"[^>]*/>#', '', $xml) ?? $xml;
+
         if ($includePng && !str_contains($xml, 'Extension="png"')) {
             $xml = preg_replace('/(<Types[^>]*>)/', '$1<Default Extension="png" ContentType="image/png"/>', $xml, 1) ?? $xml;
         }
@@ -882,6 +890,8 @@ class VulnAssessmentController extends Controller
     private function pptTemplatePresentationXml(\ZipArchive $template, int $slideCount): string
     {
         $xml = $this->pptTemplatePart($template, 'ppt/presentation.xml');
+        $xml = preg_replace('#<p:sldIdLst>.*?</p:sldIdLst>#s', '', $xml) ?? $xml;
+
         $ids = '';
         for ($i = 1; $i <= $slideCount; $i++) {
             $ids .= '<p:sldId id="' . (255 + $i) . '" r:id="rId' . (99 + $i) . '"/>';
@@ -893,6 +903,8 @@ class VulnAssessmentController extends Controller
     private function pptTemplatePresentationRels(\ZipArchive $template, int $slideCount): string
     {
         $xml = $this->pptTemplatePart($template, 'ppt/_rels/presentation.xml.rels');
+        $xml = preg_replace('#<Relationship Id="[^"]+" Type="http://schemas\.openxmlformats\.org/officeDocument/2006/relationships/slide" Target="slides/slide\d+\.xml"/>#', '', $xml) ?? $xml;
+
         $rels = '';
         for ($i = 1; $i <= $slideCount; $i++) {
             $rels .= '<Relationship Id="rId' . (99 + $i) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide' . $i . '.xml"/>';
@@ -907,6 +919,37 @@ class VulnAssessmentController extends Controller
         abort_unless($contents !== false, 500, "PowerPoint export template is missing {$name}.");
 
         return $contents;
+    }
+
+    private function pptShouldSkipTemplatePart(string $name): bool
+    {
+        return str_starts_with($name, 'ppt/slides/')
+            || str_starts_with($name, 'ppt/notesSlides/')
+            || str_starts_with($name, 'ppt/comments/')
+            || str_starts_with($name, 'ppt/slideComments/');
+    }
+
+    private function pptApplyTemplateScale(\ZipArchive $template): void
+    {
+        $xml = $this->pptTemplatePart($template, 'ppt/presentation.xml');
+        if (preg_match('/<p:sldSz[^>]*cx="(\d+)"[^>]*cy="(\d+)"/', $xml, $matches)) {
+            $this->pptScaleX = max(0.1, ((int) $matches[1]) / 12192000);
+            $this->pptScaleY = max(0.1, ((int) $matches[2]) / 6858000);
+            return;
+        }
+
+        $this->pptScaleX = 1.0;
+        $this->pptScaleY = 1.0;
+    }
+
+    private function pptScaleBox(int $x, int $y, int $w, int $h): array
+    {
+        return [
+            (int) round($x * $this->pptScaleX),
+            (int) round($y * $this->pptScaleY),
+            (int) round($w * $this->pptScaleX),
+            (int) round($h * $this->pptScaleY),
+        ];
     }
 
     private function pptSlideMasterXml(): string
