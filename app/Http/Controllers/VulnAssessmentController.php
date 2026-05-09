@@ -723,7 +723,6 @@ class VulnAssessmentController extends Controller
         $theme = $this->pptTheme;
 
         return $this->pptRect($x, $y, 5400000, 4350000, $theme['surface'], $theme['border'])
-            . $this->pptRect($x, $y, 5400000, 90000, $theme['accent'], $theme['accent'], 'rect')
             . $this->pptText($title, $x + 280000, $y + 260000, 4200000, 280000, 18, $theme['secondary'], true)
             . $this->pptText($note, $x + 280000, $y + 610000, 4500000, 420000, 12, $theme['muted'])
             . $this->pptImage($relId, $title, $x + 390000, $y + 1150000, 2350000, 2350000)
@@ -845,24 +844,19 @@ class VulnAssessmentController extends Controller
         $muted = imagecolorallocate($image, 100, 116, 139);
         $totalText = number_format($total);
         $labelText = 'Total';
-        $totalFont = 5;
-        $labelFont = 3;
-        imagestring(
-            $image,
-            $totalFont,
-            (int) ($cx - (imagefontwidth($totalFont) * strlen($totalText) / 2)),
-            $cy - 28,
-            $totalText,
-            $dark
-        );
-        imagestring(
-            $image,
-            $labelFont,
-            (int) ($cx - (imagefontwidth($labelFont) * strlen($labelText) / 2)),
-            $cy + 8,
-            $labelText,
-            $muted
-        );
+        $boldFont = $this->pptChartFont(true);
+        $regularFont = $this->pptChartFont();
+        if ($boldFont && $regularFont && function_exists('imagettftext')) {
+            $totalBox = imagettfbbox(42, 0, $boldFont, $totalText);
+            $labelBox = imagettfbbox(18, 0, $regularFont, $labelText);
+            imagettftext($image, 42, 0, (int) ($cx - (($totalBox[2] - $totalBox[0]) / 2)), $cy - 8, $dark, $boldFont, $totalText);
+            imagettftext($image, 18, 0, (int) ($cx - (($labelBox[2] - $labelBox[0]) / 2)), $cy + 28, $muted, $regularFont, $labelText);
+        } else {
+            $totalFont = 5;
+            $labelFont = 3;
+            imagestring($image, $totalFont, (int) ($cx - (imagefontwidth($totalFont) * strlen($totalText) / 2)), $cy - 28, $totalText, $dark);
+            imagestring($image, $labelFont, (int) ($cx - (imagefontwidth($labelFont) * strlen($labelText) / 2)), $cy + 8, $labelText, $muted);
+        }
 
         ob_start();
         imagepng($image);
@@ -881,6 +875,31 @@ class VulnAssessmentController extends Controller
             hexdec(substr($hex, 2, 2)),
             hexdec(substr($hex, 4, 2)),
         ];
+    }
+
+    private function pptChartFont(bool $bold = false): ?string
+    {
+        $fonts = $bold
+            ? [
+                'C:\Windows\Fonts\segoeuib.ttf',
+                'C:\Windows\Fonts\arialbd.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+            ]
+            : [
+                'C:\Windows\Fonts\segoeui.ttf',
+                'C:\Windows\Fonts\arial.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+            ];
+
+        foreach ($fonts as $font) {
+            if (is_file($font)) {
+                return $font;
+            }
+        }
+
+        return null;
     }
 
     private function pptThemeColors(): array
