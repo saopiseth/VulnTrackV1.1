@@ -254,6 +254,7 @@
     </div>
 </div>
 
+
 @if($topIps->count())
 <div class="kri-section-title"><i class="bi bi-hdd-network"></i>Highest Risk Hosts</div>
 <div class="kri-card p-0">
