@@ -6,6 +6,7 @@ echo "[entrypoint] Starting VulnTrack setup..."
 # ── Ensure writable directories exist ────────────────────────
 mkdir -p storage/framework/{cache/data,sessions,views,testing} \
          storage/logs \
+         storage/app/private/scan-uploads \
          bootstrap/cache
 
 chown -R www-data:www-data storage bootstrap/cache
