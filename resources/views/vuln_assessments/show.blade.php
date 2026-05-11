@@ -479,9 +479,9 @@
 
 </div>{{-- /tab-content --}}
 
-{{-- ══ Upload Modal — AJAX + progress + chunked upload ══ --}}
+{{-- ══ Upload Modal — multi-file, AJAX + chunked ══ --}}
 <div class="modal fade" id="uploadModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content" style="border-radius:14px;border:1px solid #e8f5c2">
             <div class="modal-header" style="border-bottom:2px solid var(--lime);padding:1rem 1.5rem">
                 <h5 class="modal-title" style="font-size:.95rem;font-weight:700;color:#0f172a">
@@ -504,32 +504,23 @@
 
                 <div class="mb-3">
                     <label class="form-label" style="font-size:.82rem;font-weight:600;color:#374151">
-                        Scan File <span style="color:#dc2626">*</span>
+                        Scan Files <span style="color:#dc2626">*</span>
                     </label>
                     <input type="file" id="scan-file-input" class="form-control" accept=".xml,.nessus,.csv,.txt"
-                           style="border-radius:8px;font-size:.875rem">
-                    <div id="upload-file-hint" style="font-size:.73rem;color:#94a3b8;margin-top:.4rem">
-                        Supported: <strong>.nessus</strong> (XML), <strong>.csv</strong> (Tenable export). Max 50 MB.
+                           multiple style="border-radius:8px;font-size:.875rem">
+                    <div style="font-size:.73rem;color:#94a3b8;margin-top:.4rem">
+                        Supported: <strong>.nessus</strong> (XML), <strong>.csv</strong> (Tenable export). Max 50 MB per file.
                         Files &gt;5 MB upload in chunks automatically.
                     </div>
                 </div>
 
+                {{-- Per-file progress rows (populated by JS on file selection) --}}
+                <div id="file-list" style="display:none;margin-bottom:1rem;max-height:280px;overflow-y:auto"></div>
+
                 <div class="mb-3">
                     <label class="form-label" style="font-size:.82rem;font-weight:600;color:#374151">Notes</label>
                     <input type="text" id="upload-notes" class="form-control"
-                           placeholder="Optional notes about this scan" style="border-radius:8px;font-size:.875rem">
-                </div>
-
-                {{-- Progress area (hidden until upload starts) --}}
-                <div id="upload-progress-area" style="display:none;margin-top:.75rem">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <span id="upload-status-msg" style="font-size:.8rem;color:#475569;font-weight:500"></span>
-                        <span id="upload-pct" style="font-size:.75rem;color:#94a3b8;font-weight:600"></span>
-                    </div>
-                    <div style="height:7px;border-radius:20px;background:#e8f5c2;overflow:hidden">
-                        <div id="upload-progress-bar"
-                             style="height:100%;width:0%;border-radius:20px;background:var(--lime);transition:width .25s ease"></div>
-                    </div>
+                           placeholder="Optional notes (applied to all files)" style="border-radius:8px;font-size:.875rem">
                 </div>
             </div>
 
@@ -548,175 +539,212 @@
 @push('scripts')
 <script nonce="{{ csp_nonce() }}">
 (function () {
-    const CHUNK_SIZE    = 5 * 1024 * 1024; // 5 MB
-    const UPLOAD_URL    = '{{ route('vuln-assessments.upload', $assessment) }}';
-    const CHUNK_URL     = '{{ route('vuln-assessments.upload.chunk', $assessment) }}';
-    const CSRF          = document.querySelector('meta[name="csrf-token"]').content;
+    const CHUNK_SIZE = 5 * 1024 * 1024;
+    const UPLOAD_URL = '{{ route('vuln-assessments.upload', $assessment) }}';
+    const CHUNK_URL  = '{{ route('vuln-assessments.upload.chunk', $assessment) }}';
+    const STATUS_BASE = '{{ url('/vuln-assessments/' . $assessment->uuid . '/scan-status') }}/';
+    const REDIRECT   = '{{ route('vuln-assessments.show', $assessment) }}';
+    const CSRF       = document.querySelector('meta[name="csrf-token"]').content;
 
-    const fileInput     = document.getElementById('scan-file-input');
-    const notesInput    = document.getElementById('upload-notes');
-    const submitBtn     = document.getElementById('upload-submit-btn');
-    const cancelBtn     = document.getElementById('upload-cancel-btn');
-    const errorBox      = document.getElementById('upload-error');
-    const progressArea  = document.getElementById('upload-progress-area');
-    const progressBar   = document.getElementById('upload-progress-bar');
-    const statusMsg     = document.getElementById('upload-status-msg');
-    const pctLabel      = document.getElementById('upload-pct');
+    const fileInput  = document.getElementById('scan-file-input');
+    const notesInput = document.getElementById('upload-notes');
+    const submitBtn  = document.getElementById('upload-submit-btn');
+    const cancelBtn  = document.getElementById('upload-cancel-btn');
+    const errorBox   = document.getElementById('upload-error');
+    const fileList   = document.getElementById('file-list');
 
-    let pollTimer = null;
-
-    function setProgress(pct, msg) {
-        progressArea.style.display = 'block';
-        progressBar.style.width    = pct + '%';
-        pctLabel.textContent       = pct + '%';
-        statusMsg.textContent      = msg;
+    function fmt(bytes) {
+        return bytes < 1048576
+            ? (bytes / 1024).toFixed(1) + ' KB'
+            : (bytes / 1048576).toFixed(1) + ' MB';
     }
 
-    function setError(msg) {
-        errorBox.textContent    = msg;
-        errorBox.style.display  = 'block';
-        submitBtn.disabled      = false;
-        submitBtn.innerHTML     = '<i class="bi bi-cloud-upload me-1"></i>Import Scan';
-        progressArea.style.display = 'none';
+    // ── Render a row for each selected file ──────────────────────
+    fileInput.addEventListener('change', function () {
+        const files = Array.from(fileInput.files);
+        if (!files.length) { fileList.style.display = 'none'; return; }
+
+        fileList.innerHTML = '';
+        files.forEach(function (file, i) {
+            const row = document.createElement('div');
+            row.id = 'frow-' + i;
+            row.style.cssText = 'border:1px solid #e2e8f0;border-radius:9px;padding:.55rem .85rem;margin-bottom:.45rem';
+            row.innerHTML =
+                '<div style="display:flex;align-items:center;gap:.55rem;margin-bottom:.3rem">' +
+                    '<i class="bi bi-file-earmark-bar-graph" style="color:#64748b;font-size:.85rem;flex-shrink:0"></i>' +
+                    '<span style="font-size:.82rem;font-weight:600;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + file.name + '">' + file.name + '</span>' +
+                    '<span style="font-size:.72rem;color:#94a3b8;flex-shrink:0">' + fmt(file.size) + '</span>' +
+                    '<span id="fstatus-' + i + '" style="font-size:.71rem;font-weight:700;padding:.1rem .5rem;border-radius:20px;background:#f1f5f9;color:#64748b;flex-shrink:0">Pending</span>' +
+                '</div>' +
+                '<div style="height:5px;border-radius:20px;background:#e2e8f0;overflow:hidden">' +
+                    '<div id="fbar-' + i + '" style="height:100%;width:0%;border-radius:20px;background:var(--lime);transition:width .2s ease"></div>' +
+                '</div>';
+            fileList.appendChild(row);
+        });
+        fileList.style.display = 'block';
+        submitBtn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>Import ' + files.length + ' File' + (files.length > 1 ? 's' : '');
+    });
+
+    function rowStatus(i, label, color, bg) {
+        const el = document.getElementById('fstatus-' + i);
+        if (!el) return;
+        el.textContent = label;
+        el.style.color = color;
+        el.style.background = bg;
+    }
+    function rowBar(i, pct) {
+        const el = document.getElementById('fbar-' + i);
+        if (el) el.style.width = pct + '%';
     }
 
-    function lockUI() {
+    function showError(msg) {
+        errorBox.textContent   = msg;
+        errorBox.style.display = 'block';
+        submitBtn.disabled     = false;
+        cancelBtn.disabled     = false;
+        submitBtn.innerHTML    = '<i class="bi bi-cloud-upload me-1"></i>Retry';
+    }
+
+    // ── Regular upload (≤ 5 MB) — returns Promise<scanId> ────────
+    function uploadRegular(file, notes, onProgress) {
+        return new Promise(function (resolve, reject) {
+            const fd = new FormData();
+            fd.append('scan_file', file);
+            fd.append('notes', notes);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', UPLOAD_URL);
+            xhr.setRequestHeader('X-CSRF-TOKEN', CSRF);
+            xhr.setRequestHeader('Accept', 'application/json');
+
+            xhr.upload.addEventListener('progress', function (e) {
+                if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 90));
+            });
+
+            xhr.onload = function () {
+                const res = (() => { try { return JSON.parse(xhr.responseText); } catch (_) { return {}; } })();
+                if (xhr.status === 200) {
+                    resolve(res.scan_id);
+                } else {
+                    reject(res.errors?.scan_file || res.message || 'Upload failed (HTTP ' + xhr.status + ')');
+                }
+            };
+            xhr.onerror = function () { reject('Network error'); };
+            xhr.send(fd);
+        });
+    }
+
+    // ── Chunked upload (> 5 MB) — returns Promise<scanId> ────────
+    async function uploadChunked(file, notes, onProgress) {
+        const total    = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+
+        for (let i = 0; i < total; i++) {
+            const fd = new FormData();
+            fd.append('upload_id',    uploadId);
+            fd.append('chunk_index',  i);
+            fd.append('total_chunks', total);
+            fd.append('filename',     file.name);
+            fd.append('notes',        notes);
+            fd.append('chunk',        file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE), file.name);
+
+            onProgress(Math.round(((i + 1) / total) * 90));
+
+            const resp = await fetch(CHUNK_URL, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                body: fd,
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) throw (data.errors?.scan_file || data.message || 'Chunk failed');
+            if (data.status === 'queued') return data.scan_id;
+        }
+        throw 'All chunks sent but no scan_id returned';
+    }
+
+    // ── Main: upload all files then poll all for completion ───────
+    async function runUploads() {
+        const files = Array.from(fileInput.files);
+        const notes = notesInput.value;
+
         errorBox.style.display = 'none';
         submitBtn.disabled     = true;
         cancelBtn.disabled     = true;
-    }
 
-    function pollStatus(scanId) {
-        const url = '{{ url('/vuln-assessments/' . $assessment->uuid . '/scan-status') }}/' + scanId;
-        pollTimer = setInterval(function () {
-            fetch(url, { headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF } })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data.status === 'completed') {
-                        clearInterval(pollTimer);
-                        setProgress(100, 'Processing complete — redirecting…');
-                        setTimeout(function () { window.location.href = data.redirect; }, 600);
-                    } else if (data.status === 'failed') {
-                        clearInterval(pollTimer);
-                        setError('Processing failed: ' + (data.message || 'Unknown error'));
-                        cancelBtn.disabled = false;
-                    } else {
-                        setProgress(100, 'Processing scan… please wait');
-                    }
-                })
-                .catch(function () { /* network hiccup — keep polling */ });
-        }, 2000);
-    }
+        const queued = []; // { index, scanId }
 
-    // ── Regular AJAX upload (files ≤ 5 MB) ──────────────────────
-    function uploadRegular(file) {
-        const formData = new FormData();
-        formData.append('scan_file', file);
-        formData.append('notes', notesInput.value);
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            rowStatus(i, 'Uploading', '#1e40af', '#dbeafe');
+            rowBar(i, 0);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', UPLOAD_URL);
-        xhr.setRequestHeader('X-CSRF-TOKEN', CSRF);
-        xhr.setRequestHeader('Accept', 'application/json');
+            try {
+                const onProg = (pct) => rowBar(i, pct);
+                const scanId = file.size > CHUNK_SIZE
+                    ? await uploadChunked(file, notes, onProg)
+                    : await uploadRegular(file, notes, onProg);
 
-        xhr.upload.addEventListener('progress', function (e) {
-            if (e.lengthComputable) {
-                const pct = Math.round((e.loaded / e.total) * 90);
-                setProgress(pct, 'Uploading… ' + pct + '%');
+                rowBar(i, 95);
+                rowStatus(i, 'Queued', '#92400e', '#fef3c7');
+                queued.push({ index: i, scanId });
+            } catch (err) {
+                rowStatus(i, 'Error', '#991b1b', '#fee2e2');
+                showError('Failed to upload "' + file.name + '": ' + err);
+                return;
             }
+        }
+
+        // All files uploaded — poll until all scans are processed
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Processing…';
+
+        const pending = new Set(queued.map(q => q.scanId));
+
+        await new Promise(function (resolve) {
+            const timer = setInterval(async function () {
+                for (const { index, scanId } of queued) {
+                    if (!pending.has(scanId)) continue;
+                    try {
+                        const resp = await fetch(STATUS_BASE + scanId, {
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                        });
+                        const data = await resp.json();
+                        if (data.status === 'completed') {
+                            pending.delete(scanId);
+                            rowBar(index, 100);
+                            rowStatus(index, 'Done', '#166534', '#dcfce7');
+                        } else if (data.status === 'failed') {
+                            pending.delete(scanId);
+                            rowStatus(index, 'Failed', '#991b1b', '#fee2e2');
+                        }
+                    } catch (_) { /* network hiccup — keep polling */ }
+                }
+                if (pending.size === 0) { clearInterval(timer); resolve(); }
+            }, 2000);
         });
 
-        xhr.onload = function () {
-            const res = (() => { try { return JSON.parse(xhr.responseText); } catch(e) { return {}; } })();
-            if (xhr.status === 200) {
-                setProgress(95, 'Queued — processing in background…');
-                pollStatus(res.scan_id);
-            } else {
-                const msg = res.errors?.scan_file || res.message || 'Upload failed (HTTP ' + xhr.status + ')';
-                setError(msg);
-                cancelBtn.disabled = false;
-            }
-        };
-
-        xhr.onerror = function () { setError('Network error — check your connection and retry.'); cancelBtn.disabled = false; };
-
-        lockUI();
-        setProgress(0, 'Starting upload…');
-        xhr.send(formData);
-    }
-
-    // ── Chunked upload (files > 5 MB) ───────────────────────────
-    async function uploadChunked(file) {
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        const uploadId    = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-
-        lockUI();
-        setProgress(0, 'Preparing chunked upload…');
-
-        try {
-            for (let i = 0; i < totalChunks; i++) {
-                const start     = i * CHUNK_SIZE;
-                const chunk     = file.slice(start, start + CHUNK_SIZE);
-                const formData  = new FormData();
-                formData.append('upload_id',    uploadId);
-                formData.append('chunk_index',  i);
-                formData.append('total_chunks', totalChunks);
-                formData.append('filename',     file.name);
-                formData.append('notes',        notesInput.value);
-                formData.append('chunk',        chunk, file.name);
-
-                const pct = Math.round(((i + 1) / totalChunks) * 90);
-                setProgress(pct, 'Uploading chunk ' + (i + 1) + ' / ' + totalChunks + '…');
-
-                const resp = await fetch(CHUNK_URL, {
-                    method: 'POST',
-                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-                    body: formData,
-                });
-
-                const data = await resp.json();
-
-                if (!resp.ok) {
-                    const msg = data.errors?.scan_file || data.message || 'Chunk upload failed';
-                    setError(msg);
-                    cancelBtn.disabled = false;
-                    return;
-                }
-
-                if (data.status === 'queued') {
-                    setProgress(95, 'All chunks received — processing in background…');
-                    pollStatus(data.scan_id);
-                    return;
-                }
-            }
-        } catch (err) {
-            setError('Network error during chunked upload: ' + err.message);
-            cancelBtn.disabled = false;
-        }
+        window.location.href = REDIRECT;
     }
 
     submitBtn.addEventListener('click', function () {
-        const file = fileInput.files[0];
-        if (!file) { setError('Please select a file before uploading.'); return; }
-        if (file.size > CHUNK_SIZE) {
-            uploadChunked(file);
-        } else {
-            uploadRegular(file);
+        if (!fileInput.files.length) {
+            showError('Please select at least one file.');
+            return;
         }
+        runUploads();
     });
 
-    // Reset modal state when closed
+    // Reset on close
     document.getElementById('uploadModal').addEventListener('hidden.bs.modal', function () {
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-        fileInput.value             = '';
-        notesInput.value            = '';
-        errorBox.style.display      = 'none';
-        progressArea.style.display  = 'none';
-        progressBar.style.width     = '0%';
-        submitBtn.disabled          = false;
-        cancelBtn.disabled          = false;
-        submitBtn.innerHTML         = '<i class="bi bi-cloud-upload me-1"></i>Import Scan';
+        fileInput.value        = '';
+        notesInput.value       = '';
+        errorBox.style.display = 'none';
+        fileList.style.display = 'none';
+        fileList.innerHTML     = '';
+        submitBtn.disabled     = false;
+        cancelBtn.disabled     = false;
+        submitBtn.innerHTML    = '<i class="bi bi-cloud-upload me-1"></i>Import Scan';
     });
 })();
 
