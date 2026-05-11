@@ -31,7 +31,7 @@ services:
     container_name: vulntrack_nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
       - ./public:/var/www/public:ro
       - ./storage/app/public:/var/www/storage/app/public:ro
