@@ -605,7 +605,7 @@
         submitBtn.innerHTML    = '<i class="bi bi-cloud-upload me-1"></i>Retry';
     }
 
-    // ── Regular upload (≤ 5 MB) — returns Promise<scanId> ────────
+    // ── Regular upload (≤ 5 MB) — returns Promise<{scanId}|{skipped}> ──
     function uploadRegular(file, notes, onProgress) {
         return new Promise(function (resolve, reject) {
             const fd = new FormData();
@@ -624,7 +624,9 @@
             xhr.onload = function () {
                 const res = (() => { try { return JSON.parse(xhr.responseText); } catch (_) { return {}; } })();
                 if (xhr.status === 200) {
-                    resolve(res.scan_id);
+                    resolve({ scanId: res.scan_id });
+                } else if (xhr.status === 422) {
+                    resolve({ skipped: true });
                 } else {
                     reject(res.errors?.scan_file || res.message || 'Upload failed (HTTP ' + xhr.status + ')');
                 }
@@ -634,7 +636,7 @@
         });
     }
 
-    // ── Chunked upload (> 5 MB) — returns Promise<scanId> ────────
+    // ── Chunked upload (> 5 MB) — returns {scanId}|{skipped} ────
     async function uploadChunked(file, notes, onProgress) {
         const total    = Math.ceil(file.size / CHUNK_SIZE);
         const uploadId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
@@ -658,8 +660,9 @@
             });
             const data = await resp.json();
 
+            if (resp.status === 422) return { skipped: true };
             if (!resp.ok) throw (data.errors?.scan_file || data.message || 'Chunk failed');
-            if (data.status === 'queued') return data.scan_id;
+            if (data.status === 'queued') return { scanId: data.scan_id };
         }
         throw 'All chunks sent but no scan_id returned';
     }
@@ -681,14 +684,19 @@
             rowBar(i, 0);
 
             try {
-                const onProg = (pct) => rowBar(i, pct);
-                const scanId = file.size > CHUNK_SIZE
+                const onProg  = (pct) => rowBar(i, pct);
+                const result  = file.size > CHUNK_SIZE
                     ? await uploadChunked(file, notes, onProg)
                     : await uploadRegular(file, notes, onProg);
 
-                rowBar(i, 95);
-                rowStatus(i, 'Queued', '#92400e', '#fef3c7');
-                queued.push({ index: i, scanId });
+                if (result.skipped) {
+                    rowBar(i, 100);
+                    rowStatus(i, 'Skipped', '#475569', '#f1f5f9');
+                } else {
+                    rowBar(i, 95);
+                    rowStatus(i, 'Queued', '#92400e', '#fef3c7');
+                    queued.push({ index: i, scanId: result.scanId });
+                }
             } catch (err) {
                 rowStatus(i, 'Error', '#991b1b', '#fee2e2');
                 showError('Failed to upload "' + file.name + '": ' + err);
@@ -696,7 +704,10 @@
             }
         }
 
-        // All files uploaded — poll until all scans are processed
+        // If every file was a duplicate skip, just reload
+        if (queued.length === 0) { window.location.href = REDIRECT; return; }
+
+        // Poll until all queued scans are processed
         submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Processing…';
 
         const pending = new Set(queued.map(q => q.scanId));
