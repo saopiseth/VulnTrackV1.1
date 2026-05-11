@@ -547,17 +547,15 @@ class VulnAssessmentController extends Controller
     private function pptSlideExecutive(VulnAssessment $assessment, array $kri): string
     {
         $theme = $this->pptTheme;
-        $riskLevel = $kri['risk_score'] >= 100 ? 'Critical Risk' : ($kri['risk_score'] >= 50 ? 'Elevated Risk' : ($kri['risk_score'] >= 15 ? 'Moderate Risk' : 'Low Risk'));
         $shapes = [
             $this->pptGradientRect(0, 0, 12192000, 900000, $theme['secondary'], $theme['primary'], 'rect'),
             $this->pptText('Vulnerability KRI Report', 430000, 260000, 6500000, 380000, 30, $theme['onDark'], true),
             $this->pptText($assessment->name . ' | Generated ' . now()->format('d M Y'), 7350000, 330000, 4100000, 260000, 13, $theme['onDarkMuted']),
             $this->pptText('Executive Summary', 430000, 1180000, 5200000, 360000, 24, $theme['secondary'], true),
             $this->pptText('Key risk indicators highlight current exposure, remediation progress, SLA posture, and host concentration for governance review.', 430000, 1600000, 9000000, 280000, 14, $theme['muted']),
-            $this->pptMetric('Risk Score', number_format($kri['risk_score']), $riskLevel, 430000, 2200000, $theme['severity']['Critical']),
-            $this->pptMetric('Critical / High Exposure', number_format($kri['critical_high']), $kri['critical_high_pct'] . '% of active findings', 3330000, 2200000, $theme['severity']['High']),
-            $this->pptMetric('SLA Breached', number_format($kri['sla_breached']), number_format($kri['sla_approaching']) . ' approaching deadline', 6230000, 2200000, $theme['severity']['Medium']),
-            $this->pptMetric('Remediation Complete', $kri['remediation_pct'] . '%', number_format($kri['resolved_by_scan']) . ' scan-confirmed resolved', 9130000, 2200000, $theme['success']),
+            $this->pptMetric('Critical / High Exposure', number_format($kri['critical_high']), $kri['critical_high_pct'] . '% of active findings', 430000,  2200000, $theme['severity']['High']),
+            $this->pptMetric('SLA Breached',             number_format($kri['sla_breached']),  number_format($kri['sla_approaching']) . ' approaching deadline', 4480000, 2200000, $theme['severity']['Medium']),
+            $this->pptMetric('Remediation Complete',     $kri['remediation_pct'] . '%',        number_format($kri['resolved_by_scan']) . ' scan-confirmed resolved', 8530000, 2200000, $theme['success']),
             $this->pptInsightBox('Management Focus', [
                 'Prioritize critical and high vulnerabilities on the highest-risk hosts.',
                 'Track accepted-risk exceptions separately from remediation completion.',
