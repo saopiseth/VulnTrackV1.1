@@ -1400,9 +1400,9 @@ class VulnAssessmentController extends Controller
             return response()->json(['status' => 'chunk_received', 'received' => $received, 'total' => $totalChunks]);
         }
 
-        // All chunks received — reassemble into a single file.
+        // All chunks received - reassemble into a single file.
         $ext       = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        $finalPath = “scan-uploads/{$uploadId}.{$ext}”;
+        $finalPath = 'scan-uploads/' . $uploadId . '.' . $ext;
         $fullPath  = Storage::disk('local')->path($finalPath);
 
         $dir = dirname($fullPath);
@@ -1412,7 +1412,7 @@ class VulnAssessmentController extends Controller
 
         $out = fopen($fullPath, 'wb');
         for ($i = 0; $i < $totalChunks; $i++) {
-            $chunkPath = Storage::disk('local')->path("{$chunkDir}/chunk_{$i}");
+            $chunkPath = Storage::disk('local')->path($chunkDir . '/chunk_' . $i);
             $in        = fopen($chunkPath, 'rb');
             stream_copy_to_stream($in, $out);
             fclose($in);
