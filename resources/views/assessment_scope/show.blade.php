@@ -22,15 +22,15 @@
         </div>
     </div>
     <div class="d-flex gap-2">
-        <button class="btn" onclick="exportData()" id="exportBtn"
+        <button class="btn" id="exportBtn"
                 style="border-radius:10px;font-size:.875rem;font-weight:600;border:1.5px solid #e2e8f0;color:#374151;background:#fff">
             <i class="bi bi-file-earmark-arrow-down me-1"></i> Export
         </button>
-        <button class="btn btn-outline-secondary" onclick="openImport()"
+        <button class="btn btn-outline-secondary" id="importOpenBtn"
                 style="border-radius:10px;font-size:.875rem;font-weight:600;border-color:#e2e8f0;color:#374151">
             <i class="bi bi-file-earmark-spreadsheet me-1"></i> Import
         </button>
-        <button class="btn btn-primary" onclick="openAdd()"
+        <button class="btn btn-primary" id="addOpenBtn"
                 style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
             <i class="bi bi-plus-lg me-1"></i> Add Asset
         </button>
@@ -124,7 +124,7 @@
                         </td>
                         <td class="py-3 pe-4">
                             <div class="d-flex gap-1">
-                                <button class="btn btn-sm" onclick="openEdit(this.closest('tr'))"
+                                <button class="btn btn-sm js-edit-item"
                                         style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;color:#374151;padding:.3rem .6rem">
                                     <i class="bi bi-pencil-fill" style="font-size:.75rem"></i>
                                 </button>
@@ -223,11 +223,7 @@
             <div class="modal-body px-4 py-4">
                 <div id="import-step1">
                     <div id="dropzone"
-                         style="border:2px dashed #e2e8f0;border-radius:14px;padding:3rem;text-align:center;cursor:pointer;transition:all .2s"
-                         onclick="document.getElementById('fileInput').click()"
-                         ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
-                         ondragleave="this.style.borderColor='#e2e8f0'"
-                         ondrop="handleDrop(event)">
+                         style="border:2px dashed #e2e8f0;border-radius:14px;padding:3rem;text-align:center;cursor:pointer;transition:all .2s">
                         <i class="bi bi-file-earmark-spreadsheet" style="font-size:2.5rem;color:var(--primary);display:block;margin-bottom:.75rem"></i>
                         <div style="font-weight:600;color:#0f172a;margin-bottom:.25rem">Drop your file here or click to browse</div>
                         <div style="font-size:.82rem;color:#94a3b8">Supports .xlsx, .xls, .csv — max 5 MB</div>
@@ -236,7 +232,7 @@
                     <div class="mt-3 p-3" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                             <div style="font-size:.8rem;font-weight:700;color:#374151">Expected columns:</div>
-                            <button type="button" onclick="downloadTemplate()"
+                            <button type="button" id="downloadTemplateBtn"
                                     style="background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:.78rem;font-weight:600;padding:.3rem .85rem;cursor:pointer">
                                 <i class="bi bi-download me-1"></i> Download Template
                             </button>
@@ -254,7 +250,7 @@
                             <span id="import-filename" style="font-weight:600;color:#0f172a"></span>
                             <span id="import-rowcount" style="font-size:.82rem;color:#64748b;margin-left:.5rem"></span>
                         </div>
-                        <button class="btn btn-sm" onclick="resetImport()"
+                        <button class="btn btn-sm" id="changeFileBtn"
                                 style="border-color:#e2e8f0;color:#64748b;border-radius:8px;font-size:.8rem">
                             <i class="bi bi-arrow-left me-1"></i> Change File
                         </button>
@@ -275,7 +271,7 @@
             <div class="modal-footer px-4 pb-4" style="border-top:1px solid #f1f5f9">
                 <button type="button" class="btn" data-bs-dismiss="modal"
                         style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
-                <button type="button" id="importBtn" onclick="doImport()" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
+                <button type="button" id="importBtn" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
                     <span id="importBtnLabel"><i class="bi bi-upload me-1"></i> Import</span>
                 </button>
             </div>
@@ -288,51 +284,42 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script nonce="{{ csp_nonce() }}">
+document.addEventListener('DOMContentLoaded', function () {
+
 const FIELDS = ['ip_address','hostname','system_name','system_criticality','system_owner','identified_scope','environment','location','notes'];
 const FIELD_LABELS = {ip_address:'IP Address',hostname:'Hostname',system_name:'System Name',system_criticality:'Criticality',system_owner:'Owner',identified_scope:'Scope',environment:'Environment',location:'Location',notes:'Notes'};
-const GROUP_ID = {{ $group->id }};
 const IMPORT_URL = '{{ route("assessment-scope.import", $group) }}';
 const EXPORT_URL = '{{ route("assessment-scope.export", $group) }}';
 
-function openAdd()    { new bootstrap.Modal(document.getElementById('addModal')).show(); }
-function openImport() { new bootstrap.Modal(document.getElementById('importModal')).show(); }
+const addModal    = new bootstrap.Modal(document.getElementById('addModal'));
+const editModal   = new bootstrap.Modal(document.getElementById('editModal'));
+const importModal = new bootstrap.Modal(document.getElementById('importModal'));
 
-function openEdit(row) {
-    const d = row.dataset;
-    document.getElementById('edit-ip').value          = d.ip          || '';
-    document.getElementById('edit-hostname').value    = d.hostname    || '';
-    document.getElementById('edit-system').value      = d.system      || '';
-    document.getElementById('edit-criticality').value = d.criticality || '';
-    document.getElementById('edit-owner').value       = d.owner       || '';
-    document.getElementById('edit-scope').value       = d.scope       || '';
-    document.getElementById('edit-env').value         = d.env         || '';
-    document.getElementById('edit-loc').value         = d.loc         || '';
-    document.getElementById('edit-notes').value       = d.notes       || '';
-    document.getElementById('editForm').action = '/assessment-scope/{{ $group->id }}/items/' + d.id;
-    new bootstrap.Modal(document.getElementById('editModal')).show();
-}
+// ── Header buttons ────────────────────────────────────────────
+document.getElementById('addOpenBtn').addEventListener('click', function () { addModal.show(); });
+document.getElementById('importOpenBtn').addEventListener('click', function () { importModal.show(); });
 
 // ── Export ────────────────────────────────────────────────────
-function exportData() {
-    const btn = document.getElementById('exportBtn');
+document.getElementById('exportBtn').addEventListener('click', function () {
+    const btn = this;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Exporting…';
     btn.disabled = true;
     fetch(EXPORT_URL, { headers: { 'Accept': 'application/json' } })
-    .then(r => r.json())
-    .then(rows => {
-        const wsData = [FIELDS, ...rows.map(r => FIELDS.map(h => r[h] ?? ''))];
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!cols'] = [{wch:16},{wch:20},{wch:28},{wch:20},{wch:20},{wch:14},{wch:12},{wch:10},{wch:30}];
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Scope');
-        XLSX.writeFile(wb, '{{ Str::slug($group->name) }}_' + new Date().toISOString().slice(0,10) + '.xlsx');
-    })
-    .catch(err => alert('Export failed: ' + err.message))
-    .finally(() => { btn.innerHTML = '<i class="bi bi-file-earmark-arrow-down me-1"></i> Export'; btn.disabled = false; });
-}
+        .then(function (r) { return r.json(); })
+        .then(function (rows) {
+            const wsData = [FIELDS, ...rows.map(function (r) { return FIELDS.map(function (h) { return r[h] ?? ''; }); })];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            ws['!cols'] = [{wch:16},{wch:20},{wch:28},{wch:20},{wch:20},{wch:14},{wch:12},{wch:10},{wch:30}];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Scope');
+            XLSX.writeFile(wb, '{{ Str::slug($group->name) }}_' + new Date().toISOString().slice(0,10) + '.xlsx');
+        })
+        .catch(function (err) { alert('Export failed: ' + err.message); })
+        .finally(function () { btn.innerHTML = '<i class="bi bi-file-earmark-arrow-down me-1"></i> Export'; btn.disabled = false; });
+});
 
-// ── Template ──────────────────────────────────────────────────
-function downloadTemplate() {
+// ── Download Template ─────────────────────────────────────────
+document.getElementById('downloadTemplateBtn').addEventListener('click', function () {
     const samples = [
         ['192.168.1.10','web-server-01','Core Banking System',1,'IT Department','PCI','PROD','DC',''],
         ['10.0.0.25','db-server-02','Customer Database',2,'DBA Team','Internal','PROD','DC',''],
@@ -353,23 +340,51 @@ function downloadTemplate() {
     XLSX.utils.book_append_sheet(wb, ws, 'Scope');
     XLSX.utils.book_append_sheet(wb, wsRef, 'Reference');
     XLSX.writeFile(wb, 'assessment_scope_template.xlsx');
-}
+});
 
-// ── Import ────────────────────────────────────────────────────
+// ── Edit row ──────────────────────────────────────────────────
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.js-edit-item');
+    if (!btn) return;
+    const d = btn.closest('tr').dataset;
+    document.getElementById('edit-ip').value          = d.ip          || '';
+    document.getElementById('edit-hostname').value    = d.hostname    || '';
+    document.getElementById('edit-system').value      = d.system      || '';
+    document.getElementById('edit-criticality').value = d.criticality || '';
+    document.getElementById('edit-owner').value       = d.owner       || '';
+    document.getElementById('edit-scope').value       = d.scope       || '';
+    document.getElementById('edit-env').value         = d.env         || '';
+    document.getElementById('edit-loc').value         = d.loc         || '';
+    document.getElementById('edit-notes').value       = d.notes       || '';
+    document.getElementById('editForm').action = '/assessment-scope/{{ $group->id }}/items/' + d.id;
+    editModal.show();
+});
+
+// ── Import: dropzone ──────────────────────────────────────────
 let parsedRows = [], fileHeaders = [], columnMap = {};
 
-document.getElementById('fileInput').addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); });
-function handleDrop(e) { e.preventDefault(); document.getElementById('dropzone').style.borderColor='#e2e8f0'; if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); }
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+dropzone.addEventListener('click', function () { fileInput.click(); });
+dropzone.addEventListener('dragover', function (e) { e.preventDefault(); dropzone.style.borderColor = 'var(--primary)'; });
+dropzone.addEventListener('dragleave', function () { dropzone.style.borderColor = '#e2e8f0'; });
+dropzone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dropzone.style.borderColor = '#e2e8f0';
+    if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', function (e) { if (e.target.files[0]) readFile(e.target.files[0]); });
 
 function readFile(file) {
-    if (file.size > 5*1024*1024) { alert('File too large'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert('File too large'); return; }
     const reader = new FileReader();
-    reader.onload = e => {
-        const wb = XLSX.read(e.target.result, {type:'array'});
-        const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
+    reader.onload = function (e) {
+        const wb  = XLSX.read(e.target.result, { type: 'array' });
+        const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
         if (raw.length < 2) { alert('File appears empty.'); return; }
-        fileHeaders = raw[0].map(h => String(h).trim());
-        parsedRows  = raw.slice(1).filter(r => r.some(c => c !== ''));
+        fileHeaders = raw[0].map(function (h) { return String(h).trim(); });
+        parsedRows  = raw.slice(1).filter(function (r) { return r.some(function (c) { return c !== ''; }); });
         renderStep2(file.name);
     };
     reader.readAsArrayBuffer(file);
@@ -379,69 +394,125 @@ function renderStep2(name) {
     document.getElementById('import-step1').style.display = 'none';
     document.getElementById('import-step2').style.display = '';
     document.getElementById('import-filename').textContent = name;
-    document.getElementById('import-rowcount').textContent = `(${parsedRows.length} rows)`;
+    document.getElementById('import-rowcount').textContent = '(' + parsedRows.length + ' rows)';
     document.getElementById('importBtn').style.display = '';
-    buildColumnMap(); buildPreview();
+    buildColumnMap();
+    buildPreview();
 }
 
 function buildColumnMap() {
     columnMap = {};
-    FIELDS.forEach(f => {
-        const norm = s => s.toLowerCase().replace(/[\s_]/g,'');
-        const idx = fileHeaders.findIndex(h => norm(h) === norm(f));
+    const norm = function (s) { return s.toLowerCase().replace(/[\s_]/g, ''); };
+    FIELDS.forEach(function (f) {
+        const idx = fileHeaders.findIndex(function (h) { return norm(h) === norm(f); });
         columnMap[f] = idx >= 0 ? idx : -1;
     });
     const grid = document.getElementById('column-map-grid');
     grid.innerHTML = '';
-    FIELDS.forEach(f => {
-        const opts = fileHeaders.map((h,i) => `<option value="${i}" ${columnMap[f]===i?'selected':''}>${h}</option>`).join('');
-        grid.innerHTML += `<div class="col-6 col-md-4"><label style="font-size:.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.3px">${FIELD_LABELS[f]}</label>
-        <select class="form-select form-select-sm" data-field="${f}" style="border-radius:8px;font-size:.8rem;border-color:#e2e8f0;margin-top:.2rem" onchange="columnMap['${f}']=parseInt(this.value);buildPreview()">
-        <option value="-1">— skip —</option>${opts}</select></div>`;
+    FIELDS.forEach(function (f) {
+        const wrap = document.createElement('div');
+        wrap.className = 'col-6 col-md-4';
+
+        const label = document.createElement('label');
+        label.style.cssText = 'font-size:.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.3px';
+        label.textContent = FIELD_LABELS[f];
+
+        const sel = document.createElement('select');
+        sel.className = 'form-select form-select-sm';
+        sel.dataset.field = f;
+        sel.style.cssText = 'border-radius:8px;font-size:.8rem;border-color:#e2e8f0;margin-top:.2rem';
+
+        const skip = document.createElement('option');
+        skip.value = '-1'; skip.textContent = '— skip —';
+        sel.appendChild(skip);
+
+        fileHeaders.forEach(function (h, i) {
+            const opt = document.createElement('option');
+            opt.value = i; opt.textContent = h;
+            if (columnMap[f] === i) opt.selected = true;
+            sel.appendChild(opt);
+        });
+
+        sel.addEventListener('change', function () {
+            columnMap[f] = parseInt(this.value);
+            buildPreview();
+        });
+
+        wrap.appendChild(label);
+        wrap.appendChild(sel);
+        grid.appendChild(wrap);
     });
 }
 
 function buildPreview() {
-    const mapped = FIELDS.filter(f => columnMap[f] >= 0);
-    document.querySelector('#preview-table thead').innerHTML = '<tr>' + mapped.map(f => `<th style="padding:.4rem .6rem;color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px">${FIELD_LABELS[f]}</th>`).join('') + '</tr>';
-    document.querySelector('#preview-table tbody').innerHTML = parsedRows.slice(0,10).map(row =>
-        '<tr>' + mapped.map(f => `<td style="padding:.35rem .6rem;color:#374151;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${row[columnMap[f]]??''}</td>`).join('') + '</tr>'
-    ).join('');
+    const mapped = FIELDS.filter(function (f) { return columnMap[f] >= 0; });
+    document.querySelector('#preview-table thead').innerHTML = '<tr>' + mapped.map(function (f) {
+        return '<th style="padding:.4rem .6rem;color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px">' + FIELD_LABELS[f] + '</th>';
+    }).join('') + '</tr>';
+    document.querySelector('#preview-table tbody').innerHTML = parsedRows.slice(0, 10).map(function (row) {
+        return '<tr>' + mapped.map(function (f) {
+            return '<td style="padding:.35rem .6rem;color:#374151;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (row[columnMap[f]] ?? '') + '</td>';
+        }).join('') + '</tr>';
+    }).join('');
 }
 
 function resetImport() {
-    parsedRows=[]; fileHeaders=[]; columnMap={};
-    document.getElementById('import-step1').style.display=''; document.getElementById('import-step2').style.display='none';
-    document.getElementById('importBtn').style.display='none'; document.getElementById('fileInput').value='';
-    document.getElementById('import-error').style.display='none';
+    parsedRows = []; fileHeaders = []; columnMap = {};
+    document.getElementById('import-step1').style.display = '';
+    document.getElementById('import-step2').style.display = 'none';
+    document.getElementById('importBtn').style.display = 'none';
+    document.getElementById('fileInput').value = '';
+    document.getElementById('import-error').style.display = 'none';
 }
 
-function doImport() {
-    const rows = parsedRows.map(row => {
+document.getElementById('changeFileBtn').addEventListener('click', resetImport);
+
+// ── Do import ─────────────────────────────────────────────────
+document.getElementById('importBtn').addEventListener('click', function () {
+    const rows = parsedRows.map(function (row) {
         const obj = {};
-        FIELDS.forEach(f => {
+        FIELDS.forEach(function (f) {
             if (columnMap[f] >= 0) {
                 let v = row[columnMap[f]];
-                if (v===''||v===null||v===undefined) v=null;
-                if (f==='system_criticality'&&v!==null) { v=parseInt(v); if(isNaN(v)||v<1||v>5) v=null; }
-                obj[f]=v;
+                if (v === '' || v === null || v === undefined) v = null;
+                if (f === 'system_criticality' && v !== null) { v = parseInt(v); if (isNaN(v) || v < 1 || v > 5) v = null; }
+                obj[f] = v;
             }
         });
         return obj;
-    }).filter(r => Object.values(r).some(v=>v!==null&&v!==''));
+    }).filter(function (r) { return Object.values(r).some(function (v) { return v !== null && v !== ''; }); });
+
     if (!rows.length) { showImportError('No valid rows.'); return; }
-    const btn = document.getElementById('importBtnLabel');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importing…';
+
+    const lbl = document.getElementById('importBtnLabel');
+    lbl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importing…';
     document.getElementById('importBtn').disabled = true;
+
     fetch(IMPORT_URL, {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content,'Accept':'application/json'},
-        body: JSON.stringify({rows})
-    }).then(r=>r.json()).then(data => {
-        if (data.imported) { bootstrap.Modal.getInstance(document.getElementById('importModal')).hide(); resetImport(); location.reload(); }
-        else showImportError(JSON.stringify(data));
-    }).catch(err => { showImportError('Import failed: '+err.message); btn.innerHTML='<i class="bi bi-upload me-1"></i> Import'; document.getElementById('importBtn').disabled=false; });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' },
+        body: JSON.stringify({ rows }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.imported) {
+            bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+            resetImport();
+            location.reload();
+        } else {
+            showImportError(JSON.stringify(data));
+        }
+    }).catch(function (err) {
+        showImportError('Import failed: ' + err.message);
+        lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
+        document.getElementById('importBtn').disabled = false;
+    });
+});
+
+function showImportError(msg) {
+    const el = document.getElementById('import-error');
+    el.textContent = msg;
+    el.style.display = '';
 }
-function showImportError(msg) { const el=document.getElementById('import-error'); el.textContent=msg; el.style.display=''; }
+
+}); // DOMContentLoaded
 </script>
 @endpush
