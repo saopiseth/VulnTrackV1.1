@@ -1583,7 +1583,20 @@ class VulnAssessmentController extends Controller
         $this->authorize('delete', $vulnAssessment);
 
         AuditLog::record('assessment.deleted', null, ['id' => $vulnAssessment->id, 'name' => $vulnAssessment->name]);
-        $vulnAssessment->delete();
+
+        DB::transaction(function () use ($vulnAssessment) {
+            // vuln_tracked.first_scan_id / last_scan_id and vuln_tracked_history.scan_id
+            // reference vuln_scans without ON DELETE CASCADE, so we must remove tracked
+            // rows before the assessment cascade reaches vuln_scans.
+            // Deleting vuln_tracked cascades vuln_tracked_history automatically.
+            DB::table('vuln_tracked')->where('assessment_id', $vulnAssessment->id)->delete();
+
+            // All blocking scan references are now gone.
+            // cascadeOnDelete on vuln_scans, vuln_findings, vuln_remediations,
+            // vuln_host_os, and vuln_assessment_scope handles the rest.
+            $vulnAssessment->delete();
+        });
+
         return redirect()->route('vuln-assessments.index')
             ->with('success', 'Assessment deleted.');
     }
