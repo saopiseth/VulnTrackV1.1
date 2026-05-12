@@ -30,12 +30,7 @@
                 style="border-radius:10px;font-size:.875rem;font-weight:600;border-color:#e2e8f0;color:#374151">
             <i class="bi bi-file-earmark-spreadsheet me-1"></i> Import
         </button>
-        <button class="btn" id="syncInventoryBtn"
-                style="border-radius:10px;font-size:.875rem;font-weight:600;border:1.5px solid #bfdbfe;color:#1d4ed8;background:#eff6ff">
-            <i class="bi bi-arrow-repeat me-1"></i>
-            <span id="syncBtnLabel">Sync to Inventory</span>
-        </button>
-        <button class="btn btn-primary" id="addOpenBtn"
+<button class="btn btn-primary" id="addOpenBtn"
                 style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
             <i class="bi bi-plus-lg me-1"></i> Add Asset
         </button>
@@ -708,52 +703,6 @@ function showImportError(msg) {
     el.style.display = '';
 }
 
-    // ── Sync to Inventory ────────────────────────────────────────────
-    const syncBtn   = document.getElementById('syncInventoryBtn');
-    const syncLabel = document.getElementById('syncBtnLabel');
-
-    syncBtn.addEventListener('click', async function () {
-        if (!confirm('Sync business fields (Role, Scope, Environment, Owner, SLA) from this group to matching Asset Inventory records?\n\nOnly records with a matching IP address will be updated.')) return;
-
-        syncBtn.disabled = true;
-        syncLabel.textContent = 'Syncing…';
-
-        try {
-            const res = await fetch('{{ route('asset-inventory.sync-scope') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({ group_id: {{ $group->id }} }),
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                syncLabel.textContent = `Synced ${data.synced} record${data.synced === 1 ? '' : 's'}`;
-                syncBtn.style.borderColor = '#bbf7d0';
-                syncBtn.style.background  = '#f0fdf4';
-                syncBtn.style.color       = '#166534';
-                setTimeout(() => {
-                    syncLabel.textContent    = 'Sync to Inventory';
-                    syncBtn.style.borderColor = '#bfdbfe';
-                    syncBtn.style.background  = '#eff6ff';
-                    syncBtn.style.color       = '#1d4ed8';
-                    syncBtn.disabled = false;
-                }, 3000);
-            } else {
-                alert('Sync failed: ' + (data.message || 'Unknown error'));
-                syncLabel.textContent = 'Sync to Inventory';
-                syncBtn.disabled = false;
-            }
-        } catch (e) {
-            alert('Network error during sync.');
-            syncLabel.textContent = 'Sync to Inventory';
-            syncBtn.disabled = false;
-        }
-    });
 
 }); // DOMContentLoaded
 </script>
