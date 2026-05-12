@@ -1793,9 +1793,10 @@ class VulnAssessmentController extends Controller
                 'vuln_category', 'affected_component',
                 'ip_address', 'hostname', 'port', 'protocol',
                 'os_detected', 'os_name', 'os_family',
+                'plugin_output',
                 'description', 'remediation_text',
                 'tracking_status',
-                'first_seen_at', 'last_seen_at', 'resolved_at',
+                'first_seen_at', 'last_seen_at',
             ]);
 
         $filename = str()->slug($a->name) . '_report_' . now()->format('Ymd') . '.csv';
@@ -1843,13 +1844,20 @@ class VulnAssessmentController extends Controller
                 'Status',
                 'First Seen',
                 'Last Seen',
-                'Resolved At',
                 'Description',
                 'Remediation',
+                'Plugin Output',
             ]);
 
             // ── Rows ──────────────────────────────────────────────────
             foreach ($findings as $f) {
+                $status = match ($f->tracking_status) {
+                    'Resolved'              => 'Resolved',
+                    'Unresolved', 'Reopened',
+                    'Pending'               => 'In-Progress',
+                    default                 => 'Open',
+                };
+
                 fputcsv($out, [
                     $this->csvSafe($f->plugin_id),
                     $this->csvSafe($f->vuln_name),
@@ -1865,12 +1873,12 @@ class VulnAssessmentController extends Controller
                     $this->csvSafe($f->os_detected),
                     $this->csvSafe($f->os_name),
                     $this->csvSafe($f->os_family),
-                    $this->csvSafe($f->tracking_status),
+                    $status,
                     $f->first_seen_at?->format('d M Y') ?? '',
                     $f->last_seen_at?->format('d M Y') ?? '',
-                    $f->resolved_at?->format('d M Y') ?? '',
                     $this->csvSafe($f->description),
                     $this->csvSafe($f->remediation_text),
+                    $this->csvSafe($f->plugin_output),
                 ]);
             }
 

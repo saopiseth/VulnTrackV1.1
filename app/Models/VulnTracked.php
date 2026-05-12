@@ -21,6 +21,7 @@ class VulnTracked extends Model
         'severity', 'port', 'protocol',
         'vuln_category', 'affected_component',
         'os_detected', 'os_name', 'os_family',
+        'plugin_output',
         'tracking_status',
         'first_seen_at', 'last_seen_at', 'resolved_at',
         'first_scan_id', 'last_scan_id',
