@@ -8,7 +8,7 @@
         <h4 class="mb-0">Assessment Scope</h4>
         <p class="mb-0">Named scope groups — each group holds the in-scope assets for an assessment</p>
     </div>
-    <button class="btn btn-primary" onclick="openCreate()"
+    <button class="btn btn-primary js-open-create"
             style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
         <i class="bi bi-plus-lg me-1"></i> New Scope Group
     </button>
@@ -26,7 +26,7 @@
         <i class="bi bi-diagram-3" style="font-size:2.5rem;display:block;margin-bottom:.75rem"></i>
         <div style="font-weight:600;color:#374151;margin-bottom:.35rem">No scope groups yet</div>
         <div style="font-size:.85rem;margin-bottom:1rem">Create a named scope group to start defining in-scope assets.</div>
-        <button class="btn btn-primary" onclick="openCreate()"
+        <button class="btn btn-primary js-open-create"
                 style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
             <i class="bi bi-plus-lg me-1"></i> New Scope Group
         </button>
@@ -59,7 +59,8 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" style="border-radius:10px;border:1px solid #e2e8f0;font-size:.85rem">
                             <li>
-                                <button class="dropdown-item" onclick='openEdit({{ json_encode(["id"=>$group->id,"name"=>$group->name,"description"=>$group->description]) }})'>
+                                <button class="dropdown-item js-open-edit"
+                                        data-group='{{ json_encode(["id"=>$group->id,"name"=>$group->name,"description"=>$group->description]) }}'>
                                     <i class="bi bi-pencil me-2"></i>Edit
                                 </button>
                             </li>
@@ -174,13 +175,23 @@
 
 @push('scripts')
 <script nonce="{{ csp_nonce() }}">
-function openCreate() { new bootstrap.Modal(document.getElementById('createModal')).show(); }
+document.addEventListener('DOMContentLoaded', function () {
+    var createModal = new bootstrap.Modal(document.getElementById('createModal'));
+    var editModal   = new bootstrap.Modal(document.getElementById('editModal'));
 
-function openEdit(group) {
-    document.getElementById('edit-name').value = group.name;
-    document.getElementById('edit-desc').value = group.description || '';
-    document.getElementById('editForm').action = '/assessment-scope/' + group.id;
-    new bootstrap.Modal(document.getElementById('editModal')).show();
-}
+    document.querySelectorAll('.js-open-create').forEach(function (btn) {
+        btn.addEventListener('click', function () { createModal.show(); });
+    });
+
+    document.querySelectorAll('.js-open-edit').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var group = JSON.parse(this.dataset.group);
+            document.getElementById('edit-name').value = group.name;
+            document.getElementById('edit-desc').value = group.description || '';
+            document.getElementById('editForm').action = '/assessment-scope/' + group.id;
+            editModal.show();
+        });
+    });
+});
 </script>
 @endpush
