@@ -42,8 +42,13 @@
     </div>
     <div class="col-md-6">
         <label class="form-label fw-semibold" style="font-size:.82rem">Remediation SLA</label>
-        <input type="text" name="remediation_sla" id="{{ $prefix }}-sla" class="form-control"
-               placeholder="e.g. 30 days, 60 days" style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+        <select name="remediation_sla" id="{{ $prefix }}-sla" class="form-select"
+                style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+            <option value="">— Select —</option>
+            @foreach(\App\Models\AssessmentScope::remediationSlaOptions() as $sla)
+            <option value="{{ $sla }}">{{ $sla }}</option>
+            @endforeach
+        </select>
     </div>
     <div class="col-md-6">
         <label class="form-label fw-semibold" style="font-size:.82rem">System Criticality</label>

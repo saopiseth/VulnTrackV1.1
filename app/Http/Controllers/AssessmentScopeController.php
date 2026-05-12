@@ -95,7 +95,7 @@ class AssessmentScopeController extends Controller
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
-            'remediation_sla'    => ['nullable', 'string', 'max:100'],
+            'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3'],
         ]);
 
         $data['group_id']   = $assessmentScopeGroup->id;
@@ -119,7 +119,7 @@ class AssessmentScopeController extends Controller
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
-            'remediation_sla'    => ['nullable', 'string', 'max:100'],
+            'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3'],
         ]);
 
         $item->update($data);

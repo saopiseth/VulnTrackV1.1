@@ -313,9 +313,9 @@ document.getElementById('exportBtn').addEventListener('click', function () {
 // ── Download Template ─────────────────────────────────────────
 document.getElementById('downloadTemplateBtn').addEventListener('click', function () {
     const samples = [
-        ['web-server-01','192.168.1.10','PCI','Core Banking System','PROD','IT Department','30 days'],
-        ['db-server-02','10.0.0.25','Internal','Customer Database','PROD','DBA Team','60 days'],
-        ['app-server-03','172.16.5.50','DMZ','API Gateway','UAT','Dev Team','30 days'],
+        ['web-server-01','192.168.1.10','PCI','Core Banking System','PROD','IT Department','Priority Level 1'],
+        ['db-server-02','10.0.0.25','Internal','Customer Database','PROD','DBA Team','Priority Level 2'],
+        ['app-server-03','172.16.5.50','DMZ','API Gateway','UAT','Dev Team','Priority Level 3'],
     ];
     const ws = XLSX.utils.aoa_to_sheet([FIELDS, ...samples]);
     ws['!cols'] = [{wch:20},{wch:16},{wch:14},{wch:28},{wch:12},{wch:20},{wch:16}];
@@ -324,7 +324,7 @@ document.getElementById('downloadTemplateBtn').addEventListener('click', functio
         ['ip_address','IPv4 or IPv6  e.g. 192.168.1.10'],
         ['identified_scope','PCI | DMZ | Internal'],
         ['environment','PROD | UAT | STAGE'],
-        ['remediation_sla','Free text  e.g. 15 days | 30 days | 60 days | 90 days'],
+        ['remediation_sla','Priority Level 1 | Priority Level 2 | Priority Level 3'],
     ]);
     wsRef['!cols'] = [{wch:22},{wch:70}];
     const wb = XLSX.utils.book_new();

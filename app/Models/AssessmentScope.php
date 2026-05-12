@@ -36,6 +36,11 @@ class AssessmentScope extends Model
         return ['DC', 'DR', 'Cloud'];
     }
 
+    public static function remediationSlaOptions(): array
+    {
+        return ['Priority Level 1', 'Priority Level 2', 'Priority Level 3'];
+    }
+
     public static function defaultCriticalityLabels(): array
     {
         return [
