@@ -153,7 +153,10 @@ class AssessmentScopeController extends Controller
 
         $now    = now();
         $userId = Auth::id();
-        $str    = fn ($v) => is_string($v) && trim($v) !== '' ? mb_substr(trim($v), 0, 255) : null;
+        // Accept any scalar (strings AND numbers returned by Excel parsers)
+        $str = fn ($v) => is_scalar($v) && $v !== null && $v !== ''
+            && trim((string) $v) !== ''
+            ? mb_substr(trim((string) $v), 0, 255) : null;
 
         // Deduplicate within the file: last-wins keyed by ip_address, then hostname
         $byIp       = [];   // ip => data
@@ -242,13 +245,21 @@ class AssessmentScopeController extends Controller
             AssessmentScope::insert($chunk);
         }
 
-        // Update existing rows (only the 7 import fields; preserve criticality / notes / location)
+        // Update existing rows — only overwrite fields that have a value in the import.
+        // Null (blank cell / unmapped column) means "no change"; preserve existing data.
         $updateFields = ['hostname', 'ip_address', 'identified_scope', 'system_name',
-                         'environment', 'system_owner', 'remediation_sla', 'updated_at'];
+                         'environment', 'system_owner', 'remediation_sla'];
         foreach ($toUpdate as $id => $data) {
-            DB::table('assessment_scopes')
-                ->where('id', $id)
-                ->update(array_intersect_key($data, array_flip($updateFields)));
+            $payload = [];
+            foreach ($updateFields as $f) {
+                if (array_key_exists($f, $data) && $data[$f] !== null) {
+                    $payload[$f] = $data[$f];
+                }
+            }
+            if (!empty($payload)) {
+                $payload['updated_at'] = $now;
+                DB::table('assessment_scopes')->where('id', $id)->update($payload);
+            }
         }
 
         return response()->json([
