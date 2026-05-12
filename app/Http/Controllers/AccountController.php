@@ -111,22 +111,32 @@ class AccountController extends Controller
         abort_unless(Auth::user()?->isAdministrator(), 403);
 
         $data = $request->validate([
-            'criticality.1' => ['nullable', 'string', 'max:60'],
-            'criticality.2' => ['nullable', 'string', 'max:60'],
-            'criticality.3' => ['nullable', 'string', 'max:60'],
-            'criticality.4' => ['nullable', 'string', 'max:60'],
-            'criticality.5' => ['nullable', 'string', 'max:60'],
+            'items'         => ['required', 'array', 'min:1'],
+            'items.*.level' => ['required', 'integer', 'min:1', 'max:99'],
+            'items.*.label' => ['required', 'string', 'max:60'],
         ]);
 
-        $defaults = \App\Models\AssessmentScope::defaultCriticalityLabels();
-        $labels = [];
-        foreach ($defaults as $k => $default) {
-            $labels[$k] = trim($data['criticality'][$k] ?? '') ?: $default;
+        $items = $data['items'];
+
+        $levels = array_map('intval', array_column($items, 'level'));
+        if (count($levels) !== count(array_unique($levels))) {
+            return back()->withErrors(['criticality' => 'Each level number must be unique.']);
         }
 
-        SiteSetting::set('criticality_labels', json_encode($labels));
+        $labels = array_map('strtolower', array_map('trim', array_column($items, 'label')));
+        if (count($labels) !== count(array_unique($labels))) {
+            return back()->withErrors(['criticality' => 'Each criticality name must be unique.']);
+        }
 
-        return back()->with('success', 'Criticality labels updated.');
+        usort($items, fn($a, $b) => (int)$a['level'] <=> (int)$b['level']);
+        $save = array_map(fn($row) => [
+            'level' => (int) $row['level'],
+            'label' => trim($row['label']),
+        ], $items);
+
+        SiteSetting::set('criticality_labels', json_encode(array_values($save)));
+
+        return back()->with('success', 'Criticality levels updated.');
     }
 
     public function updateThemeColor(Request $request)

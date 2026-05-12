@@ -28,6 +28,12 @@
 </div>
 @endif
 
+@error('criticality')
+<div class="alert d-flex align-items-center gap-2 mb-4" style="border-radius:12px;border:none;background:#fef2f2;color:#991b1b;">
+    <i class="bi bi-exclamation-circle-fill"></i> {{ $message }}
+</div>
+@enderror
+
 @if($groups->isEmpty())
 <div class="card text-center py-5">
     <div style="color:#94a3b8">
@@ -110,10 +116,7 @@
 
 {{-- ── Criticality Labels Modal (admin only) ── --}}
 @if(Auth::user()->isAdministrator())
-@php
-    $critLevels   = \App\Models\AssessmentScope::criticalityLevels();
-    $critDefaults = \App\Models\AssessmentScope::defaultCriticalityLabels();
-@endphp
+@php $critLevels = \App\Models\AssessmentScope::criticalityLevels(); @endphp
 <div class="modal fade" id="criticalityModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:16px;border:none">
@@ -123,37 +126,68 @@
                         <i class="bi bi-bar-chart-steps me-2" style="color:var(--primary)"></i>System Criticality Labels
                     </h5>
                     <p class="mb-0 mt-1" style="font-size:.8rem;color:#64748b">
-                        Customise the names for each criticality level. Leave blank to restore the default.
+                        Add, edit, or remove criticality levels. Level numbers and names must each be unique.
                     </p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ route('account.criticality-settings.update') }}">
+            <form method="POST" action="{{ route('account.criticality-settings.update') }}" id="criticalityForm">
                 @csrf @method('PATCH')
                 <div class="modal-body px-4 py-4">
-                    <div class="row g-3">
-                        @foreach($critLevels as $k => $lv)
-                        <div class="col-md-6">
-                            <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">
-                                Level {{ $k }}
-                                <span style="background:{{ $lv['bg'] }};color:{{ $lv['color'] }};padding:.1rem .45rem;border-radius:6px;font-size:.7rem;font-weight:700;margin-left:.35rem">
-                                    {{ $lv['label'] }}
-                                </span>
-                            </label>
-                            <input type="text" name="criticality[{{ $k }}]" class="form-control"
-                                   value="{{ old('criticality.'.$k, $lv['label']) }}"
-                                   placeholder="{{ $critDefaults[$k] }}"
-                                   style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
-                        </div>
-                        @endforeach
+                    <div id="crit-error" class="d-none mb-3"
+                         style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;font-size:.85rem;padding:.65rem 1rem">
                     </div>
+                    <div style="overflow-y:auto;max-height:380px">
+                        <table class="w-100" style="border-collapse:separate;border-spacing:0 .35rem">
+                            <thead style="position:sticky;top:0;background:#fff;z-index:1">
+                                <tr style="font-size:.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px">
+                                    <th style="padding:.3rem .5rem;width:110px">Level</th>
+                                    <th style="padding:.3rem .5rem">Criticality Name</th>
+                                    <th style="width:46px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="crit-rows">
+                                @foreach($critLevels as $k => $lv)
+                                <tr class="crit-row">
+                                    <td style="padding:.3rem .4rem">
+                                        <input type="number" class="form-control form-control-sm crit-level-input"
+                                               value="{{ $k }}" min="1" max="99" required
+                                               style="border-radius:8px;border-color:#e2e8f0;font-size:.875rem;width:85px">
+                                    </td>
+                                    <td style="padding:.3rem .4rem">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="crit-badge"
+                                                  style="background:{{ $lv['bg'] }};color:{{ $lv['color'] }};padding:.15rem .5rem;border-radius:6px;font-size:.7rem;font-weight:700;white-space:nowrap;flex-shrink:0">
+                                                {{ $lv['label'] }}
+                                            </span>
+                                            <input type="text" class="form-control form-control-sm crit-label-input"
+                                                   value="{{ $lv['label'] }}" maxlength="60" required
+                                                   placeholder="e.g. Critical"
+                                                   style="border-radius:8px;border-color:#e2e8f0;font-size:.875rem">
+                                        </div>
+                                    </td>
+                                    <td style="padding:.3rem .4rem;text-align:center">
+                                        <button type="button" class="btn btn-sm js-remove-crit-row"
+                                                style="border:1px solid #fecaca;color:#dc2626;background:#fff8f8;border-radius:8px;padding:.2rem .45rem">
+                                            <i class="bi bi-trash3" style="font-size:.8rem"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" id="add-crit-row"
+                            style="margin-top:.6rem;border:1.5px dashed #cbd5e1;background:#f8fafc;color:#64748b;border-radius:9px;font-size:.82rem;font-weight:600;padding:.4rem 1rem;width:100%;cursor:pointer">
+                        <i class="bi bi-plus-lg me-1"></i> Add Level
+                    </button>
                 </div>
                 <div class="modal-footer px-4 pb-4" style="border-top:1px solid #f1f5f9">
                     <button type="button" class="btn" data-bs-dismiss="modal"
                             style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
                     <button type="submit" class="btn"
                             style="background:var(--primary);color:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
-                        <i class="bi bi-check-lg me-1"></i> Save Labels
+                        <i class="bi bi-check-lg me-1"></i> Save
                     </button>
                 </div>
             </form>
@@ -238,11 +272,10 @@
 @push('scripts')
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
-    var createModal      = new bootstrap.Modal(document.getElementById('createModal'));
-    var editModal        = new bootstrap.Modal(document.getElementById('editModal'));
-    var criticalityModal = document.getElementById('criticalityModal')
-                            ? new bootstrap.Modal(document.getElementById('criticalityModal'))
-                            : null;
+
+    // ── Scope Group Modals ────────────────────────────────────────
+    var createModal = new bootstrap.Modal(document.getElementById('createModal'));
+    var editModal   = new bootstrap.Modal(document.getElementById('editModal'));
 
     document.querySelectorAll('.js-open-create').forEach(function (btn) {
         btn.addEventListener('click', function () { createModal.show(); });
@@ -258,11 +291,107 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // ── Criticality Labels Modal ──────────────────────────────────
+    var critModalEl = document.getElementById('criticalityModal');
+    if (!critModalEl) return;
+
+    var criticalityModal = new bootstrap.Modal(critModalEl);
+    var critRows         = document.getElementById('crit-rows');
+    var critForm         = document.getElementById('criticalityForm');
+    var critErrEl        = document.getElementById('crit-error');
+
     document.querySelectorAll('.js-open-criticality').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            if (criticalityModal) { criticalityModal.show(); }
+        btn.addEventListener('click', function () { criticalityModal.show(); });
+    });
+
+    // Auto-open if server returned a validation error for the criticality form
+    @if($errors->has('criticality'))
+    criticalityModal.show();
+    @endif
+
+    // Live-update badge text as user types
+    critRows.addEventListener('input', function (e) {
+        if (!e.target.classList.contains('crit-label-input')) return;
+        var badge = e.target.closest('td').querySelector('.crit-badge');
+        if (badge) { badge.textContent = e.target.value || '—'; }
+    });
+
+    // Delete row (delegate)
+    critRows.addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-remove-crit-row');
+        if (!btn) return;
+        if (critRows.querySelectorAll('.crit-row').length <= 1) return;
+        btn.closest('.crit-row').remove();
+    });
+
+    // Add new row
+    document.getElementById('add-crit-row').addEventListener('click', function () {
+        var row = document.createElement('tr');
+        row.className = 'crit-row';
+
+        var td1 = document.createElement('td');
+        td1.style.cssText = 'padding:.3rem .4rem';
+        var lvIn = document.createElement('input');
+        lvIn.type = 'number'; lvIn.min = '1'; lvIn.max = '99'; lvIn.required = true;
+        lvIn.className = 'form-control form-control-sm crit-level-input';
+        lvIn.placeholder = '6';
+        lvIn.style.cssText = 'border-radius:8px;border-color:#e2e8f0;font-size:.875rem;width:85px';
+        td1.appendChild(lvIn);
+
+        var td2 = document.createElement('td');
+        td2.style.cssText = 'padding:.3rem .4rem';
+        var lbIn = document.createElement('input');
+        lbIn.type = 'text'; lbIn.maxLength = 60; lbIn.required = true;
+        lbIn.className = 'form-control form-control-sm crit-label-input';
+        lbIn.placeholder = 'e.g. Critical';
+        lbIn.style.cssText = 'border-radius:8px;border-color:#e2e8f0;font-size:.875rem';
+        td2.appendChild(lbIn);
+
+        var td3 = document.createElement('td');
+        td3.style.cssText = 'padding:.3rem .4rem;text-align:center';
+        var delBtn = document.createElement('button');
+        delBtn.type = 'button'; delBtn.className = 'btn btn-sm js-remove-crit-row';
+        delBtn.style.cssText = 'border:1px solid #fecaca;color:#dc2626;background:#fff8f8;border-radius:8px;padding:.2rem .45rem';
+        delBtn.innerHTML = '<i class="bi bi-trash3" style="font-size:.8rem"></i>';
+        td3.appendChild(delBtn);
+
+        row.appendChild(td1); row.appendChild(td2); row.appendChild(td3);
+        critRows.appendChild(row);
+        lvIn.focus();
+    });
+
+    // Submit: client-side validate, then assign indexed names
+    critForm.addEventListener('submit', function (e) {
+        var rows   = critRows.querySelectorAll('.crit-row');
+        var levels = [], labels = [], errorMsg = '';
+
+        rows.forEach(function (row) {
+            var lv = parseInt(row.querySelector('.crit-level-input').value, 10);
+            var lb = row.querySelector('.crit-label-input').value.trim().toLowerCase();
+            if (!lv || lv < 1)      { errorMsg = 'All level numbers must be a valid integer (min 1).'; }
+            if (!lb)                { errorMsg = 'All criticality names are required.'; }
+            if (levels.includes(lv)){ errorMsg = 'Level numbers must be unique — remove the duplicate.'; }
+            if (labels.includes(lb)){ errorMsg = 'Criticality names must be unique — remove the duplicate.'; }
+            levels.push(lv);
+            labels.push(lb);
+        });
+
+        if (errorMsg) {
+            e.preventDefault();
+            critErrEl.textContent = errorMsg;
+            critErrEl.classList.remove('d-none');
+            return;
+        }
+
+        critErrEl.classList.add('d-none');
+
+        // Assign indexed names so PHP receives items[0][level], items[0][label], etc.
+        rows.forEach(function (row, i) {
+            row.querySelector('.crit-level-input').name = 'items[' + i + '][level]';
+            row.querySelector('.crit-label-input').name = 'items[' + i + '][label]';
         });
     });
+
 });
 </script>
 @endpush

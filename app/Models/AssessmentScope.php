@@ -47,27 +47,59 @@ class AssessmentScope extends Model
         ];
     }
 
+    private static function colorPalette(): array
+    {
+        return [
+            ['bg' => '#fee2e2', 'color' => '#991b1b'],
+            ['bg' => '#fef3c7', 'color' => '#92400e'],
+            ['bg' => '#dbeafe', 'color' => '#1e40af'],
+            ['bg' => '#f3f4f6', 'color' => '#374151'],
+            ['bg' => '#f0fdf4', 'color' => '#166534'],
+            ['bg' => '#fdf4ff', 'color' => '#7e22ce'],
+            ['bg' => '#fff7ed', 'color' => '#9a3412'],
+        ];
+    }
+
     public static function criticalityLevels(): array
     {
-        $stored = SiteSetting::get('criticality_labels');
-        $labels = $stored ? (json_decode($stored, true) ?: []) : [];
-        $defaults = static::defaultCriticalityLabels();
+        $stored  = SiteSetting::get('criticality_labels');
+        $palette = static::colorPalette();
+        $result  = [];
 
-        $colors = [
-            1 => ['bg' => '#fee2e2', 'color' => '#991b1b'],
-            2 => ['bg' => '#fef3c7', 'color' => '#92400e'],
-            3 => ['bg' => '#dbeafe', 'color' => '#1e40af'],
-            4 => ['bg' => '#f3f4f6', 'color' => '#374151'],
-            5 => ['bg' => '#f0fdf4', 'color' => '#166534'],
-        ];
+        if ($stored) {
+            $decoded = json_decode($stored, true) ?: [];
 
-        $result = [];
-        foreach ($defaults as $k => $default) {
-            $result[$k] = array_merge($colors[$k], [
-                'label' => $labels[$k] ?? $default,
-            ]);
+            // New format: [{level: int, label: string}, ...]
+            if (!empty($decoded) && isset($decoded[0]) && is_array($decoded[0]) && array_key_exists('level', $decoded[0])) {
+                usort($decoded, fn($a, $b) => (int)$a['level'] <=> (int)$b['level']);
+                foreach ($decoded as $i => $row) {
+                    $result[(int)$row['level']] = array_merge(
+                        $palette[$i % count($palette)],
+                        ['label' => $row['label']]
+                    );
+                }
+                return $result;
+            }
+
+            // Old format: {"1": "label", "2": "label", ...}
+            if (!empty($decoded)) {
+                ksort($decoded);
+                $i = 0;
+                foreach ($decoded as $k => $label) {
+                    $result[(int)$k] = array_merge($palette[$i % count($palette)], ['label' => $label]);
+                    $i++;
+                }
+                return $result;
+            }
         }
 
+        // Defaults
+        $defaults = static::defaultCriticalityLabels();
+        $i = 0;
+        foreach ($defaults as $k => $label) {
+            $result[$k] = array_merge($palette[$i % count($palette)], ['label' => $label]);
+            $i++;
+        }
         return $result;
     }
 
