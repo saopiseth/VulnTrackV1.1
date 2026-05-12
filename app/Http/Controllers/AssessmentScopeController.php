@@ -93,7 +93,7 @@ class AssessmentScopeController extends Controller
             'system_name'        => ['nullable', 'string', 'max:255'],
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
-            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank'],
+            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank,Public'],
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
@@ -117,7 +117,7 @@ class AssessmentScopeController extends Controller
             'system_name'        => ['nullable', 'string', 'max:255'],
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
-            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank'],
+            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank,Public'],
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
@@ -152,6 +152,12 @@ class AssessmentScopeController extends Controller
         $slaLookup   = collect(AssessmentScope::remediationSlaOptions())
             ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
 
+        // Alias map: long/alternate Excel labels → canonical lookup key (lowercase)
+        $scopeAliases = [
+            'swift asset scope' => 'swift',
+            'public scope'      => 'public',
+        ];
+
         $now    = now();
         $userId = Auth::id();
 
@@ -160,10 +166,11 @@ class AssessmentScopeController extends Controller
             ? mb_substr(trim((string) $v), 0, 255) : null;
 
         // Safe enum resolver: returns canonical value or null; logs unrecognised values
-        $enum = function (string $field, $v, array $lookup) use ($assessmentScopeGroup): ?string {
+        $enum = function (string $field, $v, array $lookup, array $aliases = []) use ($assessmentScopeGroup): ?string {
             if ($v === null || $v === '') return null;
             $key = strtolower(trim((string) $v));
             if ($key === '') return null;
+            if (isset($aliases[$key])) $key = $aliases[$key];
             if (isset($lookup[$key])) return $lookup[$key];
             Log::warning("Assessment scope import: unrecognised {$field} value", [
                 'group_id' => $assessmentScopeGroup->id,
@@ -191,14 +198,14 @@ class AssessmentScopeController extends Controller
             $rawEnv   = $row['environment']      ?? null;
             $rawSla   = $row['remediation_sla']  ?? null;
 
-            $scope = $enum('identified_scope', $rawScope, $scopeLookup);
+            $scope = $enum('identified_scope', $rawScope, $scopeLookup, $scopeAliases);
             $env   = $enum('environment',      $rawEnv,   $envLookup);
             $sla   = $enum('remediation_sla',  $rawSla,   $slaLookup);
 
             // Collect user-facing warnings for values that were provided but rejected
             $lineNum = $rowNum + 2; // +2: 1-based + header row
             if ($rawScope !== null && $rawScope !== '' && $scope === null) {
-                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal, External, Swift, Non-Bank).";
+                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal, External, Swift, Non-Bank, Public).";
             }
             if ($rawEnv !== null && $rawEnv !== '' && $env === null) {
                 $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE, DR, DEV).";

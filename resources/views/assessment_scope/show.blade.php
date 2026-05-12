@@ -51,7 +51,7 @@
             <div style="font-size:.75rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Total</div>
         </div>
     </div>
-    @foreach(['PCI'=>'#dc2626','DMZ'=>'#d97706','Internal'=>'#2563eb','External'=>'#7c3aed','Swift'=>'#0891b2','Non-Bank'=>'#059669'] as $s => $c)
+    @foreach(['PCI'=>'#dc2626','DMZ'=>'#d97706','Internal'=>'#2563eb','External'=>'#7c3aed','Swift'=>'#0891b2','Non-Bank'=>'#059669','Public'=>'#d97706'] as $s => $c)
     <div class="col-6 col-md">
         <div class="card text-center py-3 px-2" style="border-top:3px solid {{ $c }}">
             <div style="font-size:1.4rem;font-weight:800;color:#0f172a">{{ $stats['by_scope'][$s] ?? 0 }}</div>
@@ -81,7 +81,7 @@
                 </thead>
                 <tbody>
                 @forelse($items as $item)
-                    @php $scopeColors = ['PCI'=>['#fef2f2','#991b1b'],'DMZ'=>['#fffbeb','#92400e'],'Internal'=>['#eff6ff','#1e40af'],'External'=>['#f5f3ff','#6d28d9'],'Swift'=>['#ecfeff','#0e7490'],'Non-Bank'=>['#f0fdf4','#166534']]; $sc = $scopeColors[$item->identified_scope] ?? null; @endphp
+                    @php $scopeColors = ['PCI'=>['#fef2f2','#991b1b'],'DMZ'=>['#fffbeb','#92400e'],'Internal'=>['#eff6ff','#1e40af'],'External'=>['#f5f3ff','#6d28d9'],'Swift'=>['#ecfeff','#0e7490'],'Non-Bank'=>['#f0fdf4','#166534'],'Public'=>['#fffbeb','#92400e']]; $sc = $scopeColors[$item->identified_scope] ?? null; @endphp
                     <tr style="border-bottom:1px solid #f1f5f9"
                         data-id="{{ $item->id }}"
                         data-ip="{{ $item->ip_address }}"
@@ -377,7 +377,7 @@ document.getElementById('downloadTemplateBtn').addEventListener('click', functio
     const wsRef = XLSX.utils.aoa_to_sheet([
         ['Field','Allowed Values'],
         ['ip_address','IPv4 or IPv6  e.g. 192.168.1.10'],
-        ['identified_scope','PCI | DMZ | Internal | External | Swift | Non-Bank'],
+        ['identified_scope','PCI | DMZ | Internal | External | Swift | Non-Bank | Public'],
         ['environment','PROD | UAT | STAGE | DR | DEV'],
         ['remediation_sla','Priority Level 1 | Priority Level 2 | Priority Level 3 | Priority Level 4'],
     ]);
