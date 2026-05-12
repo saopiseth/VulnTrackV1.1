@@ -94,10 +94,10 @@ class AssessmentScopeController extends Controller
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
             'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External'],
-            'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
+            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
-            'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3'],
+            'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3,Priority Level 4'],
         ]);
 
         $data['group_id']   = $assessmentScopeGroup->id;
@@ -118,10 +118,10 @@ class AssessmentScopeController extends Controller
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
             'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External'],
-            'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
+            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
-            'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3'],
+            'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3,Priority Level 4'],
         ]);
 
         $item->update($data);
@@ -201,10 +201,10 @@ class AssessmentScopeController extends Controller
                 $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal, External).";
             }
             if ($rawEnv !== null && $rawEnv !== '' && $env === null) {
-                $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE).";
+                $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE, DR, DEV).";
             }
             if ($rawSla !== null && $rawSla !== '' && $sla === null) {
-                $warnings[] = "Row {$lineNum}: remediation_sla \"{$rawSla}\" not recognised (accepted: Priority Level 1/2/3).";
+                $warnings[] = "Row {$lineNum}: remediation_sla \"{$rawSla}\" not recognised (accepted: Priority Level 1/2/3/4).";
             }
 
             // Skip completely empty rows

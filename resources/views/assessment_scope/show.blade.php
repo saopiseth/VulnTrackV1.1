@@ -378,8 +378,8 @@ document.getElementById('downloadTemplateBtn').addEventListener('click', functio
         ['Field','Allowed Values'],
         ['ip_address','IPv4 or IPv6  e.g. 192.168.1.10'],
         ['identified_scope','PCI | DMZ | Internal | External'],
-        ['environment','PROD | UAT | STAGE'],
-        ['remediation_sla','Priority Level 1 | Priority Level 2 | Priority Level 3'],
+        ['environment','PROD | UAT | STAGE | DR | DEV'],
+        ['remediation_sla','Priority Level 1 | Priority Level 2 | Priority Level 3 | Priority Level 4'],
     ]);
     wsRef['!cols'] = [{wch:22},{wch:70}];
     const wb = XLSX.utils.book_new();

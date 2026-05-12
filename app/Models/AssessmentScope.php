@@ -28,7 +28,7 @@ class AssessmentScope extends Model
 
     public static function environmentOptions(): array
     {
-        return ['PROD', 'UAT', 'STAGE'];
+        return ['PROD', 'UAT', 'STAGE', 'DR', 'DEV'];
     }
 
     public static function locationOptions(): array
@@ -38,7 +38,7 @@ class AssessmentScope extends Model
 
     public static function remediationSlaOptions(): array
     {
-        return ['Priority Level 1', 'Priority Level 2', 'Priority Level 3'];
+        return ['Priority Level 1', 'Priority Level 2', 'Priority Level 3', 'Priority Level 4'];
     }
 
     public static function defaultCriticalityLabels(): array
