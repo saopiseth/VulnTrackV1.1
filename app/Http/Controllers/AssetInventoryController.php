@@ -3,34 +3,57 @@
 namespace App\Http\Controllers;
 
 use App\Models\AssetInventory;
+use App\Models\AssessmentScope;
 use App\Models\VulnFinding;
 use App\Models\VulnHostOs;
+use App\Models\VulnScan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class AssetInventoryController extends Controller
 {
     public function index(Request $request): View
     {
+        $latestScan = VulnScan::where('upload_status', 'completed')
+            ->latest('updated_at')
+            ->first();
+
         $query = $this->filteredAssetQuery($request);
 
-        $assets = $query->orderByDesc('last_scanned_at')->paginate(25)->withQueryString();
+        if ($latestScan) {
+            $latestIps = DB::table('vuln_findings')
+                ->where('scan_id', $latestScan->id)
+                ->distinct()
+                ->pluck('ip_address');
+            $query->whereIn('ip_address', $latestIps);
+        }
 
-        $total    = AssetInventory::count();
-        $active   = AssetInventory::where('status', 'Active')->count();
-        $withCrit = AssetInventory::where('vuln_critical', '>', 0)->count();
-        $withHigh = AssetInventory::where('vuln_high', '>', 0)->count();
+        $assets = $query->orderBy('ip_address')->paginate(25)->withQueryString();
 
         return view('asset_inventory.index', [
             'assets'        => $assets,
-            'total'         => $total,
-            'active'        => $active,
-            'withCrit'      => $withCrit,
-            'withHigh'      => $withHigh,
-            'scopeOptions'  => ['PCI', 'DMZ', 'Internal', 'External', 'Third-Party'],
-            'envOptions'    => ['PROD', 'UAT', 'STAGE'],
+            'latestScan'    => $latestScan,
+            'scopeOptions'  => AssessmentScope::scopeOptions(),
+            'envOptions'    => AssessmentScope::environmentOptions(),
+            'slaOptions'    => AssessmentScope::remediationSlaOptions(),
             'statusOptions' => ['Active', 'Inactive', 'Decommissioned'],
         ]);
+    }
+
+    public function update(Request $request, AssetInventory $assetInventory)
+    {
+        $data = $request->validate([
+            'system_name'      => ['nullable', 'string', 'max:255'],
+            'identified_scope' => ['nullable', 'in:' . implode(',', AssessmentScope::scopeOptions())],
+            'environment'      => ['nullable', 'in:' . implode(',', AssessmentScope::environmentOptions())],
+            'system_owner'     => ['nullable', 'string', 'max:100'],
+            'remediation_sla'  => ['nullable', 'in:' . implode(',', AssessmentScope::remediationSlaOptions())],
+        ]);
+
+        $assetInventory->update($data);
+
+        return response()->json(['success' => true, 'asset' => $assetInventory->fresh()]);
     }
 
     public function exportExcel(Request $request)

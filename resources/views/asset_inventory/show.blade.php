@@ -93,8 +93,9 @@
                 <span class="kv-label">Scope</span>
                 <span class="kv-val">
                     @if($assetInventory->identified_scope)
-                    @php $scopeColors=['PCI'=>['#fdf4ff','#7e22ce'],'DMZ'=>['#fef3c7','#92400e'],
-                        'Internal'=>['#e0f2fe','#0c4a6e'],'External'=>['#fee2e2','#991b1b'],'Third-Party'=>['#f1f5f9','#475569']];
+                    @php $scopeColors=['PCI'=>['#fef2f2','#991b1b'],'Swift'=>['#ecfeff','#0e7490'],
+                        'Non-Bank'=>['#f0fdf4','#166534'],'Public'=>['#fffbeb','#92400e'],
+                        'Critical'=>['#fff1f2','#be123c'],'Less Critical'=>['#faf5ff','#6d28d9']];
                     [$sbg,$scol]=$scopeColors[$assetInventory->identified_scope]??['#f1f5f9','#475569']; @endphp
                     <span class="badge-scope" style="background:{{ $sbg }};color:{{ $scol }}">{{ $assetInventory->identified_scope }}</span>
                     @else —@endif
@@ -104,7 +105,9 @@
                 <span class="kv-label">Environment</span>
                 <span class="kv-val">
                     @if($assetInventory->environment)
-                    @php $envColors=['PROD'=>['#fee2e2','#991b1b'],'UAT'=>['#fef9c3','#854d0e'],'STAGE'=>['#f1f5f9','#475569']];
+                    @php $envColors=['PROD'=>['#fee2e2','#991b1b'],'UAT'=>['#fef9c3','#854d0e'],'STAGE'=>['#f1f5f9','#475569'],
+                        'DR'=>['#fff7ed','#9a3412'],'DEV'=>['#ecfeff','#0e7490'],
+                        'Non-Prod'=>['#eef2ff','#3730a3'],'DEV-QA'=>['#fdf4ff','#7e22ce']];
                     [$ebg,$ecol]=$envColors[$assetInventory->environment]??['#f1f5f9','#475569']; @endphp
                     <span class="badge-scope" style="background:{{ $ebg }};color:{{ $ecol }}">{{ $assetInventory->environment }}</span>
                     @else —@endif

@@ -11,7 +11,8 @@ class AssetInventory extends Model
 
     protected $fillable = [
         'ip_address', 'hostname', 'identified_scope', 'environment',
-        'system_name', 'classification_level', 'critical_level',
+        'system_name', 'system_owner', 'remediation_sla',
+        'classification_level', 'critical_level',
         'os', 'os_family', 'os_kernel', 'open_ports',
         'vuln_critical', 'vuln_high', 'vuln_medium', 'vuln_low',
         'tags', 'notes', 'status', 'last_scanned_at', 'created_by',
