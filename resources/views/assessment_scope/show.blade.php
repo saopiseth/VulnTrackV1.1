@@ -256,6 +256,7 @@
 
                 {{-- Step 3: Data review --}}
                 <div id="import-step3" style="display:none">
+
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <button class="btn btn-sm" id="backToMapBtn"
                                 style="border-color:#e2e8f0;color:#64748b;border-radius:8px;font-size:.8rem">
@@ -271,6 +272,41 @@
                     </div>
                     <div id="import-error" class="mt-3 alert" style="display:none;border-radius:10px;border:none;background:#fef2f2;color:#991b1b;font-size:.85rem"></div>
                 </div>
+
+                {{-- Step 4: Import summary --}}
+                <div id="import-step4" style="display:none">
+                    <div style="text-align:center;padding:.5rem 0 1rem">
+                        <i class="bi bi-check-circle-fill" style="font-size:2rem;color:#16a34a"></i>
+                        <div style="font-size:1rem;font-weight:700;color:#0f172a;margin-top:.5rem">Import Complete</div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6 col-md-3">
+                            <div class="card text-center py-3 px-1" style="border-top:3px solid #0f172a">
+                                <div id="sum-total" style="font-size:1.6rem;font-weight:800;color:#0f172a">0</div>
+                                <div style="font-size:.7rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Total</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card text-center py-3 px-1" style="border-top:3px solid #16a34a">
+                                <div id="sum-inserted" style="font-size:1.6rem;font-weight:800;color:#16a34a">0</div>
+                                <div style="font-size:.7rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Inserted</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card text-center py-3 px-1" style="border-top:3px solid #2563eb">
+                                <div id="sum-updated" style="font-size:1.6rem;font-weight:800;color:#2563eb">0</div>
+                                <div style="font-size:.7rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Updated</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card text-center py-3 px-1" style="border-top:3px solid #dc2626">
+                                <div id="sum-failed" style="font-size:1.6rem;font-weight:800;color:#dc2626">0</div>
+                                <div style="font-size:.7rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Failed</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="sum-warnings" style="display:none;font-size:.8rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.75rem 1rem;line-height:1.7"></div>
+                </div>
             </div>
             <div class="modal-footer px-4 pb-4" style="border-top:1px solid #f1f5f9">
                 <button type="button" class="btn" data-bs-dismiss="modal"
@@ -280,6 +316,10 @@
                 </button>
                 <button type="button" id="importBtn" style="display:none;background:#16a34a;color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
                     <span id="importBtnLabel"><i class="bi bi-upload me-1"></i> Import</span>
+                </button>
+                <button type="button" id="closeSummaryBtn" style="display:none;background:#0f172a;color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem"
+                        data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i> Close &amp; Refresh
                 </button>
             </div>
         </div>
@@ -503,16 +543,27 @@ function buildReviewTable() {
 
 function resetImport() {
     parsedRows = []; fileHeaders = []; columnMap = {};
-    document.getElementById('import-step1').style.display = '';
-    document.getElementById('import-step2').style.display = 'none';
-    document.getElementById('import-step3').style.display = 'none';
-    document.getElementById('reviewBtn').style.display = 'none';
-    document.getElementById('importBtn').style.display = 'none';
+    ['import-step1','import-step2','import-step3','import-step4'].forEach(function (id) {
+        document.getElementById(id).style.display = id === 'import-step1' ? '' : 'none';
+    });
+    ['reviewBtn','importBtn','closeSummaryBtn'].forEach(function (id) {
+        document.getElementById(id).style.display = 'none';
+    });
     document.getElementById('fileInput').value = '';
     document.getElementById('import-error').style.display = 'none';
 }
 
 document.getElementById('changeFileBtn').addEventListener('click', resetImport);
+
+// Reload page when summary modal is dismissed
+document.getElementById('closeSummaryBtn').addEventListener('click', function () {
+    location.reload();
+});
+document.getElementById('importModal').addEventListener('hidden.bs.modal', function () {
+    if (document.getElementById('import-step4').style.display !== 'none') {
+        location.reload();
+    }
+});
 
 // ── Submit import ─────────────────────────────────────────────
 document.getElementById('importBtn').addEventListener('click', function () {
@@ -520,14 +571,16 @@ document.getElementById('importBtn').addEventListener('click', function () {
         const obj = {};
         FIELDS.forEach(function (f) {
             if (columnMap[f] >= 0) {
+                // Normalize all cell values to trimmed strings; empty → null
                 let v = row[columnMap[f]];
-                if (typeof v === 'string') v = v.trim();
-                if (v === '' || v === null || v === undefined) v = null;
-                obj[f] = v;
+                if (v !== null && v !== undefined) v = String(v).trim();
+                obj[f] = (v === '' || v === null || v === undefined) ? null : v;
             }
         });
         return obj;
-    }).filter(function (r) { return Object.values(r).some(function (v) { return v !== null && v !== ''; }); });
+    }).filter(function (r) {
+        return Object.values(r).some(function (v) { return v !== null && v !== ''; });
+    });
 
     if (!rows.length) { showImportError('No valid rows to import.'); return; }
 
@@ -544,19 +597,26 @@ document.getElementById('importBtn').addEventListener('click', function () {
         },
         body: JSON.stringify({ rows }),
     }).then(function (r) { return r.json(); }).then(function (data) {
-        if (data.imported !== undefined) {
-            bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
-            resetImport();
-            var msg = data.imported + ' records imported.';
-            if (data.inserted !== undefined && data.updated !== undefined && data.updated > 0) {
-                msg = data.inserted + ' added, ' + data.updated + ' updated.';
+        if (data.total !== undefined) {
+            // Show summary panel (step 4)
+            document.getElementById('import-step3').style.display = 'none';
+            document.getElementById('import-step4').style.display = '';
+            document.getElementById('importBtn').style.display    = 'none';
+            document.getElementById('closeSummaryBtn').style.display = '';
+
+            document.getElementById('sum-total').textContent    = data.total    ?? 0;
+            document.getElementById('sum-inserted').textContent = data.inserted ?? 0;
+            document.getElementById('sum-updated').textContent  = data.updated  ?? 0;
+            document.getElementById('sum-failed').textContent   = data.failed   ?? 0;
+
+            var warnEl = document.getElementById('sum-warnings');
+            if (data.warnings && data.warnings.length) {
+                warnEl.innerHTML = '<strong>Warnings (' + data.warnings.length + '):</strong><br>' +
+                    data.warnings.map(function (w) { return '• ' + w; }).join('<br>');
+                warnEl.style.display = '';
+            } else {
+                warnEl.style.display = 'none';
             }
-            var banner = document.createElement('div');
-            banner.className = 'alert d-flex align-items-center gap-2 mb-4';
-            banner.style.cssText = 'border-radius:12px;border:none;background:#f0fdf4;color:#166534;position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;min-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.12)';
-            banner.innerHTML = '<i class="bi bi-check-circle-fill"></i> ' + msg;
-            document.body.appendChild(banner);
-            setTimeout(function () { location.reload(); }, 1200);
         } else {
             showImportError(data.error || JSON.stringify(data));
             document.getElementById('importBtn').disabled = false;

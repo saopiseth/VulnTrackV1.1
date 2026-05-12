@@ -7,6 +7,7 @@ use App\Models\AssessmentScopeGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AssessmentScopeController extends Controller
 {
@@ -139,11 +140,11 @@ class AssessmentScopeController extends Controller
 
     public function importBatch(Request $request, AssessmentScopeGroup $assessmentScopeGroup)
     {
-        // Only validate the container — per-row Laravel validation is O(n×fields) and too slow for large imports
         $request->validate([
             'rows' => ['required', 'array', 'min:1', 'max:2000'],
         ]);
 
+        // Enum lookup maps: case-insensitive key → canonical value
         $scopeLookup = collect(AssessmentScope::scopeOptions())
             ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
         $envLookup   = collect(AssessmentScope::environmentOptions())
@@ -153,29 +154,62 @@ class AssessmentScopeController extends Controller
 
         $now    = now();
         $userId = Auth::id();
-        // Accept any scalar (strings AND numbers returned by Excel parsers)
-        $str = fn ($v) => is_scalar($v) && $v !== null && $v !== ''
-            && trim((string) $v) !== ''
+
+        // Normalize any scalar (string OR number) from Excel/CSV parsers
+        $str = fn ($v) => is_scalar($v) && $v !== null && $v !== '' && trim((string) $v) !== ''
             ? mb_substr(trim((string) $v), 0, 255) : null;
 
-        // Deduplicate within the file: last-wins keyed by ip_address, then hostname
-        $byIp       = [];   // ip => data
-        $byHostname = [];   // hostname => data (only when no ip)
-        $ambiguous  = [];   // rows with neither ip nor hostname
+        // Safe enum resolver: returns canonical value or null; logs unrecognised values
+        $enum = function (string $field, $v, array $lookup) use ($assessmentScopeGroup): ?string {
+            if ($v === null || $v === '') return null;
+            $key = strtolower(trim((string) $v));
+            if ($key === '') return null;
+            if (isset($lookup[$key])) return $lookup[$key];
+            Log::warning("Assessment scope import: unrecognised {$field} value", [
+                'group_id' => $assessmentScopeGroup->id,
+                'value'    => $v,
+                'accepted' => implode(', ', array_values($lookup)),
+            ]);
+            return null; // reject invalid enum; caller may count as warning
+        };
 
-        foreach ($request->input('rows', []) as $row) {
-            $hostname = $str($row['hostname']    ?? null);
-            $ip       = $str($row['ip_address']  ?? null);
-            $sysName  = $str($row['system_name'] ?? null);
+        // Deduplicate within file: last-wins keyed by ip_address, then hostname
+        $byIp       = [];  // ip      => data
+        $byHostname = [];  // hn      => data (no ip)
+        $ambiguous  = [];  // neither ip nor hostname
+        $skipped    = 0;
+        $warnings   = [];
+
+        foreach ($request->input('rows', []) as $rowNum => $row) {
+            $hostname = $str($row['hostname']     ?? null);
+            $ip       = $str($row['ip_address']   ?? null);
+            $sysName  = $str($row['system_name']  ?? null);
             $owner    = $str($row['system_owner'] ?? null);
-            $scope    = isset($row['identified_scope'])
-                ? ($scopeLookup[strtolower(trim((string) $row['identified_scope']))] ?? null) : null;
-            $env      = isset($row['environment'])
-                ? ($envLookup[strtolower(trim((string) $row['environment']))] ?? null) : null;
-            $sla      = isset($row['remediation_sla'])
-                ? ($slaLookup[strtolower(trim((string) $row['remediation_sla']))] ?? null) : null;
 
+            // Enum fields — track when a value was provided but not recognised
+            $rawScope = $row['identified_scope'] ?? null;
+            $rawEnv   = $row['environment']      ?? null;
+            $rawSla   = $row['remediation_sla']  ?? null;
+
+            $scope = $enum('identified_scope', $rawScope, $scopeLookup);
+            $env   = $enum('environment',      $rawEnv,   $envLookup);
+            $sla   = $enum('remediation_sla',  $rawSla,   $slaLookup);
+
+            // Collect user-facing warnings for values that were provided but rejected
+            $lineNum = $rowNum + 2; // +2: 1-based + header row
+            if ($rawScope !== null && $rawScope !== '' && $scope === null) {
+                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal).";
+            }
+            if ($rawEnv !== null && $rawEnv !== '' && $env === null) {
+                $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE).";
+            }
+            if ($rawSla !== null && $rawSla !== '' && $sla === null) {
+                $warnings[] = "Row {$lineNum}: remediation_sla \"{$rawSla}\" not recognised (accepted: Priority Level 1/2/3).";
+            }
+
+            // Skip completely empty rows
             if (!$hostname && !$ip && !$scope && !$sysName && !$env && !$owner && !$sla) {
+                $skipped++;
                 continue;
             }
 
@@ -196,20 +230,16 @@ class AssessmentScopeController extends Controller
                 'updated_at'         => $now,
             ];
 
-            if ($ip) {
-                $byIp[$ip] = $data;
-            } elseif ($hostname) {
-                $byHostname[$hostname] = $data;
-            } else {
-                $ambiguous[] = $data;
-            }
+            if ($ip)           $byIp[$ip]           = $data;
+            elseif ($hostname) $byHostname[$hostname] = $data;
+            else               $ambiguous[]           = $data;
         }
 
         if (empty($byIp) && empty($byHostname) && empty($ambiguous)) {
             return response()->json(['error' => 'No valid rows to import.'], 422);
         }
 
-        // Fetch existing records to separate inserts from updates
+        // Look up existing records to route each row to insert or update
         $existingByIp = !empty($byIp)
             ? DB::table('assessment_scopes')
                 ->where('group_id', $assessmentScopeGroup->id)
@@ -226,46 +256,79 @@ class AssessmentScopeController extends Controller
             : collect();
 
         $toInsert = [];
-        $toUpdate = [];   // id => data
+        $toUpdate = [];  // id => data
 
-        foreach ($byIp as $ip => $data) {
-            $id = $existingByIp->get($ip);
-            $id ? $toUpdate[$id] = $data : $toInsert[] = $data;
-        }
-        foreach ($byHostname as $hn => $data) {
-            $id = $existingByHostname->get($hn);
-            $id ? $toUpdate[$id] = $data : $toInsert[] = $data;
-        }
-        foreach ($ambiguous as $data) {
-            $toInsert[] = $data;
-        }
+        foreach ($byIp       as $ip => $data) { $id = $existingByIp->get($ip);       $id ? $toUpdate[$id] = $data : $toInsert[] = $data; }
+        foreach ($byHostname as $hn => $data) { $id = $existingByHostname->get($hn); $id ? $toUpdate[$id] = $data : $toInsert[] = $data; }
+        foreach ($ambiguous  as $data)         { $toInsert[] = $data; }
 
-        // Bulk insert new rows
+        // ── Inserts (bulk; fall back to per-row on failure) ──────────────
+        $insertedCount = 0;
+        $failedCount   = 0;
+
         foreach (array_chunk($toInsert, 500) as $chunk) {
-            AssessmentScope::insert($chunk);
-        }
-
-        // Update existing rows — only overwrite fields that have a value in the import.
-        // Null (blank cell / unmapped column) means "no change"; preserve existing data.
-        $updateFields = ['hostname', 'ip_address', 'identified_scope', 'system_name',
-                         'environment', 'system_owner', 'remediation_sla'];
-        foreach ($toUpdate as $id => $data) {
-            $payload = [];
-            foreach ($updateFields as $f) {
-                if (array_key_exists($f, $data) && $data[$f] !== null) {
-                    $payload[$f] = $data[$f];
+            try {
+                AssessmentScope::insert($chunk);
+                $insertedCount += count($chunk);
+            } catch (\Exception $e) {
+                Log::error('Assessment scope import: bulk insert failed — retrying per-row', [
+                    'group_id'   => $assessmentScopeGroup->id,
+                    'chunk_size' => count($chunk),
+                    'error'      => $e->getMessage(),
+                ]);
+                // Retry individually so one bad row doesn't drop the whole chunk
+                foreach ($chunk as $row) {
+                    try {
+                        AssessmentScope::insert([$row]);
+                        $insertedCount++;
+                    } catch (\Exception $e2) {
+                        Log::error('Assessment scope import: row insert failed', [
+                            'group_id' => $assessmentScopeGroup->id,
+                            'ip'       => $row['ip_address'] ?? null,
+                            'hostname' => $row['hostname']   ?? null,
+                            'error'    => $e2->getMessage(),
+                        ]);
+                        $failedCount++;
+                    }
                 }
             }
-            if (!empty($payload)) {
-                $payload['updated_at'] = $now;
-                DB::table('assessment_scopes')->where('id', $id)->update($payload);
+        }
+
+        // ── Updates (per-row; only overwrite non-null fields) ────────────
+        $updatedCount = 0;
+        $updateFields = ['hostname', 'ip_address', 'identified_scope', 'system_name',
+                         'environment', 'system_owner', 'remediation_sla'];
+
+        foreach ($toUpdate as $id => $data) {
+            try {
+                $payload = [];
+                foreach ($updateFields as $f) {
+                    if (array_key_exists($f, $data) && $data[$f] !== null) {
+                        $payload[$f] = $data[$f];
+                    }
+                }
+                if (!empty($payload)) {
+                    $payload['updated_at'] = $now;
+                    DB::table('assessment_scopes')->where('id', $id)->update($payload);
+                }
+                $updatedCount++;
+            } catch (\Exception $e) {
+                Log::error('Assessment scope import: row update failed', [
+                    'group_id'  => $assessmentScopeGroup->id,
+                    'record_id' => $id,
+                    'error'     => $e->getMessage(),
+                ]);
+                $failedCount++;
             }
         }
 
         return response()->json([
-            'imported' => count($toInsert) + count($toUpdate),
-            'inserted' => count($toInsert),
-            'updated'  => count($toUpdate),
+            'total'    => $insertedCount + $updatedCount + $failedCount,
+            'inserted' => $insertedCount,
+            'updated'  => $updatedCount,
+            'failed'   => $failedCount,
+            'skipped'  => $skipped,
+            'warnings' => array_slice($warnings, 0, 20), // cap to avoid huge payloads
         ]);
     }
 
