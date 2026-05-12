@@ -300,6 +300,7 @@ class VulnAssessmentController extends Controller
         $topIps = collect();
         $comparison = null;
         $remStats = null;
+        $vulnAgeTrend = collect();
 
         if ($hasTracked) {
             $stats = VulnTracked::where('assessment_id', $assessment->id)
@@ -378,6 +379,23 @@ class VulnAssessmentController extends Controller
                 $row->vuln_age_quarters = $vulnAgeByIp->get($row->ip_address, []);
                 return $row;
             });
+
+            // Trend: total + severity breakdown per assessment for IPs in this assessment
+            if (!empty($topIpAddresses)) {
+                $vulnAgeTrend = DB::table('vuln_tracked as vt')
+                    ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
+                    ->whereIn('vt.ip_address', $topIpAddresses)
+                    ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+                    ->selectRaw("va.id as assessment_id, va.uuid, va.name,
+                        COUNT(*) as total,
+                        SUM(CASE WHEN vt.severity='Critical' THEN 1 ELSE 0 END) as critical,
+                        SUM(CASE WHEN vt.severity='High'     THEN 1 ELSE 0 END) as high,
+                        SUM(CASE WHEN vt.severity='Medium'   THEN 1 ELSE 0 END) as medium,
+                        SUM(CASE WHEN vt.severity='Low'      THEN 1 ELSE 0 END) as low")
+                    ->groupBy('va.id', 'va.uuid', 'va.name')
+                    ->orderBy('va.id')
+                    ->get();
+            }
 
             $remStats = DB::table('vuln_tracked as vt')
                 ->where('vt.assessment_id', $assessment->id)
@@ -487,7 +505,7 @@ class VulnAssessmentController extends Controller
             ];
         }
 
-        return compact('baseline', 'latestScan', 'activeScan', 'stats', 'topIps', 'activeHostCount', 'remStats', 'comparison', 'kri');
+        return compact('baseline', 'latestScan', 'activeScan', 'stats', 'topIps', 'activeHostCount', 'remStats', 'comparison', 'kri', 'vulnAgeTrend');
     }
 
     private function buildKriPowerPoint(VulnAssessment $assessment, array $data): string

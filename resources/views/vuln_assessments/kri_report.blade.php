@@ -225,6 +225,40 @@
     </div>
 </div>
 
+@if($vulnAgeTrend->count() > 1)
+<div class="kri-chart mb-3">
+    <div class="kri-label">Vulnerability Age Trend</div>
+    <div style="font-size:.72rem;color:#94a3b8;margin-bottom:.75rem">Total vulnerabilities per assessment for hosts in this report</div>
+    @php $maxTotal = max($vulnAgeTrend->max('total'), 1); @endphp
+    <div style="display:flex;align-items:flex-end;gap:6px;height:160px;padding-bottom:0">
+        @foreach($vulnAgeTrend as $t)
+        @php $barH = max(6, (int) round(($t->total / $maxTotal) * 148)); @endphp
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center">
+            <div style="font-size:.65rem;font-weight:800;color:#374151;margin-bottom:.2rem">{{ $t->total }}</div>
+            <a href="{{ route('vuln-assessments.show', $t->uuid) }}"
+               title="{{ $t->name }}"
+               style="width:100%;height:{{ $barH }}px;display:flex;flex-direction:column;border-radius:4px 4px 0 0;overflow:hidden;text-decoration:none">
+                @if($t->critical > 0)<div style="flex:{{ $t->critical }};background:#780000"></div>@endif
+                @if($t->high     > 0)<div style="flex:{{ $t->high     }};background:#dc0000"></div>@endif
+                @if($t->medium   > 0)<div style="flex:{{ $t->medium   }};background:#fd8c00"></div>@endif
+                @if($t->low      > 0)<div style="flex:{{ $t->low      }};background:#16a34a"></div>@endif
+            </a>
+            <div style="width:100%;border-top:2px solid #e2e8f0"></div>
+            <div style="font-size:.62rem;color:{{ $t->uuid === $assessment->uuid ? '#1d4ed8' : '#64748b' }};font-weight:{{ $t->uuid === $assessment->uuid ? '800' : '600' }};text-align:center;margin-top:.3rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%"
+                 title="{{ $t->name }}">{{ Str::limit($t->name, 14) }}</div>
+        </div>
+        @endforeach
+    </div>
+    <div style="display:flex;gap:1.25rem;justify-content:center;margin-top:.85rem">
+        @foreach([['Critical','#780000'],['High','#dc0000'],['Medium','#fd8c00'],['Low','#16a34a']] as [$lbl,$clr])
+        <div style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#64748b;font-weight:600">
+            <div style="width:9px;height:9px;border-radius:2px;background:{{ $clr }};flex-shrink:0"></div>{{ $lbl }}
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
 <div class="row g-3 mb-3">
     <div class="col-lg-6">
         <div class="kri-card">
