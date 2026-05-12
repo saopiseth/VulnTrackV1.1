@@ -1782,22 +1782,42 @@ class VulnAssessmentController extends Controller
         $a    = $vulnAssessment->load('creator');
         $user = Auth::user();
 
-        $findings = VulnTracked::where('assessment_id', $a->id)
-            ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+        $findings = VulnTracked::where('vuln_tracked.assessment_id', $a->id)
+            ->whereIn('vuln_tracked.severity', ['Critical', 'High', 'Medium', 'Low'])
             ->visibleTo($user)
-            ->orderByRaw("CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
-            ->orderBy('ip_address')
-            ->orderBy('vuln_name')
-            ->get([
-                'plugin_id', 'vuln_name', 'severity', 'cvss_score', 'cve',
-                'vuln_category', 'affected_component',
-                'ip_address', 'hostname', 'port', 'protocol',
-                'os_detected', 'os_name', 'os_family',
-                'plugin_output',
-                'description', 'remediation_text',
-                'tracking_status',
-                'first_seen_at', 'last_seen_at',
-            ]);
+            ->select([
+                'vuln_tracked.plugin_id',
+                'vuln_tracked.vuln_name',
+                'vuln_tracked.severity',
+                'vuln_tracked.cvss_score',
+                'vuln_tracked.cve',
+                'vuln_tracked.vuln_category',
+                'vuln_tracked.affected_component',
+                'vuln_tracked.ip_address',
+                'vuln_tracked.hostname',
+                'vuln_tracked.port',
+                'vuln_tracked.protocol',
+                'vuln_tracked.os_detected',
+                'vuln_tracked.os_name',
+                'vuln_tracked.os_family',
+                'vuln_tracked.description',
+                'vuln_tracked.remediation_text',
+                'vuln_tracked.tracking_status',
+                'vuln_tracked.first_seen_at',
+                'vuln_tracked.last_seen_at',
+                DB::raw("(
+                    SELECT vf.plugin_output
+                    FROM   vuln_findings vf
+                    WHERE  vf.scan_id    = vuln_tracked.last_scan_id
+                      AND  vf.plugin_id  = vuln_tracked.plugin_id
+                      AND  vf.ip_address = vuln_tracked.ip_address
+                    LIMIT 1
+                ) as plugin_output"),
+            ])
+            ->orderByRaw("CASE vuln_tracked.severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
+            ->orderBy('vuln_tracked.ip_address')
+            ->orderBy('vuln_tracked.vuln_name')
+            ->get();
 
         $filename = str()->slug($a->name) . '_report_' . now()->format('Ymd') . '.csv';
 
