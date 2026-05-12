@@ -138,7 +138,11 @@ class AssessmentScopeController extends Controller
 
     public function importBatch(Request $request, AssessmentScopeGroup $assessmentScopeGroup)
     {
-        // Build case-insensitive lookup maps for enum fields
+        // Only validate the container — per-row Laravel validation is O(n×fields) and too slow for large imports
+        $request->validate([
+            'rows' => ['required', 'array', 'min:1', 'max:2000'],
+        ]);
+
         $scopeLookup = collect(AssessmentScope::scopeOptions())
             ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
         $envLookup   = collect(AssessmentScope::environmentOptions())
@@ -146,63 +150,50 @@ class AssessmentScopeController extends Controller
         $slaLookup   = collect(AssessmentScope::remediationSlaOptions())
             ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
 
-        // Normalize every row: trim whitespace, empty→null, correct enum casing
-        $normalized = array_map(function ($row) use ($scopeLookup, $envLookup, $slaLookup) {
-            foreach ($row as $k => $v) {
-                if (is_string($v)) {
-                    $v = trim($v);
-                    $row[$k] = $v === '' ? null : $v;
-                }
-            }
-            if (!empty($row['identified_scope'])) {
-                $row['identified_scope'] = $scopeLookup[strtolower($row['identified_scope'])] ?? null;
-            }
-            if (!empty($row['environment'])) {
-                $row['environment'] = $envLookup[strtolower($row['environment'])] ?? null;
-            }
-            if (!empty($row['remediation_sla'])) {
-                $row['remediation_sla'] = $slaLookup[strtolower($row['remediation_sla'])] ?? null;
-            }
-            return $row;
-        }, $request->input('rows', []));
-
-        $request->merge(['rows' => $normalized]);
-
-        $request->validate([
-            'rows'                      => ['required', 'array', 'min:1', 'max:2000'],
-            'rows.*.ip_address'         => ['nullable', 'string', 'max:45'],
-            'rows.*.hostname'           => ['nullable', 'string', 'max:255'],
-            'rows.*.system_name'        => ['nullable', 'string', 'max:255'],
-            'rows.*.system_criticality' => ['nullable', 'integer', 'between:1,5'],
-            'rows.*.system_owner'       => ['nullable', 'string', 'max:100'],
-            'rows.*.identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal'],
-            'rows.*.environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
-            'rows.*.location'           => ['nullable', 'in:DC,DR,Cloud'],
-            'rows.*.notes'              => ['nullable', 'string', 'max:1000'],
-            'rows.*.remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3'],
-        ]);
-
         $now    = now();
         $userId = Auth::id();
+        $str    = fn ($v) => is_string($v) && trim($v) !== '' ? mb_substr(trim($v), 0, 255) : null;
 
-        $rows = array_map(fn ($row) => [
-            'group_id'           => $assessmentScopeGroup->id,
-            'ip_address'         => $row['ip_address']         ?? null,
-            'hostname'           => $row['hostname']           ?? null,
-            'system_name'        => $row['system_name']        ?? null,
-            'system_criticality' => isset($row['system_criticality']) ? (int) $row['system_criticality'] : null,
-            'system_owner'       => $row['system_owner']       ?? null,
-            'identified_scope'   => $row['identified_scope']   ?? null,
-            'environment'        => $row['environment']        ?? null,
-            'location'           => $row['location']           ?? null,
-            'notes'              => $row['notes']              ?? null,
-            'remediation_sla'    => $row['remediation_sla']    ?? null,
-            'created_by'         => $userId,
-            'created_at'         => $now,
-            'updated_at'         => $now,
-        ], $request->rows);
+        $rows = [];
+        foreach ($request->input('rows', []) as $row) {
+            $hostname = $str($row['hostname']    ?? null);
+            $ip       = $str($row['ip_address']  ?? null);
+            $sysName  = $str($row['system_name'] ?? null);
+            $owner    = $str($row['system_owner'] ?? null);
+            $scope    = isset($row['identified_scope'])
+                ? ($scopeLookup[strtolower(trim((string) $row['identified_scope']))] ?? null) : null;
+            $env      = isset($row['environment'])
+                ? ($envLookup[strtolower(trim((string) $row['environment']))] ?? null) : null;
+            $sla      = isset($row['remediation_sla'])
+                ? ($slaLookup[strtolower(trim((string) $row['remediation_sla']))] ?? null) : null;
 
-        foreach (array_chunk($rows, 200) as $chunk) {
+            if (!$hostname && !$ip && !$scope && !$sysName && !$env && !$owner && !$sla) {
+                continue; // skip completely empty rows
+            }
+
+            $rows[] = [
+                'group_id'           => $assessmentScopeGroup->id,
+                'hostname'           => $hostname,
+                'ip_address'         => $ip,
+                'identified_scope'   => $scope,
+                'system_name'        => $sysName,
+                'environment'        => $env,
+                'system_owner'       => $owner,
+                'remediation_sla'    => $sla,
+                'system_criticality' => null,
+                'location'           => null,
+                'notes'              => null,
+                'created_by'         => $userId,
+                'created_at'         => $now,
+                'updated_at'         => $now,
+            ];
+        }
+
+        if (empty($rows)) {
+            return response()->json(['error' => 'No valid rows to import.'], 422);
+        }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
             AssessmentScope::insert($chunk);
         }
 
