@@ -179,6 +179,30 @@ class ProcessScanUpload implements ShouldQueue
                     );
                 }
 
+                // ── Enrich asset_inventories from assessment_scopes ──────────
+                // Copy business fields (Role, Scope, Env, Owner, SLA) from any
+                // assessment_scope record whose ip_address matches a newly upserted asset.
+                $scopeBusinessData = DB::table('assessment_scopes')
+                    ->whereIn('ip_address', $ipList)
+                    ->whereNotNull('ip_address')
+                    ->get(['ip_address', 'system_name', 'identified_scope',
+                           'environment', 'system_owner', 'remediation_sla']);
+
+                foreach ($scopeBusinessData as $scope) {
+                    $payload = [];
+                    foreach (['system_name', 'identified_scope', 'environment', 'system_owner', 'remediation_sla'] as $f) {
+                        if ($scope->$f !== null && $scope->$f !== '') {
+                            $payload[$f] = $scope->$f;
+                        }
+                    }
+                    if (!empty($payload)) {
+                        $payload['updated_at'] = $now;
+                        DB::table('asset_inventories')
+                            ->where('ip_address', $scope->ip_address)
+                            ->update($payload);
+                    }
+                }
+
                 // ── Tracking engine ───────────────────────────────────────────
                 (new VulnTrackingService())->track($assessment, $scan);
             });

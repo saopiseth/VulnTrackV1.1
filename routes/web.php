@@ -93,6 +93,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/asset-inventory',              [AssetInventoryController::class, 'index'])->name('asset-inventory.index');
     Route::get('/asset-inventory/export/excel', [AssetInventoryController::class, 'exportExcel'])->name('asset-inventory.export.excel');
     Route::put('/asset-inventory/{assetInventory}', [AssetInventoryController::class, 'update'])->name('asset-inventory.update');
+    Route::post('/asset-inventory/sync-scope',      [AssetInventoryController::class, 'syncFromScope'])->name('asset-inventory.sync-scope');
     Route::get('/asset-inventory/{assetInventory}', [AssetInventoryController::class, 'show'])->name('asset-inventory.show');
 
     // Account

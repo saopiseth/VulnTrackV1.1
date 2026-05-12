@@ -56,6 +56,45 @@ class AssetInventoryController extends Controller
         return response()->json(['success' => true, 'asset' => $assetInventory->fresh()]);
     }
 
+    public function syncFromScope(Request $request)
+    {
+        $groupId = $request->input('group_id');
+        abort_if(!$groupId, 422);
+
+        $businessFields = ['system_name', 'identified_scope', 'environment', 'system_owner', 'remediation_sla'];
+
+        $scopes = DB::table('assessment_scopes')
+            ->where('group_id', $groupId)
+            ->where(fn ($q) => $q->whereNotNull('ip_address')->orWhereNotNull('hostname'))
+            ->get(array_merge(['ip_address', 'hostname'], $businessFields));
+
+        $synced = 0;
+        $now    = now();
+
+        foreach ($scopes as $scope) {
+            $payload = [];
+            foreach ($businessFields as $f) {
+                if ($scope->$f !== null && $scope->$f !== '') {
+                    $payload[$f] = $scope->$f;
+                }
+            }
+            if (empty($payload)) continue;
+
+            $payload['updated_at'] = $now;
+
+            // Match by IP first, fall back to hostname
+            if ($scope->ip_address) {
+                $rows = DB::table('asset_inventories')->where('ip_address', $scope->ip_address)->update($payload);
+            } else {
+                $rows = DB::table('asset_inventories')->where('hostname', $scope->hostname)->update($payload);
+            }
+
+            $synced += $rows;
+        }
+
+        return response()->json(['synced' => $synced]);
+    }
+
     public function exportExcel(Request $request)
     {
         abort_unless(class_exists(\ZipArchive::class), 500, 'Excel export requires the PHP zip extension.');
