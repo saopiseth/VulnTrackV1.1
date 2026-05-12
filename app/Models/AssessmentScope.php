@@ -23,7 +23,7 @@ class AssessmentScope extends Model
 
     public static function scopeOptions(): array
     {
-        return ['PCI', 'DMZ', 'Internal'];
+        return ['PCI', 'DMZ', 'Internal', 'External'];
     }
 
     public static function environmentOptions(): array

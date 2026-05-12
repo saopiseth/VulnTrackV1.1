@@ -93,7 +93,7 @@ class AssessmentScopeController extends Controller
             'system_name'        => ['nullable', 'string', 'max:255'],
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
-            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal'],
+            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External'],
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
@@ -117,7 +117,7 @@ class AssessmentScopeController extends Controller
             'system_name'        => ['nullable', 'string', 'max:255'],
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
-            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal'],
+            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External'],
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
@@ -198,7 +198,7 @@ class AssessmentScopeController extends Controller
             // Collect user-facing warnings for values that were provided but rejected
             $lineNum = $rowNum + 2; // +2: 1-based + header row
             if ($rawScope !== null && $rawScope !== '' && $scope === null) {
-                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal).";
+                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal, External).";
             }
             if ($rawEnv !== null && $rawEnv !== '' && $env === null) {
                 $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE).";
