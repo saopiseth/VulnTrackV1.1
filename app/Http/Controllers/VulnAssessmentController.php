@@ -380,11 +380,21 @@ class VulnAssessmentController extends Controller
                 return $row;
             });
 
-            // Trend: total + severity breakdown per assessment for IPs in this assessment
+            // Trend: latest 4 assessments with data for IPs in this assessment
             if (!empty($topIpAddresses)) {
+                $latestFourIds = DB::table('vuln_tracked as vt')
+                    ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
+                    ->whereIn('vt.ip_address', $topIpAddresses)
+                    ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+                    ->orderByDesc('va.id')
+                    ->limit(4)
+                    ->distinct()
+                    ->pluck('va.id');
+
                 $vulnAgeTrend = DB::table('vuln_tracked as vt')
                     ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
                     ->whereIn('vt.ip_address', $topIpAddresses)
+                    ->whereIn('va.id', $latestFourIds)
                     ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
                     ->selectRaw("va.id as assessment_id, va.uuid, va.name,
                         COUNT(*) as total,

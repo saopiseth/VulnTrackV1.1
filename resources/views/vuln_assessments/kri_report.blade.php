@@ -230,7 +230,7 @@
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
         <div>
             <div class="kri-label mb-0">Vulnerability Age Trend</div>
-            <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem">Severity breakdown per assessment · click a bar to open the assessment</div>
+            <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem">Latest 4 assessments · severity breakdown · click a bar to open the assessment</div>
         </div>
         <div style="display:flex;gap:1rem">
             @foreach([['Critical','#780000'],['High','#dc0000'],['Medium','#fd8c00'],['Low','#16a34a']] as [$lbl,$clr])
