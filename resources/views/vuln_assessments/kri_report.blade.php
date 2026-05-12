@@ -227,35 +227,20 @@
 
 @if($vulnAgeTrend->count() > 1)
 <div class="kri-chart mb-3">
-    <div class="kri-label">Vulnerability Age Trend</div>
-    <div style="font-size:.72rem;color:#94a3b8;margin-bottom:.75rem">Total vulnerabilities per assessment for hosts in this report</div>
-    @php $maxTotal = max($vulnAgeTrend->max('total'), 1); @endphp
-    <div style="display:flex;align-items:flex-end;gap:6px;height:160px;padding-bottom:0">
-        @foreach($vulnAgeTrend as $t)
-        @php $barH = max(6, (int) round(($t->total / $maxTotal) * 148)); @endphp
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center">
-            <div style="font-size:.65rem;font-weight:800;color:#374151;margin-bottom:.2rem">{{ $t->total }}</div>
-            <a href="{{ route('vuln-assessments.show', $t->uuid) }}"
-               title="{{ $t->name }}"
-               style="width:100%;height:{{ $barH }}px;display:flex;flex-direction:column;border-radius:4px 4px 0 0;overflow:hidden;text-decoration:none">
-                @if($t->critical > 0)<div style="flex:{{ $t->critical }};background:#780000"></div>@endif
-                @if($t->high     > 0)<div style="flex:{{ $t->high     }};background:#dc0000"></div>@endif
-                @if($t->medium   > 0)<div style="flex:{{ $t->medium   }};background:#fd8c00"></div>@endif
-                @if($t->low      > 0)<div style="flex:{{ $t->low      }};background:#16a34a"></div>@endif
-            </a>
-            <div style="width:100%;border-top:2px solid #e2e8f0"></div>
-            <div style="font-size:.62rem;color:{{ $t->uuid === $assessment->uuid ? '#1d4ed8' : '#64748b' }};font-weight:{{ $t->uuid === $assessment->uuid ? '800' : '600' }};text-align:center;margin-top:.3rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%"
-                 title="{{ $t->name }}">{{ Str::limit($t->name, 14) }}</div>
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+        <div>
+            <div class="kri-label mb-0">Vulnerability Age Trend</div>
+            <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem">Severity breakdown per assessment · click a bar to open the assessment</div>
         </div>
-        @endforeach
-    </div>
-    <div style="display:flex;gap:1.25rem;justify-content:center;margin-top:.85rem">
-        @foreach([['Critical','#780000'],['High','#dc0000'],['Medium','#fd8c00'],['Low','#16a34a']] as [$lbl,$clr])
-        <div style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#64748b;font-weight:600">
-            <div style="width:9px;height:9px;border-radius:2px;background:{{ $clr }};flex-shrink:0"></div>{{ $lbl }}
+        <div style="display:flex;gap:1rem">
+            @foreach([['Critical','#780000'],['High','#dc0000'],['Medium','#fd8c00'],['Low','#16a34a']] as [$lbl,$clr])
+            <div style="display:flex;align-items:center;gap:.3rem;font-size:.7rem;color:#64748b;font-weight:600">
+                <div style="width:10px;height:10px;border-radius:2px;background:{{ $clr }};flex-shrink:0"></div>{{ $lbl }}
+            </div>
+            @endforeach
         </div>
-        @endforeach
     </div>
+    <canvas id="vulnAgeTrendChart" style="max-height:300px"></canvas>
 </div>
 @endif
 
@@ -348,3 +333,97 @@
 @endif
 @endif
 @endsection
+
+@push('scripts')
+@if(isset($vulnAgeTrend) && $vulnAgeTrend->count() > 1)
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script nonce="{{ csp_nonce() }}">
+(function () {
+    const labels  = {!! $vulnAgeTrend->pluck('name')->toJson() !!};
+    const uuids   = {!! $vulnAgeTrend->pluck('uuid')->toJson() !!};
+    const current = '{{ $assessment->uuid }}';
+    const data = {
+        critical: {!! $vulnAgeTrend->pluck('critical')->toJson() !!},
+        high:     {!! $vulnAgeTrend->pluck('high')->toJson() !!},
+        medium:   {!! $vulnAgeTrend->pluck('medium')->toJson() !!},
+        low:      {!! $vulnAgeTrend->pluck('low')->toJson() !!},
+    };
+    const totals = labels.map(function (_, i) {
+        return data.critical[i] + data.high[i] + data.medium[i] + data.low[i];
+    });
+
+    const borderColors = uuids.map(function (u) { return u === current ? '#1d4ed8' : 'transparent'; });
+
+    new Chart(document.getElementById('vulnAgeTrendChart'), {
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'Total',
+                    data: totals,
+                    borderColor: '#0f172a',
+                    backgroundColor: 'rgba(15,23,42,.07)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#0f172a',
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y',
+                    order: 0,
+                },
+                { type:'bar', label:'Critical', data: data.critical, backgroundColor:'#780000', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+                { type:'bar', label:'High',     data: data.high,     backgroundColor:'#dc0000', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+                { type:'bar', label:'Medium',   data: data.medium,   backgroundColor:'#fd8c00', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+                { type:'bar', label:'Low',      data: data.low,      backgroundColor:'#16a34a', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function (items) { return labels[items[0].dataIndex]; },
+                        footer: function (items) {
+                            var t = items.filter(function (i) { return i.dataset.type === 'bar'; })
+                                        .reduce(function (s, i) { return s + i.parsed.y; }, 0);
+                            return 'Total: ' + t;
+                        },
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: {
+                        color: function (ctx) { return uuids[ctx.index] === current ? '#1d4ed8' : '#64748b'; },
+                        font: function (ctx) { return { size: 11, weight: uuids[ctx.index] === current ? '800' : '600' }; },
+                    },
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { color: '#64748b', font: { size: 11 }, precision: 0 },
+                },
+            },
+            onClick: function (e, elements) {
+                if (elements.length > 0) {
+                    var idx = elements[0].index;
+                    window.location.href = '/vuln-assessments/' + uuids[idx];
+                }
+            },
+            onHover: function (e, elements) {
+                e.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+            },
+        },
+    });
+}());
+</script>
+@endif
+@endpush
