@@ -236,6 +236,7 @@
                         </div>
                     </div>
                 </div>
+                {{-- Step 2: Column mapping --}}
                 <div id="import-step2" style="display:none">
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <div>
@@ -247,13 +248,23 @@
                             <i class="bi bi-arrow-left me-1"></i> Change File
                         </button>
                     </div>
-                    <div class="p-3 mb-3" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
+                    <div class="p-3" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
                         <div style="font-size:.82rem;font-weight:700;color:#374151;margin-bottom:.75rem">Map columns</div>
                         <div class="row g-2" id="column-map-grid"></div>
                     </div>
-                    <div id="preview-count-label" style="font-size:.78rem;color:#64748b;margin-bottom:.4rem"></div>
-                    <div style="max-height:320px;overflow:auto;border-radius:10px;border:1px solid #e2e8f0">
-                        <table class="table table-sm mb-0" style="font-size:.78rem" id="preview-table">
+                </div>
+
+                {{-- Step 3: Data review --}}
+                <div id="import-step3" style="display:none">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <button class="btn btn-sm" id="backToMapBtn"
+                                style="border-color:#e2e8f0;color:#64748b;border-radius:8px;font-size:.8rem">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Mapping
+                        </button>
+                        <span id="review-count-label" style="font-size:.78rem;color:#64748b"></span>
+                    </div>
+                    <div style="max-height:380px;overflow:auto;border-radius:10px;border:1px solid #e2e8f0">
+                        <table class="table table-sm mb-0" style="font-size:.78rem" id="review-table">
                             <thead style="background:#f8fafc;position:sticky;top:0"></thead>
                             <tbody></tbody>
                         </table>
@@ -264,7 +275,10 @@
             <div class="modal-footer px-4 pb-4" style="border-top:1px solid #f1f5f9">
                 <button type="button" class="btn" data-bs-dismiss="modal"
                         style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
-                <button type="button" id="importBtn" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
+                <button type="button" id="reviewBtn" style="display:none;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
+                    <i class="bi bi-table me-1"></i> Review Data
+                </button>
+                <button type="button" id="importBtn" style="display:none;background:#16a34a;color:#fff;border:none;border-radius:10px;font-size:.875rem;font-weight:600;padding:.45rem 1.1rem">
                     <span id="importBtnLabel"><i class="bi bi-upload me-1"></i> Import</span>
                 </button>
             </div>
@@ -380,15 +394,16 @@ function readFile(file) {
     reader.readAsArrayBuffer(file);
 }
 
+// ── Step 2: column mapping ────────────────────────────────────
 function renderStep2(name) {
     document.getElementById('import-step1').style.display = 'none';
     document.getElementById('import-step2').style.display = '';
+    document.getElementById('import-step3').style.display = 'none';
     document.getElementById('import-filename').textContent = name;
     document.getElementById('import-rowcount').textContent = '(' + parsedRows.length + ' rows)';
-    document.getElementById('importBtn').style.display = '';
-    document.getElementById('importBtnLabel').innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + parsedRows.length + ' rows';
+    document.getElementById('reviewBtn').style.display = '';
+    document.getElementById('importBtn').style.display = 'none';
     buildColumnMap();
-    buildPreview();
 }
 
 function buildColumnMap() {
@@ -427,10 +442,7 @@ function buildColumnMap() {
             sel.appendChild(opt);
         });
 
-        sel.addEventListener('change', function () {
-            columnMap[f] = parseInt(this.value);
-            buildPreview();
-        });
+        sel.addEventListener('change', function () { columnMap[f] = parseInt(this.value); });
 
         wrap.appendChild(label);
         wrap.appendChild(sel);
@@ -438,28 +450,63 @@ function buildColumnMap() {
     });
 }
 
-function buildPreview() {
-    const mapped   = FIELDS.filter(function (f) { return columnMap[f] >= 0; });
-    const previewN = Math.min(parsedRows.length, 50);
-    const countEl  = document.getElementById('preview-count-label');
-    countEl.textContent = parsedRows.length > previewN
-        ? 'Showing first ' + previewN + ' of ' + parsedRows.length + ' rows — all ' + parsedRows.length + ' rows will be imported.'
-        : 'Showing all ' + parsedRows.length + ' rows.';
+// ── Step 3: data review ───────────────────────────────────────
+function renderStep3() {
+    document.getElementById('import-step2').style.display = 'none';
+    document.getElementById('import-step3').style.display = '';
+    document.getElementById('reviewBtn').style.display = 'none';
+    document.getElementById('importBtn').style.display = '';
+    document.getElementById('import-error').style.display = 'none';
+    buildReviewTable();
+    document.getElementById('importBtnLabel').innerHTML =
+        '<i class="bi bi-upload me-1"></i> Import ' + parsedRows.length + ' rows';
+}
 
-    document.querySelector('#preview-table thead').innerHTML = '<tr>' + mapped.map(function (f) {
-        return '<th style="padding:.4rem .6rem;color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px">' + FIELD_LABELS[f] + '</th>';
-    }).join('') + '</tr>';
-    document.querySelector('#preview-table tbody').innerHTML = parsedRows.slice(0, previewN).map(function (row) {
-        return '<tr>' + mapped.map(function (f) {
-            return '<td style="padding:.35rem .6rem;color:#374151;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (row[columnMap[f]] ?? '') + '</td>';
+document.getElementById('reviewBtn').addEventListener('click', renderStep3);
+
+document.getElementById('backToMapBtn').addEventListener('click', function () {
+    document.getElementById('import-step3').style.display = 'none';
+    document.getElementById('import-step2').style.display = '';
+    document.getElementById('reviewBtn').style.display = '';
+    document.getElementById('importBtn').style.display = 'none';
+});
+
+function buildReviewTable() {
+    const mapped  = FIELDS.filter(function (f) { return columnMap[f] >= 0; });
+    const total   = parsedRows.length;
+    const showN   = Math.min(total, 500);
+    const countEl = document.getElementById('review-count-label');
+    countEl.textContent = total > showN
+        ? 'Showing first ' + showN + ' of ' + total + ' rows — all ' + total + ' rows will be imported.'
+        : total + ' rows ready to import.';
+
+    const esc = function (v) { return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
+    document.querySelector('#review-table thead').innerHTML =
+        '<tr>' + mapped.map(function (f) {
+            return '<th style="padding:.4rem .75rem;color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;background:#f8fafc">'
+                + FIELD_LABELS[f] + '</th>';
         }).join('') + '</tr>';
-    }).join('');
+
+    document.querySelector('#review-table tbody').innerHTML =
+        parsedRows.slice(0, showN).map(function (row, idx) {
+            const bg = idx % 2 === 0 ? '' : 'background:#fafafa';
+            return '<tr style="' + bg + '">' + mapped.map(function (f) {
+                const raw = row[columnMap[f]];
+                const val = (raw !== '' && raw !== null && raw !== undefined) ? raw : null;
+                return '<td style="padding:.35rem .75rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'
+                    + (val !== null ? '#0f172a' : '#cbd5e1') + '">'
+                    + (val !== null ? esc(val) : '—') + '</td>';
+            }).join('') + '</tr>';
+        }).join('');
 }
 
 function resetImport() {
     parsedRows = []; fileHeaders = []; columnMap = {};
     document.getElementById('import-step1').style.display = '';
     document.getElementById('import-step2').style.display = 'none';
+    document.getElementById('import-step3').style.display = 'none';
+    document.getElementById('reviewBtn').style.display = 'none';
     document.getElementById('importBtn').style.display = 'none';
     document.getElementById('fileInput').value = '';
     document.getElementById('import-error').style.display = 'none';
@@ -467,7 +514,7 @@ function resetImport() {
 
 document.getElementById('changeFileBtn').addEventListener('click', resetImport);
 
-// ── Do import ─────────────────────────────────────────────────
+// ── Submit import ─────────────────────────────────────────────
 document.getElementById('importBtn').addEventListener('click', function () {
     const rows = parsedRows.map(function (row) {
         const obj = {};
@@ -482,7 +529,7 @@ document.getElementById('importBtn').addEventListener('click', function () {
         return obj;
     }).filter(function (r) { return Object.values(r).some(function (v) { return v !== null && v !== ''; }); });
 
-    if (!rows.length) { showImportError('No valid rows.'); return; }
+    if (!rows.length) { showImportError('No valid rows to import.'); return; }
 
     const lbl = document.getElementById('importBtnLabel');
     lbl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importing ' + rows.length + ' rows…';
@@ -490,7 +537,11 @@ document.getElementById('importBtn').addEventListener('click', function () {
 
     fetch(IMPORT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json',
+        },
         body: JSON.stringify({ rows }),
     }).then(function (r) { return r.json(); }).then(function (data) {
         if (data.imported !== undefined) {
@@ -508,11 +559,13 @@ document.getElementById('importBtn').addEventListener('click', function () {
             setTimeout(function () { location.reload(); }, 1200);
         } else {
             showImportError(data.error || JSON.stringify(data));
+            document.getElementById('importBtn').disabled = false;
+            lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + rows.length + ' rows';
         }
     }).catch(function (err) {
         showImportError('Import failed: ' + err.message);
-        lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import';
         document.getElementById('importBtn').disabled = false;
+        lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + rows.length + ' rows';
     });
 });
 
