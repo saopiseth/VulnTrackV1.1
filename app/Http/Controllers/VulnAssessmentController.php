@@ -354,20 +354,25 @@ class VulnAssessmentController extends Controller
                 });
             }
 
-            // Vulnerability count grouped by calendar quarter (based on first_seen_at)
-            $vulnAgeByIp = DB::table('vuln_tracked')
-                ->where('assessment_id', $assessment->id)
-                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-                ->whereNotNull('first_seen_at')
-                ->selectRaw('ip_address, YEAR(first_seen_at) as yr, QUARTER(first_seen_at) as qtr, COUNT(*) as cnt')
-                ->groupBy('ip_address', DB::raw('YEAR(first_seen_at)'), DB::raw('QUARTER(first_seen_at)'))
-                ->orderByRaw('YEAR(first_seen_at), QUARTER(first_seen_at)')
-                ->get()
-                ->groupBy('ip_address')
-                ->map(fn ($rows) => $rows->map(fn ($r) => [
-                    'label' => 'Q' . $r->qtr . ' \'' . substr($r->yr, 2),
-                    'count' => (int) $r->cnt,
-                ])->values()->all());
+            // Vulnerability count per assessment (by name) for each top IP
+            $topIpAddresses = $topIps->pluck('ip_address')->filter()->values()->all();
+            $vulnAgeByIp = collect();
+            if (!empty($topIpAddresses)) {
+                $vulnAgeByIp = DB::table('vuln_tracked as vt')
+                    ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
+                    ->whereIn('vt.ip_address', $topIpAddresses)
+                    ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+                    ->selectRaw('vt.ip_address, va.id as assessment_id, va.name as assessment_name, COUNT(*) as cnt')
+                    ->groupBy('vt.ip_address', 'va.id', 'va.name')
+                    ->orderBy('va.id')
+                    ->get()
+                    ->groupBy('ip_address')
+                    ->map(fn ($rows) => $rows->map(fn ($r) => [
+                        'name'  => $r->assessment_name,
+                        'count' => (int) $r->cnt,
+                        'is_current' => false,
+                    ])->values()->all());
+            }
 
             $topIps = $topIps->map(function ($row) use ($vulnAgeByIp) {
                 $row->vuln_age_quarters = $vulnAgeByIp->get($row->ip_address, []);

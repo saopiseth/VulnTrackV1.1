@@ -288,12 +288,14 @@
                     <td class="text-center" style="font-weight:800;color:#780000">{{ number_format($ip->critical) }}</td>
                     <td class="text-center" style="font-weight:800;color:#dc0000">{{ number_format($ip->high) }}</td>
                     <td class="text-center" style="font-weight:800;color:#059669">{{ number_format($ip->active_count) }}</td>
-                    <td>
+                    <td style="max-width:220px">
                         @if(!empty($ip->vuln_age_quarters))
-                            <div style="display:flex;flex-wrap:wrap;gap:.25rem;min-width:80px">
+                            <div style="display:flex;flex-wrap:wrap;gap:.25rem">
                                 @foreach($ip->vuln_age_quarters as $q)
-                                <span style="background:#f1f5f9;color:#475569;font-size:.68rem;font-weight:700;padding:.15rem .45rem;border-radius:5px;white-space:nowrap;line-height:1.5">
-                                    {{ $q['label'] }}&nbsp;<span style="color:#1d4ed8;font-weight:800">{{ $q['count'] }}</span>
+                                @php $isCurrent = $q['name'] === $assessment->name; @endphp
+                                <span title="{{ $q['name'] }} — {{ $q['count'] }} vuln{{ $q['count'] !== 1 ? 's' : '' }}"
+                                      style="background:{{ $isCurrent ? '#dbeafe' : '#f1f5f9' }};color:{{ $isCurrent ? '#1d4ed8' : '#475569' }};border:1px solid {{ $isCurrent ? '#bfdbfe' : '#e2e8f0' }};font-size:.68rem;font-weight:700;padding:.15rem .45rem;border-radius:5px;white-space:nowrap;line-height:1.5;max-width:130px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle">
+                                    {{ Str::limit($q['name'], 22) }}&nbsp;<span style="opacity:.75">{{ $q['count'] }}</span>
                                 </span>
                                 @endforeach
                             </div>
