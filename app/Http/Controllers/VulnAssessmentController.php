@@ -1779,42 +1779,101 @@ class VulnAssessmentController extends Controller
 
     public function reportExcel(VulnAssessment $vulnAssessment)
     {
-        $a       = $vulnAssessment->load('creator');
-        $data    = $this->buildReportData($a);
-        $findings = $data['findings'];
+        $a    = $vulnAssessment->load('creator');
+        $user = Auth::user();
+
+        $findings = VulnTracked::where('assessment_id', $a->id)
+            ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+            ->visibleTo($user)
+            ->orderByRaw("CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
+            ->orderBy('ip_address')
+            ->orderBy('vuln_name')
+            ->get([
+                'plugin_id', 'vuln_name', 'severity', 'cvss_score', 'cve',
+                'vuln_category', 'affected_component',
+                'ip_address', 'hostname', 'port', 'protocol',
+                'os_detected', 'os_name', 'os_family',
+                'description', 'remediation_text',
+                'tracking_status',
+                'first_seen_at', 'last_seen_at', 'resolved_at',
+            ]);
 
         $filename = str()->slug($a->name) . '_report_' . now()->format('Ymd') . '.csv';
 
         $headers = [
-            'Content-Type'        => 'text/csv',
+            'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
         $callback = function () use ($a, $findings) {
             $out = fopen('php://output', 'w');
 
-            // Summary sheet header
-            fputcsv($out, ['Assessment Report - ' . $a->name]);
-            fputcsv($out, ['Generated', now()->format('d M Y H:i')]);
-            fputcsv($out, ['Period', ($a->period_start?->format('d M Y') ?? '-') . ' - ' . ($a->period_end?->format('d M Y') ?? '-')]);
-            fputcsv($out, ['Environment', $a->environment ?? '-']);
+            // UTF-8 BOM so Excel opens with correct encoding
+            fwrite($out, "\xEF\xBB\xBF");
+
+            // ── Assessment Summary ────────────────────────────────────
+            fputcsv($out, ['Assessment Report', $a->name]);
+            fputcsv($out, ['Generated',         now()->format('d M Y H:i')]);
+            fputcsv($out, ['Period',             ($a->period_start?->format('d M Y') ?? '-') . ' to ' . ($a->period_end?->format('d M Y') ?? '-')]);
+            fputcsv($out, ['Environment',        $a->environment ?? '-']);
+            fputcsv($out, ['Scanner',            $a->scanner_type ?? '-']);
+            fputcsv($out, ['Total Findings',     $findings->count()]);
+            fputcsv($out, ['Critical',           $findings->where('severity', 'Critical')->count()]);
+            fputcsv($out, ['High',               $findings->where('severity', 'High')->count()]);
+            fputcsv($out, ['Medium',             $findings->where('severity', 'Medium')->count()]);
+            fputcsv($out, ['Low',                $findings->where('severity', 'Low')->count()]);
             fputcsv($out, []);
 
-            // Findings
-            fputcsv($out, ['Vulnerability Name', 'Severity', 'IP Address', 'Hostname', 'Port', 'Protocol', 'CVE', 'Status', 'First Seen']);
+            // ── Column Headers ────────────────────────────────────────
+            fputcsv($out, [
+                'Plugin ID',
+                'Vulnerability Name',
+                'Severity',
+                'CVSS Score',
+                'CVE',
+                'Category',
+                'Affected Component',
+                'IP Address',
+                'Hostname',
+                'Port',
+                'Protocol',
+                'OS Detected',
+                'OS Name',
+                'OS Family',
+                'Status',
+                'First Seen',
+                'Last Seen',
+                'Resolved At',
+                'Description',
+                'Remediation',
+            ]);
+
+            // ── Rows ──────────────────────────────────────────────────
             foreach ($findings as $f) {
                 fputcsv($out, [
+                    $this->csvSafe($f->plugin_id),
                     $this->csvSafe($f->vuln_name),
                     $this->csvSafe($f->severity),
+                    $f->cvss_score !== null ? number_format((float)$f->cvss_score, 1) : '',
+                    $this->csvSafe($f->cve),
+                    $this->csvSafe($f->vuln_category),
+                    $this->csvSafe($f->affected_component),
                     $this->csvSafe($f->ip_address),
                     $this->csvSafe($f->hostname),
                     $this->csvSafe($f->port),
                     $this->csvSafe($f->protocol),
-                    $this->csvSafe($f->cve),
+                    $this->csvSafe($f->os_detected),
+                    $this->csvSafe($f->os_name),
+                    $this->csvSafe($f->os_family),
                     $this->csvSafe($f->tracking_status),
-                    $f->first_seen_at?->format('d M Y'),
+                    $f->first_seen_at?->format('d M Y') ?? '',
+                    $f->last_seen_at?->format('d M Y') ?? '',
+                    $f->resolved_at?->format('d M Y') ?? '',
+                    $this->csvSafe($f->description),
+                    $this->csvSafe($f->remediation_text),
                 ]);
             }
+
             fclose($out);
         };
 
