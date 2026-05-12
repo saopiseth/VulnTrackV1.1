@@ -230,7 +230,7 @@
                             </button>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
-                            @foreach(['hostname','ip_address','identified_scope','system_name','environment','system_owner','remediation_sla','system_criticality','location','notes'] as $col)
+                            @foreach(['hostname','ip_address','identified_scope','system_name','environment','system_owner','remediation_sla'] as $col)
                             <code style="background:#e2e8f0;padding:.1rem .45rem;border-radius:5px;font-size:.75rem;color:#374151">{{ $col }}</code>
                             @endforeach
                         </div>
@@ -278,8 +278,8 @@
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
 
-const FIELDS = ['hostname','ip_address','identified_scope','system_name','environment','system_owner','remediation_sla','system_criticality','location','notes'];
-const FIELD_LABELS = {hostname:'Host Name',ip_address:'IP Address',identified_scope:'Identify Scope',system_name:'Role / Functionality',environment:'Environment',system_owner:'Asset Owner',remediation_sla:'Remediation SLA',system_criticality:'Criticality',location:'Location',notes:'Notes'};
+const FIELDS = ['hostname','ip_address','identified_scope','system_name','environment','system_owner','remediation_sla'];
+const FIELD_LABELS = {hostname:'Host Name',ip_address:'IP Address',identified_scope:'Identify Scope',system_name:'Role / Functionality',environment:'Environment',system_owner:'Asset Owner',remediation_sla:'Remediation SLA'};
 const IMPORT_URL = '{{ route("assessment-scope.import", $group) }}';
 const EXPORT_URL = '{{ route("assessment-scope.export", $group) }}';
 
@@ -301,7 +301,7 @@ document.getElementById('exportBtn').addEventListener('click', function () {
         .then(function (rows) {
             const wsData = [FIELDS, ...rows.map(function (r) { return FIELDS.map(function (h) { return r[h] ?? ''; }); })];
             const ws = XLSX.utils.aoa_to_sheet(wsData);
-            ws['!cols'] = [{wch:16},{wch:20},{wch:28},{wch:20},{wch:20},{wch:14},{wch:12},{wch:10},{wch:30}];
+            ws['!cols'] = [{wch:20},{wch:16},{wch:14},{wch:28},{wch:12},{wch:20},{wch:16}];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Scope');
             XLSX.writeFile(wb, '{{ Str::slug($group->name) }}_' + new Date().toISOString().slice(0,10) + '.xlsx');
@@ -313,19 +313,17 @@ document.getElementById('exportBtn').addEventListener('click', function () {
 // ── Download Template ─────────────────────────────────────────
 document.getElementById('downloadTemplateBtn').addEventListener('click', function () {
     const samples = [
-        ['web-server-01','192.168.1.10','PCI','Core Banking System','PROD','IT Department','30 days',1,'DC',''],
-        ['db-server-02','10.0.0.25','Internal','Customer Database','PROD','DBA Team','60 days',2,'DC',''],
-        ['app-server-03','172.16.5.50','DMZ','API Gateway','UAT','Dev Team','30 days',2,'Cloud',''],
+        ['web-server-01','192.168.1.10','PCI','Core Banking System','PROD','IT Department','30 days'],
+        ['db-server-02','10.0.0.25','Internal','Customer Database','PROD','DBA Team','60 days'],
+        ['app-server-03','172.16.5.50','DMZ','API Gateway','UAT','Dev Team','30 days'],
     ];
     const ws = XLSX.utils.aoa_to_sheet([FIELDS, ...samples]);
-    ws['!cols'] = [{wch:20},{wch:16},{wch:14},{wch:28},{wch:12},{wch:20},{wch:16},{wch:14},{wch:10},{wch:30}];
+    ws['!cols'] = [{wch:20},{wch:16},{wch:14},{wch:28},{wch:12},{wch:20},{wch:16}];
     const wsRef = XLSX.utils.aoa_to_sheet([
         ['Field','Allowed Values'],
         ['ip_address','IPv4 or IPv6  e.g. 192.168.1.10'],
         ['identified_scope','PCI | DMZ | Internal'],
         ['environment','PROD | UAT | STAGE'],
-        ['system_criticality','1=Mission-Critical | 2=Business-Critical | 3=Business Operational | 4=Administrative | 5=None-Bank'],
-        ['location','DC | DR | Cloud'],
         ['remediation_sla','Free text  e.g. 15 days | 30 days | 60 days | 90 days'],
     ]);
     wsRef['!cols'] = [{wch:22},{wch:70}];
@@ -469,7 +467,6 @@ document.getElementById('importBtn').addEventListener('click', function () {
             if (columnMap[f] >= 0) {
                 let v = row[columnMap[f]];
                 if (v === '' || v === null || v === undefined) v = null;
-                if (f === 'system_criticality' && v !== null) { v = parseInt(v); if (isNaN(v) || v < 1 || v > 5) v = null; }
                 obj[f] = v;
             }
         });

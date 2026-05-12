@@ -217,8 +217,8 @@ class AssessmentScopeController extends Controller
         $rows = AssessmentScope::where('group_id', $assessmentScopeGroup->id)
             ->orderBy('identified_scope')
             ->orderBy('ip_address')
-            ->get(['ip_address','hostname','system_name','system_criticality',
-                   'system_owner','identified_scope','environment','location','notes','remediation_sla']);
+            ->get(['hostname','ip_address','identified_scope','system_name',
+                   'environment','system_owner','remediation_sla']);
 
         return response()->json($rows);
     }
