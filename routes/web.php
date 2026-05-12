@@ -80,6 +80,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments/{vulnAssessment}/os-assets',              [VulnAssessmentController::class, 'osAssets'])->name('vuln-assessments.os-assets');
     Route::post('/vuln-assessments/{vulnAssessment}/os-override/{hostOs}',  [VulnAssessmentController::class, 'osOverride'])->name('vuln-assessments.os-override');
     Route::post('/vuln-assessments/{vulnAssessment}/reclassify',            [VulnAssessmentController::class, 'reclassify'])->name('vuln-assessments.reclassify');
+    Route::patch('/vuln-assessments/{vulnAssessment}/hosts/{ip}',           [VulnAssessmentController::class, 'updateHost'])->where('ip', '[^/]+')->name('vuln-assessments.hosts.update');
+    Route::delete('/vuln-assessments/{vulnAssessment}/hosts/{ip}',          [VulnAssessmentController::class, 'destroyHost'])->where('ip', '[^/]+')->name('vuln-assessments.hosts.destroy');
     Route::delete('/vuln-assessments/{vulnAssessment}',                     [VulnAssessmentController::class, 'destroy'])->name('vuln-assessments.destroy');
     Route::patch('/vuln-assessments/{vulnAssessment}/scope-group',          [VulnAssessmentController::class, 'updateScopeGroup'])->name('vuln-assessments.scope-group.update');
     Route::get('/vuln-assessments/{vulnAssessment}/report/pdf',             [VulnAssessmentController::class, 'reportPdf'])->name('vuln-assessments.report.pdf');

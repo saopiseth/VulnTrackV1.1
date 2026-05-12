@@ -133,17 +133,22 @@ class VulnAssessmentController extends Controller
                 $scopeByIp = DB::table('assessment_scopes')
                     ->where('group_id', $assessment->scope_group_id)
                     ->whereNotNull('ip_address')
-                    ->select('ip_address', 'system_name', 'system_criticality', 'system_owner', 'identified_scope')
+                    ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
+                             'system_owner', 'identified_scope', 'environment', 'remediation_sla')
                     ->get()
                     ->keyBy('ip_address');
             }
 
             $topIps = $topIps->map(function ($row) use ($scopeByIp) {
                 $scope = $scopeByIp->get($row->ip_address);
+                $row->scope_id           = $scope?->id;
+                $row->scope_hostname     = $scope?->hostname;
                 $row->system_name        = $scope?->system_name;
                 $row->system_criticality = $scope?->system_criticality;
                 $row->system_owner       = $scope?->system_owner;
                 $row->identified_scope   = $scope?->identified_scope;
+                $row->environment        = $scope?->environment;
+                $row->remediation_sla    = $scope?->remediation_sla;
                 return $row;
             });
 
@@ -1630,6 +1635,44 @@ class VulnAssessmentController extends Controller
 
         return back()->with('success', $msg);
     }
+
+    // ─── Vulnerable Hosts: edit scope / delete tracking ──────────
+
+    public function updateHost(Request $request, VulnAssessment $vulnAssessment, string $ip)
+    {
+        $this->authorize('update', $vulnAssessment);
+        abort_unless($vulnAssessment->scope_group_id, 422, 'No scope group linked to this assessment.');
+
+        $data = $request->validate([
+            'hostname'           => ['nullable', 'string', 'max:255'],
+            'system_name'        => ['nullable', 'string', 'max:255'],
+            'system_criticality' => ['nullable', 'integer', 'between:1,5'],
+            'system_owner'       => ['nullable', 'string', 'max:100'],
+            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal'],
+            'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
+            'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3'],
+        ]);
+
+        \App\Models\AssessmentScope::updateOrCreate(
+            ['group_id' => $vulnAssessment->scope_group_id, 'ip_address' => $ip],
+            array_merge($data, ['created_by' => Auth::id()])
+        );
+
+        return back()->with('success', 'Host updated.');
+    }
+
+    public function destroyHost(VulnAssessment $vulnAssessment, string $ip)
+    {
+        $this->authorize('update', $vulnAssessment);
+
+        VulnTracked::where('assessment_id', $vulnAssessment->id)
+            ->where('ip_address', $ip)
+            ->delete();
+
+        return back()->with('success', 'Host removed from tracking.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
 
     public function destroy(VulnAssessment $vulnAssessment)
     {

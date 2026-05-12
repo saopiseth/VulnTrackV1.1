@@ -321,6 +321,7 @@
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap">Criticality</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Owner</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Scope</th>
+                        <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -335,7 +336,17 @@
                              : ['#f1f5f9','#475569']);
                 @endphp
                 <tr style="border-bottom:1px solid #f1f5f9;{{ $loop->even ? 'background:#fafafa' : '' }}"
-                    onmouseover="this.style.background='#f8fce8'" onmouseout="this.style.background='{{ $loop->even ? '#fafafa' : '' }}'">
+                    onmouseover="this.style.background='#f8fce8'" onmouseout="this.style.background='{{ $loop->even ? '#fafafa' : '' }}'"
+                    data-ip="{{ $ip->ip_address }}"
+                    data-hostname="{{ $ip->scope_hostname ?? $ip->hostname }}"
+                    data-system="{{ $ip->system_name }}"
+                    data-criticality="{{ $ip->system_criticality }}"
+                    data-owner="{{ $ip->system_owner }}"
+                    data-scope="{{ $ip->identified_scope }}"
+                    data-env="{{ $ip->environment }}"
+                    data-sla="{{ $ip->remediation_sla }}"
+                    data-update-url="{{ route('vuln-assessments.hosts.update', [$assessment, $ip->ip_address]) }}"
+                    data-destroy-url="{{ route('vuln-assessments.hosts.destroy', [$assessment, $ip->ip_address]) }}">
 
                     <td style="padding:.5rem .55rem;color:#cbd5e1;font-size:.71rem;font-weight:600">{{ $i + 1 }}</td>
 
@@ -420,6 +431,22 @@
                             {{ $ip->identified_scope }}
                         </span>
                         @else<span style="color:#cbd5e1;font-size:.75rem">—</span>@endif
+                    </td>
+
+                    <td style="padding:.5rem .55rem;text-align:center;white-space:nowrap">
+                        <button type="button" class="js-host-edit"
+                                style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;color:#374151;padding:.25rem .5rem;font-size:.72rem;cursor:pointer;margin-right:3px"
+                                title="Edit host scope">
+                            <i class="bi bi-pencil-fill"></i>
+                        </button>
+                        <button type="button" class="js-host-delete"
+                                style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;color:#dc2626;padding:.25rem .5rem;font-size:.72rem;cursor:pointer"
+                                title="Remove host from tracking">
+                            <i class="bi bi-trash3-fill"></i>
+                        </button>
+                        <form class="js-host-delete-form" method="POST" style="display:none">
+                            @csrf @method('DELETE')
+                        </form>
                     </td>
                 </tr>
                 @endforeach
@@ -764,4 +791,131 @@ new bootstrap.Modal(document.getElementById('uploadModal')).show();
 @endif
 </script>
 @endpush
+
+{{-- ════ Edit Host Modal ════ --}}
+<div class="modal fade" id="editHostModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px;border:none">
+            <div class="modal-header px-4 pt-4 pb-3" style="border-bottom:1px solid #f1f5f9">
+                <div>
+                    <h5 class="modal-title fw-bold mb-0">Edit Host</h5>
+                    <div id="editHostIpLabel" style="font-size:.8rem;color:#64748b;margin-top:.2rem;font-family:monospace"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editHostForm" method="POST">
+                @csrf @method('PATCH')
+                <div class="modal-body px-4 py-3">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size:.82rem">Host Name</label>
+                            <input type="text" name="hostname" id="eh-hostname" class="form-control"
+                                   style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size:.82rem">Role / Functionality</label>
+                            <input type="text" name="system_name" id="eh-system" class="form-control"
+                                   style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size:.82rem">Identify Scope</label>
+                            <select name="identified_scope" id="eh-scope" class="form-select"
+                                    style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                                <option value="">— Select —</option>
+                                @foreach(\App\Models\AssessmentScope::scopeOptions() as $s)
+                                <option value="{{ $s }}">{{ $s }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size:.82rem">Environment</label>
+                            <select name="environment" id="eh-env" class="form-select"
+                                    style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                                <option value="">— Select —</option>
+                                @foreach(\App\Models\AssessmentScope::environmentOptions() as $e)
+                                <option value="{{ $e }}">{{ $e }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size:.82rem">System Criticality</label>
+                            <select name="system_criticality" id="eh-criticality" class="form-select"
+                                    style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                                <option value="">— Select —</option>
+                                @foreach(\App\Models\AssessmentScope::criticalityLevels() as $k => $lv)
+                                <option value="{{ $k }}">{{ $k }} – {{ $lv['label'] }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size:.82rem">Asset Owner</label>
+                            <input type="text" name="system_owner" id="eh-owner" class="form-control"
+                                   style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="font-size:.82rem">Remediation SLA</label>
+                            <select name="remediation_sla" id="eh-sla" class="form-select"
+                                    style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                                <option value="">— Select —</option>
+                                @foreach(\App\Models\AssessmentScope::remediationSlaOptions() as $sla)
+                                <option value="{{ $sla }}">{{ $sla }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    @if(!$assessment->scope_group_id)
+                    <div class="alert mt-3 mb-0" style="border-radius:10px;border:none;background:#fef9c3;color:#92400e;font-size:.82rem">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        No scope group linked to this assessment. Link a scope group first to save host metadata.
+                    </div>
+                    @endif
+                </div>
+                <div class="modal-footer px-4 pb-4" style="border-top:1px solid #f1f5f9">
+                    <button type="button" class="btn" data-bs-dismiss="modal"
+                            style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
+                    <button type="submit" class="btn" {{ !$assessment->scope_group_id ? 'disabled' : '' }}
+                            style="background:#0f172a;color:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script nonce="{{ csp_nonce() }}">
+document.addEventListener('DOMContentLoaded', function () {
+    const editModal = new bootstrap.Modal(document.getElementById('editHostModal'));
+    const editForm  = document.getElementById('editHostForm');
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.js-host-edit');
+        if (!btn) return;
+        const d = btn.closest('tr').dataset;
+        document.getElementById('editHostIpLabel').textContent = d.ip;
+        document.getElementById('eh-hostname').value    = d.hostname    || '';
+        document.getElementById('eh-system').value      = d.system      || '';
+        document.getElementById('eh-scope').value       = d.scope       || '';
+        document.getElementById('eh-env').value         = d.env         || '';
+        document.getElementById('eh-criticality').value = d.criticality || '';
+        document.getElementById('eh-owner').value       = d.owner       || '';
+        document.getElementById('eh-sla').value         = d.sla         || '';
+        editForm.action = d.updateUrl;
+        editModal.show();
+    });
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.js-host-delete');
+        if (!btn) return;
+        const d = btn.closest('tr').dataset;
+        if (!confirm('Remove all vulnerability tracking for ' + d.ip + ' from this assessment?\nThis cannot be undone.')) return;
+        const form = btn.closest('tr').querySelector('.js-host-delete-form');
+        form.action = d.destroyUrl;
+        form.submit();
+    });
+});
+</script>
+@endpush
+
 @endsection
