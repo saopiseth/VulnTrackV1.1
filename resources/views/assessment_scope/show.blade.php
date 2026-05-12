@@ -496,11 +496,14 @@ document.getElementById('importBtn').addEventListener('click', function () {
         if (data.imported !== undefined) {
             bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
             resetImport();
-            // Flash success banner then reload
+            var msg = data.imported + ' records imported.';
+            if (data.inserted !== undefined && data.updated !== undefined && data.updated > 0) {
+                msg = data.inserted + ' added, ' + data.updated + ' updated.';
+            }
             var banner = document.createElement('div');
             banner.className = 'alert d-flex align-items-center gap-2 mb-4';
             banner.style.cssText = 'border-radius:12px;border:none;background:#f0fdf4;color:#166534;position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;min-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.12)';
-            banner.innerHTML = '<i class="bi bi-check-circle-fill"></i> ' + data.imported + ' records imported successfully.';
+            banner.innerHTML = '<i class="bi bi-check-circle-fill"></i> ' + msg;
             document.body.appendChild(banner);
             setTimeout(function () { location.reload(); }, 1200);
         } else {

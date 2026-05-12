@@ -6,6 +6,7 @@ use App\Models\AssessmentScope;
 use App\Models\AssessmentScopeGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AssessmentScopeController extends Controller
 {
@@ -154,7 +155,11 @@ class AssessmentScopeController extends Controller
         $userId = Auth::id();
         $str    = fn ($v) => is_string($v) && trim($v) !== '' ? mb_substr(trim($v), 0, 255) : null;
 
-        $rows = [];
+        // Deduplicate within the file: last-wins keyed by ip_address, then hostname
+        $byIp       = [];   // ip => data
+        $byHostname = [];   // hostname => data (only when no ip)
+        $ambiguous  = [];   // rows with neither ip nor hostname
+
         foreach ($request->input('rows', []) as $row) {
             $hostname = $str($row['hostname']    ?? null);
             $ip       = $str($row['ip_address']  ?? null);
@@ -168,10 +173,10 @@ class AssessmentScopeController extends Controller
                 ? ($slaLookup[strtolower(trim((string) $row['remediation_sla']))] ?? null) : null;
 
             if (!$hostname && !$ip && !$scope && !$sysName && !$env && !$owner && !$sla) {
-                continue; // skip completely empty rows
+                continue;
             }
 
-            $rows[] = [
+            $data = [
                 'group_id'           => $assessmentScopeGroup->id,
                 'hostname'           => $hostname,
                 'ip_address'         => $ip,
@@ -187,17 +192,70 @@ class AssessmentScopeController extends Controller
                 'created_at'         => $now,
                 'updated_at'         => $now,
             ];
+
+            if ($ip) {
+                $byIp[$ip] = $data;
+            } elseif ($hostname) {
+                $byHostname[$hostname] = $data;
+            } else {
+                $ambiguous[] = $data;
+            }
         }
 
-        if (empty($rows)) {
+        if (empty($byIp) && empty($byHostname) && empty($ambiguous)) {
             return response()->json(['error' => 'No valid rows to import.'], 422);
         }
 
-        foreach (array_chunk($rows, 500) as $chunk) {
+        // Fetch existing records to separate inserts from updates
+        $existingByIp = !empty($byIp)
+            ? DB::table('assessment_scopes')
+                ->where('group_id', $assessmentScopeGroup->id)
+                ->whereIn('ip_address', array_keys($byIp))
+                ->pluck('id', 'ip_address')
+            : collect();
+
+        $existingByHostname = !empty($byHostname)
+            ? DB::table('assessment_scopes')
+                ->where('group_id', $assessmentScopeGroup->id)
+                ->whereNull('ip_address')
+                ->whereIn('hostname', array_keys($byHostname))
+                ->pluck('id', 'hostname')
+            : collect();
+
+        $toInsert = [];
+        $toUpdate = [];   // id => data
+
+        foreach ($byIp as $ip => $data) {
+            $id = $existingByIp->get($ip);
+            $id ? $toUpdate[$id] = $data : $toInsert[] = $data;
+        }
+        foreach ($byHostname as $hn => $data) {
+            $id = $existingByHostname->get($hn);
+            $id ? $toUpdate[$id] = $data : $toInsert[] = $data;
+        }
+        foreach ($ambiguous as $data) {
+            $toInsert[] = $data;
+        }
+
+        // Bulk insert new rows
+        foreach (array_chunk($toInsert, 500) as $chunk) {
             AssessmentScope::insert($chunk);
         }
 
-        return response()->json(['imported' => count($rows)]);
+        // Update existing rows (only the 7 import fields; preserve criticality / notes / location)
+        $updateFields = ['hostname', 'ip_address', 'identified_scope', 'system_name',
+                         'environment', 'system_owner', 'remediation_sla', 'updated_at'];
+        foreach ($toUpdate as $id => $data) {
+            DB::table('assessment_scopes')
+                ->where('id', $id)
+                ->update(array_intersect_key($data, array_flip($updateFields)));
+        }
+
+        return response()->json([
+            'imported' => count($toInsert) + count($toUpdate),
+            'inserted' => count($toInsert),
+            'updated'  => count($toUpdate),
+        ]);
     }
 
     // ─── Items JSON (for create-assessment preview) ──────────────
