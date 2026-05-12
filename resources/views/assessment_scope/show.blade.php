@@ -251,7 +251,8 @@
                         <div style="font-size:.82rem;font-weight:700;color:#374151;margin-bottom:.75rem">Map columns</div>
                         <div class="row g-2" id="column-map-grid"></div>
                     </div>
-                    <div style="max-height:280px;overflow:auto;border-radius:10px;border:1px solid #e2e8f0">
+                    <div id="preview-count-label" style="font-size:.78rem;color:#64748b;margin-bottom:.4rem"></div>
+                    <div style="max-height:320px;overflow:auto;border-radius:10px;border:1px solid #e2e8f0">
                         <table class="table table-sm mb-0" style="font-size:.78rem" id="preview-table">
                             <thead style="background:#f8fafc;position:sticky;top:0"></thead>
                             <tbody></tbody>
@@ -385,6 +386,7 @@ function renderStep2(name) {
     document.getElementById('import-filename').textContent = name;
     document.getElementById('import-rowcount').textContent = '(' + parsedRows.length + ' rows)';
     document.getElementById('importBtn').style.display = '';
+    document.getElementById('importBtnLabel').innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + parsedRows.length + ' rows';
     buildColumnMap();
     buildPreview();
 }
@@ -434,11 +436,17 @@ function buildColumnMap() {
 }
 
 function buildPreview() {
-    const mapped = FIELDS.filter(function (f) { return columnMap[f] >= 0; });
+    const mapped   = FIELDS.filter(function (f) { return columnMap[f] >= 0; });
+    const previewN = Math.min(parsedRows.length, 50);
+    const countEl  = document.getElementById('preview-count-label');
+    countEl.textContent = parsedRows.length > previewN
+        ? 'Showing first ' + previewN + ' of ' + parsedRows.length + ' rows — all ' + parsedRows.length + ' rows will be imported.'
+        : 'Showing all ' + parsedRows.length + ' rows.';
+
     document.querySelector('#preview-table thead').innerHTML = '<tr>' + mapped.map(function (f) {
         return '<th style="padding:.4rem .6rem;color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px">' + FIELD_LABELS[f] + '</th>';
     }).join('') + '</tr>';
-    document.querySelector('#preview-table tbody').innerHTML = parsedRows.slice(0, 10).map(function (row) {
+    document.querySelector('#preview-table tbody').innerHTML = parsedRows.slice(0, previewN).map(function (row) {
         return '<tr>' + mapped.map(function (f) {
             return '<td style="padding:.35rem .6rem;color:#374151;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (row[columnMap[f]] ?? '') + '</td>';
         }).join('') + '</tr>';
@@ -474,7 +482,7 @@ document.getElementById('importBtn').addEventListener('click', function () {
     if (!rows.length) { showImportError('No valid rows.'); return; }
 
     const lbl = document.getElementById('importBtnLabel');
-    lbl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importing…';
+    lbl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importing ' + rows.length + ' rows…';
     document.getElementById('importBtn').disabled = true;
 
     fetch(IMPORT_URL, {
@@ -482,12 +490,18 @@ document.getElementById('importBtn').addEventListener('click', function () {
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' },
         body: JSON.stringify({ rows }),
     }).then(function (r) { return r.json(); }).then(function (data) {
-        if (data.imported) {
+        if (data.imported !== undefined) {
             bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
             resetImport();
-            location.reload();
+            // Flash success banner then reload
+            var banner = document.createElement('div');
+            banner.className = 'alert d-flex align-items-center gap-2 mb-4';
+            banner.style.cssText = 'border-radius:12px;border:none;background:#f0fdf4;color:#166534;position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;min-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.12)';
+            banner.innerHTML = '<i class="bi bi-check-circle-fill"></i> ' + data.imported + ' records imported successfully.';
+            document.body.appendChild(banner);
+            setTimeout(function () { location.reload(); }, 1200);
         } else {
-            showImportError(JSON.stringify(data));
+            showImportError(data.error || JSON.stringify(data));
         }
     }).catch(function (err) {
         showImportError('Import failed: ' + err.message);
