@@ -393,9 +393,12 @@ function renderStep2(name) {
 
 function buildColumnMap() {
     columnMap = {};
-    const norm = function (s) { return s.toLowerCase().replace(/[\s_]/g, ''); };
+    const norm = function (s) { return s.toLowerCase().replace(/[^a-z0-9]/g, ''); };
     FIELDS.forEach(function (f) {
-        const idx = fileHeaders.findIndex(function (h) { return norm(h) === norm(f); });
+        const idx = fileHeaders.findIndex(function (h) {
+            const nh = norm(h);
+            return nh === norm(f) || nh === norm(FIELD_LABELS[f]);
+        });
         columnMap[f] = idx >= 0 ? idx : -1;
     });
     const grid = document.getElementById('column-map-grid');

@@ -228,27 +228,12 @@
 </div>
 @endif
 
-{{-- ── Pill tabs ── --}}
-<div class="pill-nav" role="tablist">
-    @if($topIps->count() || $assessment->scope_group_id)
-    <button class="p-tab active" data-bs-toggle="tab" data-bs-target="#tab-os" role="tab">
-        <i class="bi bi-hdd-network me-1"></i>Vulnerable Hosts
-        @if($topIps->count())<span class="cnt">{{ $topIps->count() }}</span>@endif
-    </button>
-    @endif
-    <button class="p-tab{{ !$topIps->count() && !$assessment->scope_group_id ? ' active' : '' }}" data-bs-toggle="tab" data-bs-target="#tab-scans" role="tab">
-        <i class="bi bi-cloud-upload me-1"></i>Scans
-        <span class="cnt">{{ $assessment->scans->count() }}</span>
-    </button>
-</div>
-
-<div class="tab-content">
 
 {{-- ══════════════════════════════════════════════════════════════
      TAB: Vulnerable Hosts
 ══════════════════════════════════════════════════════════════ --}}
 @if($topIps->count() || $assessment->scope_group_id)
-<div class="tab-pane fade show active" id="tab-os" role="tabpanel">
+<div id="tab-os">
 
     {{-- ── Scope Group picker ──────────────────────────────────────── --}}
     <div class="va-card mb-3" style="padding:1rem 1.25rem">
@@ -462,7 +447,7 @@
 {{-- ══════════════════════════════════════════════════════════════
      TAB: Scans
 ══════════════════════════════════════════════════════════════ --}}
-<div class="tab-pane fade{{ !$topIps->count() && !$assessment->scope_group_id ? ' show active' : '' }}" id="tab-scans" role="tabpanel">
+<div id="tab-scans">
     @forelse($assessment->scans as $scan)
     <div class="scan-row">
         <div style="width:36px;height:36px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;
@@ -504,7 +489,7 @@
     </div>
 </div>
 
-</div>{{-- /tab-content --}}
+</div>
 
 {{-- ══ Upload Modal — multi-file, AJAX + chunked ══ --}}
 <div class="modal fade" id="uploadModal" tabindex="-1">
