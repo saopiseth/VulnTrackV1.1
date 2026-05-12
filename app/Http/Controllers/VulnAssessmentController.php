@@ -362,15 +362,15 @@ class VulnAssessmentController extends Controller
                     ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
                     ->whereIn('vt.ip_address', $topIpAddresses)
                     ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
-                    ->selectRaw('vt.ip_address, va.id as assessment_id, va.name as assessment_name, COUNT(*) as cnt')
-                    ->groupBy('vt.ip_address', 'va.id', 'va.name')
+                    ->selectRaw('vt.ip_address, va.id as assessment_id, va.uuid as assessment_uuid, va.name as assessment_name, COUNT(*) as cnt')
+                    ->groupBy('vt.ip_address', 'va.id', 'va.uuid', 'va.name')
                     ->orderBy('va.id')
                     ->get()
                     ->groupBy('ip_address')
                     ->map(fn ($rows) => $rows->map(fn ($r) => [
                         'name'  => $r->assessment_name,
+                        'uuid'  => $r->assessment_uuid,
                         'count' => (int) $r->cnt,
-                        'is_current' => false,
                     ])->values()->all());
             }
 

@@ -292,11 +292,12 @@
                         @if(!empty($ip->vuln_age_quarters))
                             <div style="display:flex;flex-wrap:wrap;gap:.25rem">
                                 @foreach($ip->vuln_age_quarters as $q)
-                                @php $isCurrent = $q['name'] === $assessment->name; @endphp
-                                <span title="{{ $q['name'] }} — {{ $q['count'] }} vuln{{ $q['count'] !== 1 ? 's' : '' }}"
-                                      style="background:{{ $isCurrent ? '#dbeafe' : '#f1f5f9' }};color:{{ $isCurrent ? '#1d4ed8' : '#475569' }};border:1px solid {{ $isCurrent ? '#bfdbfe' : '#e2e8f0' }};font-size:.68rem;font-weight:700;padding:.15rem .45rem;border-radius:5px;white-space:nowrap;line-height:1.5;max-width:130px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle">
+                                @php $isCurrent = $q['uuid'] === $assessment->uuid; @endphp
+                                <a href="{{ route('vuln-assessments.show', $q['uuid']) }}"
+                                   title="{{ $q['name'] }} — {{ $q['count'] }} vuln{{ $q['count'] !== 1 ? 's' : '' }}"
+                                   style="background:{{ $isCurrent ? '#dbeafe' : '#f1f5f9' }};color:{{ $isCurrent ? '#1d4ed8' : '#475569' }};border:1px solid {{ $isCurrent ? '#bfdbfe' : '#e2e8f0' }};font-size:.68rem;font-weight:700;padding:.15rem .45rem;border-radius:5px;white-space:nowrap;line-height:1.5;max-width:130px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle;text-decoration:none">
                                     {{ Str::limit($q['name'], 22) }}&nbsp;<span style="opacity:.75">{{ $q['count'] }}</span>
-                                </span>
+                                </a>
                                 @endforeach
                             </div>
                         @else
