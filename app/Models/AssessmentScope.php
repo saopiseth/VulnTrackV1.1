@@ -28,7 +28,7 @@ class AssessmentScope extends Model
 
     public static function environmentOptions(): array
     {
-        return ['PROD', 'UAT', 'STAGE', 'DR', 'DEV', 'Non-Prod'];
+        return ['PROD', 'UAT', 'STAGE', 'DR', 'DEV', 'Non-Prod', 'DEV-QA'];
     }
 
     public static function locationOptions(): array

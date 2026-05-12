@@ -378,7 +378,7 @@ document.getElementById('downloadTemplateBtn').addEventListener('click', functio
         ['Field','Allowed Values'],
         ['ip_address','IPv4 or IPv6  e.g. 192.168.1.10'],
         ['identified_scope','PCI | DMZ | Internal | External | Swift | Non-Bank | Public | Critical | Less Critical'],
-        ['environment','PROD | UAT | STAGE | DR | DEV | Non-Prod'],
+        ['environment','PROD | UAT | STAGE | DR | DEV | Non-Prod | DEV-QA'],
         ['remediation_sla','Priority Level 1 | Priority Level 2 | Priority Level 3 | Priority Level 4'],
     ]);
     wsRef['!cols'] = [{wch:22},{wch:70}];

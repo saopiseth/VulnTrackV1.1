@@ -1649,7 +1649,7 @@ class VulnAssessmentController extends Controller
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
             'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank,Public,Critical,Less Critical'],
-            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV,Non-Prod'],
+            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV,Non-Prod,DEV-QA'],
             'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3,Priority Level 4'],
         ]);
 
