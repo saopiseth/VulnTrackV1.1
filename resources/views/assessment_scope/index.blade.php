@@ -100,6 +100,51 @@
 @endif
 
 
+{{-- ── Criticality Labels (admin only) ── --}}
+@if(Auth::user()->isAdministrator())
+@php
+    $critLevels   = \App\Models\AssessmentScope::criticalityLevels();
+    $critDefaults = \App\Models\AssessmentScope::defaultCriticalityLabels();
+@endphp
+<div class="card mt-4">
+    <div class="card-body p-4">
+        <h6 class="mb-1" style="color:#0f172a;font-weight:700">
+            <i class="bi bi-bar-chart-steps me-2" style="color:var(--primary)"></i>System Criticality Labels
+        </h6>
+        <p class="mb-4" style="color:#64748b;font-size:.85rem">
+            Customise the names for each criticality level used in Assessment Scope and Asset Inventory.
+            Leave blank to restore the default label.
+        </p>
+        <form method="POST" action="{{ route('account.criticality-settings.update') }}">
+            @csrf @method('PATCH')
+            <div class="row g-3">
+                @foreach($critLevels as $k => $lv)
+                <div class="col-md-6 col-xl-4">
+                    <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">
+                        Level {{ $k }}
+                        <span style="background:{{ $lv['bg'] }};color:{{ $lv['color'] }};padding:.1rem .45rem;border-radius:6px;font-size:.7rem;font-weight:700;margin-left:.35rem">
+                            {{ $lv['label'] }}
+                        </span>
+                    </label>
+                    <input type="text" name="criticality[{{ $k }}]" class="form-control"
+                           value="{{ old('criticality.'.$k, $lv['label']) }}"
+                           placeholder="{{ $critDefaults[$k] }}"
+                           style="border-radius:10px;font-size:.875rem">
+                </div>
+                @endforeach
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-sm"
+                        style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.45rem 1.2rem">
+                    Save Labels
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+
 {{-- ── Create Group Modal ── --}}
 <div class="modal fade" id="createModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
