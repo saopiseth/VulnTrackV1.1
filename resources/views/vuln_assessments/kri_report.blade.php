@@ -225,7 +225,7 @@
     </div>
 </div>
 
-@if($vulnAgeTrend->count() > 1)
+@if($vulnAgeTrend->count() >= 1)
 <div class="kri-chart mb-3">
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
         <div>
@@ -335,8 +335,8 @@
 @endsection
 
 @push('scripts')
-@if(isset($vulnAgeTrend) && $vulnAgeTrend->count() > 1)
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+@if(isset($vulnAgeTrend) && $vulnAgeTrend->count() >= 1)
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" nonce="{{ csp_nonce() }}"></script>
 <script nonce="{{ csp_nonce() }}">
 (function () {
     const labels  = {!! $vulnAgeTrend->pluck('name')->toJson() !!};

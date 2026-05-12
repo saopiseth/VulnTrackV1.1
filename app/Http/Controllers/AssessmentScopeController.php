@@ -138,6 +138,36 @@ class AssessmentScopeController extends Controller
 
     public function importBatch(Request $request, AssessmentScopeGroup $assessmentScopeGroup)
     {
+        // Build case-insensitive lookup maps for enum fields
+        $scopeLookup = collect(AssessmentScope::scopeOptions())
+            ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
+        $envLookup   = collect(AssessmentScope::environmentOptions())
+            ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
+        $slaLookup   = collect(AssessmentScope::remediationSlaOptions())
+            ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
+
+        // Normalize every row: trim whitespace, empty→null, correct enum casing
+        $normalized = array_map(function ($row) use ($scopeLookup, $envLookup, $slaLookup) {
+            foreach ($row as $k => $v) {
+                if (is_string($v)) {
+                    $v = trim($v);
+                    $row[$k] = $v === '' ? null : $v;
+                }
+            }
+            if (!empty($row['identified_scope'])) {
+                $row['identified_scope'] = $scopeLookup[strtolower($row['identified_scope'])] ?? null;
+            }
+            if (!empty($row['environment'])) {
+                $row['environment'] = $envLookup[strtolower($row['environment'])] ?? null;
+            }
+            if (!empty($row['remediation_sla'])) {
+                $row['remediation_sla'] = $slaLookup[strtolower($row['remediation_sla'])] ?? null;
+            }
+            return $row;
+        }, $request->input('rows', []));
+
+        $request->merge(['rows' => $normalized]);
+
         $request->validate([
             'rows'                      => ['required', 'array', 'min:1', 'max:2000'],
             'rows.*.ip_address'         => ['nullable', 'string', 'max:45'],
@@ -149,7 +179,7 @@ class AssessmentScopeController extends Controller
             'rows.*.environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'rows.*.location'           => ['nullable', 'in:DC,DR,Cloud'],
             'rows.*.notes'              => ['nullable', 'string', 'max:1000'],
-            'rows.*.remediation_sla'    => ['nullable', 'string', 'max:100'],
+            'rows.*.remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3'],
         ]);
 
         $now    = now();

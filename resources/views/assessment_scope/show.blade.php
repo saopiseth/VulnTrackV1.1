@@ -463,6 +463,7 @@ document.getElementById('importBtn').addEventListener('click', function () {
         FIELDS.forEach(function (f) {
             if (columnMap[f] >= 0) {
                 let v = row[columnMap[f]];
+                if (typeof v === 'string') v = v.trim();
                 if (v === '' || v === null || v === undefined) v = null;
                 obj[f] = v;
             }
