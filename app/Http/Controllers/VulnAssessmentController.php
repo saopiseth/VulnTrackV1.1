@@ -354,6 +354,26 @@ class VulnAssessmentController extends Controller
                 });
             }
 
+            // Vulnerability count grouped by calendar quarter (based on first_seen_at)
+            $vulnAgeByIp = DB::table('vuln_tracked')
+                ->where('assessment_id', $assessment->id)
+                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->whereNotNull('first_seen_at')
+                ->selectRaw('ip_address, YEAR(first_seen_at) as yr, QUARTER(first_seen_at) as qtr, COUNT(*) as cnt')
+                ->groupBy('ip_address', DB::raw('YEAR(first_seen_at)'), DB::raw('QUARTER(first_seen_at)'))
+                ->orderByRaw('YEAR(first_seen_at), QUARTER(first_seen_at)')
+                ->get()
+                ->groupBy('ip_address')
+                ->map(fn ($rows) => $rows->map(fn ($r) => [
+                    'label' => 'Q' . $r->qtr . ' \'' . substr($r->yr, 2),
+                    'count' => (int) $r->cnt,
+                ])->values()->all());
+
+            $topIps = $topIps->map(function ($row) use ($vulnAgeByIp) {
+                $row->vuln_age_quarters = $vulnAgeByIp->get($row->ip_address, []);
+                return $row;
+            });
+
             $remStats = DB::table('vuln_tracked as vt')
                 ->where('vt.assessment_id', $assessment->id)
                 ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
