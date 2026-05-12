@@ -106,6 +106,29 @@ class AccountController extends Controller
         return back()->with('success', 'Report settings saved.');
     }
 
+    public function updateCriticalitySettings(Request $request)
+    {
+        abort_unless(Auth::user()?->isAdministrator(), 403);
+
+        $data = $request->validate([
+            'criticality.1' => ['nullable', 'string', 'max:60'],
+            'criticality.2' => ['nullable', 'string', 'max:60'],
+            'criticality.3' => ['nullable', 'string', 'max:60'],
+            'criticality.4' => ['nullable', 'string', 'max:60'],
+            'criticality.5' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        $defaults = \App\Models\AssessmentScope::defaultCriticalityLabels();
+        $labels = [];
+        foreach ($defaults as $k => $default) {
+            $labels[$k] = trim($data['criticality'][$k] ?? '') ?: $default;
+        }
+
+        SiteSetting::set('criticality_labels', json_encode($labels));
+
+        return back()->with('success', 'Criticality labels updated.');
+    }
+
     public function updateThemeColor(Request $request)
     {
         abort_unless(Auth::user()?->isAdministrator(), 403);

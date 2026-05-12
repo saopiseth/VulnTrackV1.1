@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\SiteSetting;
 
 class AssessmentScope extends Model
 {
@@ -35,15 +36,39 @@ class AssessmentScope extends Model
         return ['DC', 'DR', 'Cloud'];
     }
 
-    public static function criticalityLevels(): array
+    public static function defaultCriticalityLabels(): array
     {
         return [
-            1 => ['label' => 'Mission-Critical',     'bg' => '#fee2e2', 'color' => '#991b1b'],
-            2 => ['label' => 'Business-Critical',    'bg' => '#fef3c7', 'color' => '#92400e'],
-            3 => ['label' => 'Business Operational', 'bg' => '#dbeafe', 'color' => '#1e40af'],
-            4 => ['label' => 'Administrative',       'bg' => '#f3f4f6', 'color' => '#374151'],
-            5 => ['label' => 'None-Bank',             'bg' => '#f0fdf4', 'color' => '#166534'],
+            1 => 'Mission-Critical',
+            2 => 'Business-Critical',
+            3 => 'Business Operational',
+            4 => 'Administrative',
+            5 => 'None-Bank',
         ];
+    }
+
+    public static function criticalityLevels(): array
+    {
+        $stored = SiteSetting::get('criticality_labels');
+        $labels = $stored ? (json_decode($stored, true) ?: []) : [];
+        $defaults = static::defaultCriticalityLabels();
+
+        $colors = [
+            1 => ['bg' => '#fee2e2', 'color' => '#991b1b'],
+            2 => ['bg' => '#fef3c7', 'color' => '#92400e'],
+            3 => ['bg' => '#dbeafe', 'color' => '#1e40af'],
+            4 => ['bg' => '#f3f4f6', 'color' => '#374151'],
+            5 => ['bg' => '#f0fdf4', 'color' => '#166534'],
+        ];
+
+        $result = [];
+        foreach ($defaults as $k => $default) {
+            $result[$k] = array_merge($colors[$k], [
+                'label' => $labels[$k] ?? $default,
+            ]);
+        }
+
+        return $result;
     }
 
     public function group(): BelongsTo

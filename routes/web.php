@@ -102,7 +102,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/account/logo',           [AccountController::class, 'deleteLogo'])->name('account.logo.delete');
     Route::patch('/account/company-name',    [AccountController::class, 'updateCompanyName'])->name('account.company-name.update');
     Route::patch('/account/theme-color',     [AccountController::class, 'updateThemeColor'])->name('account.theme-color.update');
-    Route::patch('/account/report-settings', [AccountController::class, 'updateReportSettings'])->name('account.report-settings.update');
+    Route::patch('/account/report-settings',      [AccountController::class, 'updateReportSettings'])->name('account.report-settings.update');
+    Route::patch('/account/criticality-settings', [AccountController::class, 'updateCriticalitySettings'])->name('account.criticality-settings.update');
     Route::patch('/account/ldap-settings',  [AccountController::class, 'updateLdapSettings'])->name('account.ldap-settings.update');
     Route::get('/account/ldap-test',        [AccountController::class, 'testLdapConnection'])->name('account.ldap-test');
     Route::patch('/account/azure-settings', [AccountController::class, 'updateAzureSettings'])->name('account.azure-settings.update');
