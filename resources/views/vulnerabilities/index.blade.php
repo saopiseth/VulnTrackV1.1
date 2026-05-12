@@ -238,7 +238,7 @@
 
     @if($vulnerabilities->hasPages())
     <div style="padding:.75rem 1.5rem;border-top:1px solid #f1f5f9">
-        {{ $vulnerabilities->links() }}
+        {{ $vulnerabilities->links('pagination::bootstrap-5') }}
     </div>
     @endif
 </div>

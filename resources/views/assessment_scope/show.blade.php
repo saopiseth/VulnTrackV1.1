@@ -145,7 +145,7 @@
             </table>
         </div>
         @if($items->hasPages())
-        <div class="px-4 py-3 border-top" style="border-color:#f1f5f9!important">{{ $items->links() }}</div>
+        <div class="px-4 py-3 border-top" style="border-color:#f1f5f9!important">{{ $items->links('pagination::bootstrap-5') }}</div>
         @endif
     </div>
 </div>

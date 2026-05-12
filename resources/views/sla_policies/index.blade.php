@@ -135,7 +135,7 @@
 @endforelse
 
 @if($policies->hasPages())
-<div class="d-flex justify-content-center mt-3">{{ $policies->links() }}</div>
+<div class="d-flex justify-content-center mt-3">{{ $policies->links('pagination::bootstrap-5') }}</div>
 @endif
 
 @endsection

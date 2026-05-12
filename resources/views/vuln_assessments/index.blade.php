@@ -395,7 +395,7 @@
 </div>
 
 @if($assessments->hasPages())
-<div class="d-flex justify-content-center mt-4">{{ $assessments->links() }}</div>
+<div class="d-flex justify-content-center mt-4">{{ $assessments->links('pagination::bootstrap-5') }}</div>
 @endif
 
 @push('scripts')

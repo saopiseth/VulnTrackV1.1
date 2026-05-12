@@ -132,6 +132,6 @@
 @endforelse
 
 @if($groups->hasPages())
-<div class="d-flex justify-content-center mt-3">{{ $groups->links() }}</div>
+<div class="d-flex justify-content-center mt-3">{{ $groups->links('pagination::bootstrap-5') }}</div>
 @endif
 @endsection
