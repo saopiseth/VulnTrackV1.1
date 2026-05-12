@@ -8,10 +8,18 @@
         <h4 class="mb-0">Assessment Scope</h4>
         <p class="mb-0">Named scope groups — each group holds the in-scope assets for an assessment</p>
     </div>
-    <button class="btn btn-primary js-open-create"
-            style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
-        <i class="bi bi-plus-lg me-1"></i> New Scope Group
-    </button>
+    <div class="d-flex gap-2">
+        @if(Auth::user()->isAdministrator())
+        <button class="btn js-open-criticality"
+                style="border:1.5px solid var(--primary);color:var(--primary-dark);background:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
+            <i class="bi bi-bar-chart-steps me-1"></i> Criticality Labels
+        </button>
+        @endif
+        <button class="btn btn-primary js-open-create"
+                style="background:var(--primary);border-color:var(--primary);border-radius:10px;font-size:.875rem;font-weight:600">
+            <i class="bi bi-plus-lg me-1"></i> New Scope Group
+        </button>
+    </div>
 </div>
 
 @if(session('success'))
@@ -100,50 +108,59 @@
 @endif
 
 
-{{-- ── Criticality Labels (admin only) ── --}}
+{{-- ── Criticality Labels Modal (admin only) ── --}}
 @if(Auth::user()->isAdministrator())
 @php
     $critLevels   = \App\Models\AssessmentScope::criticalityLevels();
     $critDefaults = \App\Models\AssessmentScope::defaultCriticalityLabels();
 @endphp
-<div class="card mt-4">
-    <div class="card-body p-4">
-        <h6 class="mb-1" style="color:#0f172a;font-weight:700">
-            <i class="bi bi-bar-chart-steps me-2" style="color:var(--primary)"></i>System Criticality Labels
-        </h6>
-        <p class="mb-4" style="color:#64748b;font-size:.85rem">
-            Customise the names for each criticality level used in Assessment Scope and Asset Inventory.
-            Leave blank to restore the default label.
-        </p>
-        <form method="POST" action="{{ route('account.criticality-settings.update') }}">
-            @csrf @method('PATCH')
-            <div class="row g-3">
-                @foreach($critLevels as $k => $lv)
-                <div class="col-md-6 col-xl-4">
-                    <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">
-                        Level {{ $k }}
-                        <span style="background:{{ $lv['bg'] }};color:{{ $lv['color'] }};padding:.1rem .45rem;border-radius:6px;font-size:.7rem;font-weight:700;margin-left:.35rem">
-                            {{ $lv['label'] }}
-                        </span>
-                    </label>
-                    <input type="text" name="criticality[{{ $k }}]" class="form-control"
-                           value="{{ old('criticality.'.$k, $lv['label']) }}"
-                           placeholder="{{ $critDefaults[$k] }}"
-                           style="border-radius:10px;font-size:.875rem">
+<div class="modal fade" id="criticalityModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:16px;border:none">
+            <div class="modal-header px-4 pt-4 pb-3" style="border-bottom:1px solid #f1f5f9">
+                <div>
+                    <h5 class="modal-title mb-0" style="font-weight:700">
+                        <i class="bi bi-bar-chart-steps me-2" style="color:var(--primary)"></i>System Criticality Labels
+                    </h5>
+                    <p class="mb-0 mt-1" style="font-size:.8rem;color:#64748b">
+                        Customise the names for each criticality level. Leave blank to restore the default.
+                    </p>
                 </div>
-                @endforeach
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="mt-4">
-                <button type="submit" class="btn btn-sm"
-                        style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;border:none;padding:.45rem 1.2rem">
-                    Save Labels
-                </button>
-            </div>
-        </form>
+            <form method="POST" action="{{ route('account.criticality-settings.update') }}">
+                @csrf @method('PATCH')
+                <div class="modal-body px-4 py-4">
+                    <div class="row g-3">
+                        @foreach($critLevels as $k => $lv)
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;font-weight:600;color:#374151">
+                                Level {{ $k }}
+                                <span style="background:{{ $lv['bg'] }};color:{{ $lv['color'] }};padding:.1rem .45rem;border-radius:6px;font-size:.7rem;font-weight:700;margin-left:.35rem">
+                                    {{ $lv['label'] }}
+                                </span>
+                            </label>
+                            <input type="text" name="criticality[{{ $k }}]" class="form-control"
+                                   value="{{ old('criticality.'.$k, $lv['label']) }}"
+                                   placeholder="{{ $critDefaults[$k] }}"
+                                   style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="modal-footer px-4 pb-4" style="border-top:1px solid #f1f5f9">
+                    <button type="button" class="btn" data-bs-dismiss="modal"
+                            style="border-color:#e2e8f0;color:#64748b;border-radius:10px;font-size:.875rem">Cancel</button>
+                    <button type="submit" class="btn"
+                            style="background:var(--primary);color:#fff;border-radius:10px;font-size:.875rem;font-weight:600">
+                        <i class="bi bi-check-lg me-1"></i> Save Labels
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 @endif
-
 
 {{-- ── Create Group Modal ── --}}
 <div class="modal fade" id="createModal" tabindex="-1">
@@ -221,8 +238,11 @@
 @push('scripts')
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
-    var createModal = new bootstrap.Modal(document.getElementById('createModal'));
-    var editModal   = new bootstrap.Modal(document.getElementById('editModal'));
+    var createModal      = new bootstrap.Modal(document.getElementById('createModal'));
+    var editModal        = new bootstrap.Modal(document.getElementById('editModal'));
+    var criticalityModal = document.getElementById('criticalityModal')
+                            ? new bootstrap.Modal(document.getElementById('criticalityModal'))
+                            : null;
 
     document.querySelectorAll('.js-open-create').forEach(function (btn) {
         btn.addEventListener('click', function () { createModal.show(); });
@@ -235,6 +255,12 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('edit-desc').value = group.description || '';
             document.getElementById('editForm').action = '/assessment-scope/' + group.id;
             editModal.show();
+        });
+    });
+
+    document.querySelectorAll('.js-open-criticality').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (criticalityModal) { criticalityModal.show(); }
         });
     });
 });
