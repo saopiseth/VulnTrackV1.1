@@ -1,4 +1,3 @@
-@php $isEdit = ($prefix === 'edit'); @endphp
 <div class="row g-3">
     <div class="col-md-6">
         <label class="form-label fw-semibold" style="font-size:.82rem">Host Name</label>
@@ -49,31 +48,5 @@
             <option value="{{ $sla }}">{{ $sla }}</option>
             @endforeach
         </select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label fw-semibold" style="font-size:.82rem">System Criticality</label>
-        <select name="system_criticality" id="{{ $prefix }}-criticality" class="form-select"
-                style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
-            <option value="">— Select —</option>
-            @foreach(\App\Models\AssessmentScope::criticalityLevels() as $k => $lv)
-            <option value="{{ $k }}">{{ $k }} – {{ $lv['label'] }}</option>
-            @endforeach
-        </select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label fw-semibold" style="font-size:.82rem">Location</label>
-        <select name="location" id="{{ $prefix }}-loc" class="form-select"
-                style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem">
-            <option value="">— Select —</option>
-            @foreach(\App\Models\AssessmentScope::locationOptions() as $l)
-            <option value="{{ $l }}">{{ $l }}</option>
-            @endforeach
-        </select>
-    </div>
-    <div class="col-12">
-        <label class="form-label fw-semibold" style="font-size:.82rem">Notes <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
-        <textarea name="notes" id="{{ $prefix }}-notes" rows="2" class="form-control"
-                  placeholder="Any additional information…"
-                  style="border-radius:10px;border-color:#e2e8f0;font-size:.875rem;resize:none"></textarea>
     </div>
 </div>
