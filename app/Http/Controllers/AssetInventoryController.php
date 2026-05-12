@@ -15,23 +15,16 @@ class AssetInventoryController extends Controller
 {
     public function index(Request $request): View
     {
-        $this->syncScopeFields();
+        AssetInventory::syncFromScopes();
 
         $latestScan = VulnScan::where('upload_status', 'completed')
             ->latest('updated_at')
             ->first();
 
-        $query = $this->filteredAssetQuery($request);
-
-        if ($latestScan) {
-            $latestIps = DB::table('vuln_findings')
-                ->where('scan_id', $latestScan->id)
-                ->distinct()
-                ->pluck('ip_address');
-            $query->whereIn('ip_address', $latestIps);
-        }
-
-        $assets = $query->orderBy('ip_address')->paginate(25)->withQueryString();
+        $assets = $this->filteredAssetQuery($request)
+            ->orderBy('ip_address')
+            ->paginate(25)
+            ->withQueryString();
 
         return view('asset_inventory.index', [
             'assets'        => $assets,
@@ -39,7 +32,7 @@ class AssetInventoryController extends Controller
             'scopeOptions'  => AssessmentScope::scopeOptions(),
             'envOptions'    => AssessmentScope::environmentOptions(),
             'slaOptions'    => AssessmentScope::remediationSlaOptions(),
-            'statusOptions' => ['Active', 'Inactive', 'Decommissioned'],
+            'statusOptions' => ['Active', 'Not Found in Latest Scan', 'Inactive', 'Decommissioned'],
         ]);
     }
 
@@ -144,35 +137,6 @@ class AssetInventoryController extends Controller
         return view('asset_inventory.show', compact(
             'assetInventory', 'findings', 'assessments', 'osHistory'
         ));
-    }
-
-    private function syncScopeFields(): void
-    {
-        // One UPDATE…JOIN copies non-empty business fields from assessment_scopes
-        // into asset_inventories for every matching IP address.
-        // COALESCE(NULLIF(scope_value,''), existing_value) means scope wins only
-        // when it has a real value — existing inventory data is never blanked out.
-        DB::statement("
-            UPDATE asset_inventories ai
-            JOIN (
-                SELECT ip_address,
-                    MAX(system_name)      AS system_name,
-                    MAX(identified_scope) AS identified_scope,
-                    MAX(environment)      AS environment,
-                    MAX(system_owner)     AS system_owner,
-                    MAX(remediation_sla)  AS remediation_sla
-                FROM assessment_scopes
-                WHERE ip_address IS NOT NULL AND ip_address != ''
-                GROUP BY ip_address
-            ) sc ON sc.ip_address = ai.ip_address
-            SET
-                ai.system_name      = COALESCE(NULLIF(sc.system_name,      ''), ai.system_name),
-                ai.identified_scope = COALESCE(NULLIF(sc.identified_scope, ''), ai.identified_scope),
-                ai.environment      = COALESCE(NULLIF(sc.environment,      ''), ai.environment),
-                ai.system_owner     = COALESCE(NULLIF(sc.system_owner,     ''), ai.system_owner),
-                ai.remediation_sla  = COALESCE(NULLIF(sc.remediation_sla,  ''), ai.remediation_sla),
-                ai.updated_at       = NOW()
-        ");
     }
 
     private function filteredAssetQuery(Request $request)

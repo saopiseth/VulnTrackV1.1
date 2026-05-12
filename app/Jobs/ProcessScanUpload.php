@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\AssetInventory;
 use App\Models\VulnAssessment;
 use App\Models\VulnFinding;
 use App\Models\VulnHostOs;
@@ -202,6 +203,11 @@ class ProcessScanUpload implements ShouldQueue
                             ->update($payload);
                     }
                 }
+
+                // ── Apply Active / Not Found status based on this scan ────────
+                // All records not in this scan become 'Not Found in Latest Scan';
+                // IPs found here are marked 'Active'.
+                AssetInventory::applyLatestScanStatus($ipList);
 
                 // ── Tracking engine ───────────────────────────────────────────
                 (new VulnTrackingService())->track($assessment, $scan);

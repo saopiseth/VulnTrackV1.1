@@ -40,12 +40,14 @@
 <div class="scan-banner">
     <i class="bi bi-check-circle-fill" style="color:#16a34a;font-size:1.1rem;flex-shrink:0"></i>
     <div>
-        <strong>Showing assets from latest scan:</strong>
+        <strong>Latest scan:</strong>
         {{ $latestScan->filename }}
         &nbsp;·&nbsp;
         <span style="color:#64748b">{{ $latestScan->updated_at->format('d M Y, H:i') }}</span>
         &nbsp;·&nbsp;
-        <span style="color:#166534;font-weight:600">{{ $assets->total() }} asset{{ $assets->total() == 1 ? '' : 's' }}</span>
+        <span style="color:#166534;font-weight:600">{{ $assets->total() }} asset{{ $assets->total() == 1 ? '' : 's' }} total</span>
+        &nbsp;·&nbsp;
+        <span style="color:#64748b;font-size:.8rem">Assets not in this scan are marked <em>Not Found in Latest Scan</em></span>
     </div>
 </div>
 @else
@@ -130,6 +132,7 @@
                         <th style="width:110px">Environment</th>
                         <th style="width:140px">Asset Owner</th>
                         <th style="width:150px">Remediation SLA</th>
+                        <th style="width:170px">Status</th>
                         <th class="pe-3" style="width:80px">Actions</th>
                     </tr>
                 </thead>
@@ -148,6 +151,9 @@
                     $slaColors = ['Priority Level 1'=>['#fee2e2','#991b1b'],'Priority Level 2'=>['#fef3c7','#92400e'],
                         'Priority Level 3'=>['#e0f2fe','#0c4a6e'],'Priority Level 4'=>['#f0fdf4','#166534']];
                     [$slabg,$slacol] = $slaColors[$asset->remediation_sla] ?? ['#f1f5f9','#475569'];
+                    $statusColors = ['Active'=>['#dcfce7','#166534'],'Not Found in Latest Scan'=>['#fef3c7','#92400e'],
+                        'Inactive'=>['#f1f5f9','#475569'],'Decommissioned'=>['#fee2e2','#991b1b']];
+                    [$stbg,$stcol] = $statusColors[$asset->status] ?? ['#f1f5f9','#475569'];
                 @endphp
                 <tr data-id="{{ $asset->id }}"
                     data-system="{{ $asset->system_name }}"
@@ -212,6 +218,11 @@
                         @if($asset->remediation_sla)
                         <span class="badge-pill" style="background:{{ $slabg }};color:{{ $slacol }}">{{ $asset->remediation_sla }}</span>
                         @else <span class="text-muted">—</span> @endif
+                    </td>
+
+                    {{-- Status --}}
+                    <td>
+                        <span class="badge-pill" style="background:{{ $stbg }};color:{{ $stcol }}">{{ $asset->status ?? 'Active' }}</span>
                     </td>
 
                     {{-- Actions --}}

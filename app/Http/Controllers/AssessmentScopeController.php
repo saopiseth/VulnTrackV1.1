@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AssetInventory;
 use App\Models\AssessmentScope;
 use App\Models\AssessmentScopeGroup;
 use Illuminate\Http\Request;
@@ -124,6 +125,8 @@ class AssessmentScopeController extends Controller
         $data['created_by'] = Auth::id();
         AssessmentScope::create($data);
 
+        AssetInventory::syncFromScopes();
+
         return back()->with('success', 'Entry added.');
     }
 
@@ -145,6 +148,8 @@ class AssessmentScopeController extends Controller
         ]);
 
         $item->update($data);
+
+        AssetInventory::syncFromScopes();
 
         return back()->with('success', 'Entry updated.');
     }
@@ -354,6 +359,8 @@ class AssessmentScopeController extends Controller
                 $failedCount++;
             }
         }
+
+        AssetInventory::syncFromScopes();
 
         return response()->json([
             'total'    => $insertedCount + $updatedCount + $failedCount,
