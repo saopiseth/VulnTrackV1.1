@@ -473,6 +473,16 @@
                 @if($scan->notes)<span><i class="bi bi-chat-dots me-1"></i>{{ $scan->notes }}</span>@endif
             </div>
         </div>
+        <form method="POST"
+              action="{{ route('vuln-assessments.scans.destroy', [$assessment, $scan]) }}"
+              onsubmit="return confirm('Delete scan \'{{ addslashes($scan->filename) }}\'?\n\nThis will permanently remove all {{ number_format($scan->finding_count) }} findings and cannot be undone.')">
+            @csrf @method('DELETE')
+            <button type="submit"
+                    style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;padding:.3rem .6rem;font-size:.78rem;cursor:pointer;white-space:nowrap;flex-shrink:0"
+                    title="Delete this scan and all its findings">
+                <i class="bi bi-trash3-fill"></i>
+            </button>
+        </form>
     </div>
     @empty
     <div style="text-align:center;padding:3rem;color:#94a3b8">

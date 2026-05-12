@@ -1674,6 +1674,72 @@ class VulnAssessmentController extends Controller
 
     // ─────────────────────────────────────────────────────────────
 
+    public function destroyScan(VulnAssessment $vulnAssessment, VulnScan $scan)
+    {
+        $this->authorize('update', $vulnAssessment);
+        abort_if($scan->assessment_id !== $vulnAssessment->id, 403);
+
+        // Capture affected IPs before deletion for asset count recalculation
+        $affectedIps = VulnFinding::where('scan_id', $scan->id)
+            ->distinct()
+            ->pluck('ip_address')
+            ->filter()
+            ->values()
+            ->toArray();
+
+        $filename = $scan->filename;
+        $filePath = $scan->file_path;
+
+        DB::transaction(function () use ($scan, $vulnAssessment) {
+            // Remove vuln_tracked rows that reference this scan's ID directly
+            // (no ON DELETE CASCADE on first_scan_id / last_scan_id columns)
+            DB::table('vuln_tracked_history')
+                ->where('scan_id', $scan->id)
+                ->delete();
+
+            DB::table('vuln_tracked')
+                ->where('assessment_id', $vulnAssessment->id)
+                ->where(fn ($q) => $q
+                    ->where('first_scan_id', $scan->id)
+                    ->orWhere('last_scan_id', $scan->id)
+                )
+                ->delete();
+
+            // Delete scan — cascades vuln_findings, vuln_host_os, vuln_remediations
+            $scan->delete();
+        });
+
+        // Delete uploaded file from storage if it still exists
+        if ($filePath && Storage::disk('local')->exists($filePath)) {
+            Storage::disk('local')->delete($filePath);
+        }
+
+        // Recalculate asset_inventories vuln counts for affected IPs
+        if (!empty($affectedIps)) {
+            $counts = DB::table('vuln_findings')
+                ->whereIn('ip_address', $affectedIps)
+                ->selectRaw('ip_address, severity, COUNT(*) as cnt')
+                ->groupBy('ip_address', 'severity')
+                ->get()
+                ->groupBy('ip_address');
+
+            foreach ($affectedIps as $ip) {
+                $c = $counts->get($ip, collect());
+                DB::table('asset_inventories')->where('ip_address', $ip)->update([
+                    'vuln_critical' => $c->where('severity', 'Critical')->sum('cnt'),
+                    'vuln_high'     => $c->where('severity', 'High')->sum('cnt'),
+                    'vuln_medium'   => $c->where('severity', 'Medium')->sum('cnt'),
+                    'vuln_low'      => $c->where('severity', 'Low')->sum('cnt'),
+                    'updated_at'    => now(),
+                ]);
+            }
+        }
+
+        return back()->with('success', "Scan \"{$filename}\" and all its findings have been deleted.");
+    }
+
+    // ─────────────────────────────────────────────────────────────
+
     public function destroy(VulnAssessment $vulnAssessment)
     {
         $this->authorize('delete', $vulnAssessment);
