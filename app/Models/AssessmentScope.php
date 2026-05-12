@@ -23,12 +23,12 @@ class AssessmentScope extends Model
 
     public static function scopeOptions(): array
     {
-        return ['PCI', 'DMZ', 'Internal', 'External', 'Swift', 'Non-Bank', 'Public'];
+        return ['PCI', 'DMZ', 'Internal', 'External', 'Swift', 'Non-Bank', 'Public', 'Critical', 'Less Critical'];
     }
 
     public static function environmentOptions(): array
     {
-        return ['PROD', 'UAT', 'STAGE', 'DR', 'DEV'];
+        return ['PROD', 'UAT', 'STAGE', 'DR', 'DEV', 'Non-Prod'];
     }
 
     public static function locationOptions(): array

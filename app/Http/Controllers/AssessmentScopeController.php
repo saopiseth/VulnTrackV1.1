@@ -93,8 +93,8 @@ class AssessmentScopeController extends Controller
             'system_name'        => ['nullable', 'string', 'max:255'],
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
-            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank,Public'],
-            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV'],
+            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank,Public,Critical,Less Critical'],
+            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV,Non-Prod'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
             'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3,Priority Level 4'],
@@ -117,8 +117,8 @@ class AssessmentScopeController extends Controller
             'system_name'        => ['nullable', 'string', 'max:255'],
             'system_criticality' => ['nullable', 'integer', 'between:1,5'],
             'system_owner'       => ['nullable', 'string', 'max:100'],
-            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank,Public'],
-            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV'],
+            'identified_scope'   => ['nullable', 'in:PCI,DMZ,Internal,External,Swift,Non-Bank,Public,Critical,Less Critical'],
+            'environment'        => ['nullable', 'in:PROD,UAT,STAGE,DR,DEV,Non-Prod'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
             'remediation_sla'    => ['nullable', 'in:Priority Level 1,Priority Level 2,Priority Level 3,Priority Level 4'],
@@ -154,8 +154,14 @@ class AssessmentScopeController extends Controller
 
         // Alias map: long/alternate Excel labels → canonical lookup key (lowercase)
         $scopeAliases = [
-            'swift asset scope' => 'swift',
-            'public scope'      => 'public',
+            'pci scope'            => 'pci',
+            'swift scope'          => 'swift',
+            'swift asset scope'    => 'swift',
+            'public scope'         => 'public',
+            'non-bank scope'       => 'non-bank',
+            'critical scope'       => 'critical',
+            'critical asset scope' => 'critical',
+            'less critical scope'  => 'less critical',
         ];
 
         $now    = now();
@@ -205,10 +211,10 @@ class AssessmentScopeController extends Controller
             // Collect user-facing warnings for values that were provided but rejected
             $lineNum = $rowNum + 2; // +2: 1-based + header row
             if ($rawScope !== null && $rawScope !== '' && $scope === null) {
-                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal, External, Swift, Non-Bank, Public).";
+                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, DMZ, Internal, External, Swift, Non-Bank, Public, Critical, Less Critical).";
             }
             if ($rawEnv !== null && $rawEnv !== '' && $env === null) {
-                $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE, DR, DEV).";
+                $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE, DR, DEV, Non-Prod).";
             }
             if ($rawSla !== null && $rawSla !== '' && $sla === null) {
                 $warnings[] = "Row {$lineNum}: remediation_sla \"{$rawSla}\" not recognised (accepted: Priority Level 1/2/3/4).";
