@@ -68,21 +68,19 @@
             <table class="table mb-0 align-middle" style="font-size:.85rem">
                 <thead style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
                     <tr>
-                        <th class="px-4 py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">#</th>
+                        <th class="px-4 py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;width:52px">No</th>
+                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Host Name</th>
                         <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">IP Address</th>
-                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Hostname</th>
-                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">System</th>
-                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Criticality</th>
-                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Owner</th>
-                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Scope</th>
+                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Identify Scope</th>
+                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Role / Functionality</th>
                         <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Environment</th>
-                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Location</th>
+                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Asset Owner</th>
+                        <th class="py-3" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Remediation SLA</th>
                         <th class="py-3 pe-4" style="color:#64748b;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                 @forelse($items as $item)
-                    @php $lv = $item->system_criticality ? ($levels[$item->system_criticality] ?? null) : null; @endphp
                     @php $scopeColors = ['PCI'=>['#fef2f2','#991b1b'],'DMZ'=>['#fffbeb','#92400e'],'Internal'=>['#eff6ff','#1e40af']]; $sc = $scopeColors[$item->identified_scope] ?? null; @endphp
                     <tr style="border-bottom:1px solid #f1f5f9"
                         data-id="{{ $item->id }}"
@@ -94,32 +92,26 @@
                         data-scope="{{ $item->identified_scope }}"
                         data-env="{{ $item->environment }}"
                         data-loc="{{ $item->location }}"
-                        data-notes="{{ $item->notes }}">
+                        data-notes="{{ $item->notes }}"
+                        data-sla="{{ $item->remediation_sla }}">
                         <td class="px-4 py-3" style="color:#94a3b8;font-size:.8rem">{{ $items->firstItem() + $loop->index }}</td>
+                        <td class="py-3" style="color:#374151;font-weight:600">{{ $item->hostname ?: '—' }}</td>
                         <td class="py-3" style="font-family:monospace;color:#0f172a;font-weight:600">{{ $item->ip_address ?: '—' }}</td>
-                        <td class="py-3" style="color:#374151">{{ $item->hostname ?: '—' }}</td>
-                        <td class="py-3" style="color:#374151;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $item->system_name }}">{{ $item->system_name ?: '—' }}</td>
-                        <td class="py-3">
-                            @if($lv)
-                            <span style="background:{{ $lv['bg'] }};color:{{ $lv['color'] }};font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px;white-space:nowrap">
-                                {{ $item->system_criticality }} – {{ $lv['label'] }}
-                            </span>
-                            @else<span style="color:#94a3b8">—</span>@endif
-                        </td>
-                        <td class="py-3" style="color:#374151">{{ $item->system_owner ?: '—' }}</td>
                         <td class="py-3">
                             @if($item->identified_scope && $sc)
                             <span style="background:{{ $sc[0] }};color:{{ $sc[1] }};font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px">{{ $item->identified_scope }}</span>
                             @else<span style="color:#94a3b8">—</span>@endif
                         </td>
+                        <td class="py-3" style="color:#374151;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $item->system_name }}">{{ $item->system_name ?: '—' }}</td>
                         <td class="py-3">
                             @if($item->environment)
                             <span style="background:#f0fdf4;color:#166534;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px">{{ $item->environment }}</span>
                             @else<span style="color:#94a3b8">—</span>@endif
                         </td>
+                        <td class="py-3" style="color:#374151">{{ $item->system_owner ?: '—' }}</td>
                         <td class="py-3">
-                            @if($item->location)
-                            <span style="background:#f8fafc;color:#475569;font-size:.72rem;font-weight:600;padding:.2rem .55rem;border-radius:20px;border:1px solid #e2e8f0">{{ $item->location }}</span>
+                            @if($item->remediation_sla)
+                            <span style="background:#eff6ff;color:#1e40af;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px;white-space:nowrap">{{ $item->remediation_sla }}</span>
                             @else<span style="color:#94a3b8">—</span>@endif
                         </td>
                         <td class="py-3 pe-4">
@@ -141,7 +133,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" class="text-center py-5">
+                        <td colspan="9" class="text-center py-5">
                             <div style="color:#94a3b8">
                                 <i class="bi bi-hdd-stack" style="font-size:2rem;display:block;margin-bottom:.5rem"></i>
                                 No assets yet. Add manually or import from Excel.
@@ -238,7 +230,7 @@
                             </button>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
-                            @foreach(['ip_address','hostname','system_name','system_criticality','system_owner','identified_scope','environment','location','notes'] as $col)
+                            @foreach(['hostname','ip_address','identified_scope','system_name','environment','system_owner','remediation_sla','system_criticality','location','notes'] as $col)
                             <code style="background:#e2e8f0;padding:.1rem .45rem;border-radius:5px;font-size:.75rem;color:#374151">{{ $col }}</code>
                             @endforeach
                         </div>
@@ -286,8 +278,8 @@
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
 
-const FIELDS = ['ip_address','hostname','system_name','system_criticality','system_owner','identified_scope','environment','location','notes'];
-const FIELD_LABELS = {ip_address:'IP Address',hostname:'Hostname',system_name:'System Name',system_criticality:'Criticality',system_owner:'Owner',identified_scope:'Scope',environment:'Environment',location:'Location',notes:'Notes'};
+const FIELDS = ['hostname','ip_address','identified_scope','system_name','environment','system_owner','remediation_sla','system_criticality','location','notes'];
+const FIELD_LABELS = {hostname:'Host Name',ip_address:'IP Address',identified_scope:'Identify Scope',system_name:'Role / Functionality',environment:'Environment',system_owner:'Asset Owner',remediation_sla:'Remediation SLA',system_criticality:'Criticality',location:'Location',notes:'Notes'};
 const IMPORT_URL = '{{ route("assessment-scope.import", $group) }}';
 const EXPORT_URL = '{{ route("assessment-scope.export", $group) }}';
 
@@ -321,19 +313,20 @@ document.getElementById('exportBtn').addEventListener('click', function () {
 // ── Download Template ─────────────────────────────────────────
 document.getElementById('downloadTemplateBtn').addEventListener('click', function () {
     const samples = [
-        ['192.168.1.10','web-server-01','Core Banking System',1,'IT Department','PCI','PROD','DC',''],
-        ['10.0.0.25','db-server-02','Customer Database',2,'DBA Team','Internal','PROD','DC',''],
-        ['172.16.5.50','app-server-03','API Gateway',2,'Dev Team','DMZ','UAT','Cloud',''],
+        ['web-server-01','192.168.1.10','PCI','Core Banking System','PROD','IT Department','30 days',1,'DC',''],
+        ['db-server-02','10.0.0.25','Internal','Customer Database','PROD','DBA Team','60 days',2,'DC',''],
+        ['app-server-03','172.16.5.50','DMZ','API Gateway','UAT','Dev Team','30 days',2,'Cloud',''],
     ];
     const ws = XLSX.utils.aoa_to_sheet([FIELDS, ...samples]);
-    ws['!cols'] = [{wch:16},{wch:20},{wch:28},{wch:20},{wch:20},{wch:14},{wch:12},{wch:10},{wch:30}];
+    ws['!cols'] = [{wch:20},{wch:16},{wch:14},{wch:28},{wch:12},{wch:20},{wch:16},{wch:14},{wch:10},{wch:30}];
     const wsRef = XLSX.utils.aoa_to_sheet([
         ['Field','Allowed Values'],
         ['ip_address','IPv4 or IPv6  e.g. 192.168.1.10'],
-        ['system_criticality','1=Mission-Critical | 2=Business-Critical | 3=Business Operational | 4=Administrative | 5=None-Bank'],
         ['identified_scope','PCI | DMZ | Internal'],
         ['environment','PROD | UAT | STAGE'],
+        ['system_criticality','1=Mission-Critical | 2=Business-Critical | 3=Business Operational | 4=Administrative | 5=None-Bank'],
         ['location','DC | DR | Cloud'],
+        ['remediation_sla','Free text  e.g. 15 days | 30 days | 60 days | 90 days'],
     ]);
     wsRef['!cols'] = [{wch:22},{wch:70}];
     const wb = XLSX.utils.book_new();
@@ -347,13 +340,14 @@ document.addEventListener('click', function (e) {
     const btn = e.target.closest('.js-edit-item');
     if (!btn) return;
     const d = btn.closest('tr').dataset;
-    document.getElementById('edit-ip').value          = d.ip          || '';
     document.getElementById('edit-hostname').value    = d.hostname    || '';
-    document.getElementById('edit-system').value      = d.system      || '';
-    document.getElementById('edit-criticality').value = d.criticality || '';
-    document.getElementById('edit-owner').value       = d.owner       || '';
+    document.getElementById('edit-ip').value          = d.ip          || '';
     document.getElementById('edit-scope').value       = d.scope       || '';
+    document.getElementById('edit-system').value      = d.system      || '';
     document.getElementById('edit-env').value         = d.env         || '';
+    document.getElementById('edit-owner').value       = d.owner       || '';
+    document.getElementById('edit-sla').value         = d.sla         || '';
+    document.getElementById('edit-criticality').value = d.criticality || '';
     document.getElementById('edit-loc').value         = d.loc         || '';
     document.getElementById('edit-notes').value       = d.notes       || '';
     document.getElementById('editForm').action = '/assessment-scope/{{ $group->id }}/items/' + d.id;

@@ -14,7 +14,7 @@ class AssessmentScope extends Model
         'ip_address', 'hostname', 'system_name',
         'system_criticality', 'system_owner',
         'identified_scope', 'environment', 'location',
-        'notes', 'created_by',
+        'notes', 'remediation_sla', 'created_by',
     ];
 
     protected $casts = [

@@ -95,6 +95,7 @@ class AssessmentScopeController extends Controller
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
+            'remediation_sla'    => ['nullable', 'string', 'max:100'],
         ]);
 
         $data['group_id']   = $assessmentScopeGroup->id;
@@ -118,6 +119,7 @@ class AssessmentScopeController extends Controller
             'environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'location'           => ['nullable', 'in:DC,DR,Cloud'],
             'notes'              => ['nullable', 'string', 'max:1000'],
+            'remediation_sla'    => ['nullable', 'string', 'max:100'],
         ]);
 
         $item->update($data);
@@ -147,6 +149,7 @@ class AssessmentScopeController extends Controller
             'rows.*.environment'        => ['nullable', 'in:PROD,UAT,STAGE'],
             'rows.*.location'           => ['nullable', 'in:DC,DR,Cloud'],
             'rows.*.notes'              => ['nullable', 'string', 'max:1000'],
+            'rows.*.remediation_sla'    => ['nullable', 'string', 'max:100'],
         ]);
 
         $now    = now();
@@ -163,6 +166,7 @@ class AssessmentScopeController extends Controller
             'environment'        => $row['environment']        ?? null,
             'location'           => $row['location']           ?? null,
             'notes'              => $row['notes']              ?? null,
+            'remediation_sla'    => $row['remediation_sla']    ?? null,
             'created_by'         => $userId,
             'created_at'         => $now,
             'updated_at'         => $now,
@@ -214,7 +218,7 @@ class AssessmentScopeController extends Controller
             ->orderBy('identified_scope')
             ->orderBy('ip_address')
             ->get(['ip_address','hostname','system_name','system_criticality',
-                   'system_owner','identified_scope','environment','location','notes']);
+                   'system_owner','identified_scope','environment','location','notes','remediation_sla']);
 
         return response()->json($rows);
     }
