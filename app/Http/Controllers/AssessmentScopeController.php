@@ -36,14 +36,33 @@ class AssessmentScopeController extends Controller
         return back()->with('success', 'Scope group created.');
     }
 
-    public function show(AssessmentScopeGroup $assessmentScopeGroup)
+    public function show(AssessmentScopeGroup $assessmentScopeGroup, Request $request)
     {
         $group = $assessmentScopeGroup->load('creator');
 
-        $items = AssessmentScope::where('group_id', $group->id)
+        $query = AssessmentScope::where('group_id', $group->id)
             ->orderBy('identified_scope')
-            ->orderBy('ip_address')
-            ->paginate(50);
+            ->orderBy('ip_address');
+
+        if ($search = trim((string) $request->input('search', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('hostname',    'like', "%{$search}%")
+                  ->orWhere('ip_address',  'like', "%{$search}%")
+                  ->orWhere('system_name', 'like', "%{$search}%")
+                  ->orWhere('system_owner','like', "%{$search}%");
+            });
+        }
+        if ($scope = $request->input('scope')) {
+            $query->where('identified_scope', $scope);
+        }
+        if ($env = $request->input('env')) {
+            $query->where('environment', $env);
+        }
+        if ($sla = $request->input('sla')) {
+            $query->where('remediation_sla', $sla);
+        }
+
+        $items = $query->paginate(50)->withQueryString();
 
         $stats = [
             'total'    => AssessmentScope::where('group_id', $group->id)->count(),
@@ -62,6 +81,7 @@ class AssessmentScopeController extends Controller
             'scopes'  => AssessmentScope::scopeOptions(),
             'envs'    => AssessmentScope::environmentOptions(),
             'locs'    => AssessmentScope::locationOptions(),
+            'filters' => $request->only(['search', 'scope', 'env', 'sla']),
         ]);
     }
 

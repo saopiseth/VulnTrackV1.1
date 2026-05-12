@@ -61,6 +61,74 @@
     @endforeach
 </div>
 
+{{-- ── Filter bar ── --}}
+<form method="GET" action="{{ route('assessment-scope.show', $group) }}" class="mb-3">
+    <div class="card" style="border-radius:12px">
+        <div class="card-body py-3 px-4">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label mb-1" style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px">Search</label>
+                    <div style="position:relative">
+                        <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.8rem;pointer-events:none"></i>
+                        <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
+                               placeholder="Hostname, IP, system name, owner…"
+                               class="form-control form-control-sm"
+                               style="padding-left:30px;border-radius:8px;border-color:#e2e8f0;font-size:.85rem">
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1" style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px">Scope</label>
+                    <select name="scope" class="form-select form-select-sm" style="border-radius:8px;border-color:#e2e8f0;font-size:.85rem">
+                        <option value="">All</option>
+                        @foreach($scopes as $s)
+                        <option value="{{ $s }}" {{ ($filters['scope'] ?? '') === $s ? 'selected' : '' }}>{{ $s }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1" style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px">Environment</label>
+                    <select name="env" class="form-select form-select-sm" style="border-radius:8px;border-color:#e2e8f0;font-size:.85rem">
+                        <option value="">All</option>
+                        @foreach($envs as $e)
+                        <option value="{{ $e }}" {{ ($filters['env'] ?? '') === $e ? 'selected' : '' }}>{{ $e }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label mb-1" style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px">SLA</label>
+                    <select name="sla" class="form-select form-select-sm" style="border-radius:8px;border-color:#e2e8f0;font-size:.85rem">
+                        <option value="">All</option>
+                        @foreach(\App\Models\AssessmentScope::remediationSlaOptions() as $sl)
+                        <option value="{{ $sl }}" {{ ($filters['sla'] ?? '') === $sl ? 'selected' : '' }}>{{ $sl }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-6 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm w-100"
+                            style="background:var(--primary);color:#fff;border-radius:8px;font-weight:600;font-size:.85rem">
+                        <i class="bi bi-funnel-fill me-1"></i> Filter
+                    </button>
+                    @if(array_filter($filters ?? []))
+                    <a href="{{ route('assessment-scope.show', $group) }}" class="btn btn-sm"
+                       style="border:1.5px solid #e2e8f0;color:#64748b;border-radius:8px;font-size:.85rem;white-space:nowrap">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                    @endif
+                </div>
+            </div>
+            @if(array_filter($filters ?? []))
+            <div class="mt-2" style="font-size:.78rem;color:#64748b">
+                Showing {{ $items->total() }} result{{ $items->total() == 1 ? '' : 's' }}
+                @if(!empty($filters['search'])) &nbsp;·&nbsp; Search: <strong>{{ $filters['search'] }}</strong>@endif
+                @if(!empty($filters['scope']))  &nbsp;·&nbsp; Scope: <strong>{{ $filters['scope'] }}</strong>@endif
+                @if(!empty($filters['env']))    &nbsp;·&nbsp; Env: <strong>{{ $filters['env'] }}</strong>@endif
+                @if(!empty($filters['sla']))    &nbsp;·&nbsp; SLA: <strong>{{ $filters['sla'] }}</strong>@endif
+            </div>
+            @endif
+        </div>
+    </div>
+</form>
+
 {{-- ── Items table ── --}}
 <div class="card">
     <div class="card-body p-0">
