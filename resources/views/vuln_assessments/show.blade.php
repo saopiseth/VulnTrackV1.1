@@ -272,13 +272,64 @@
 
     {{-- ── Vulnerable Hosts IP table ───────────────────────────────── --}}
     @if($topIps->count())
+    @php
+        $hfScopes = $topIps->pluck('identified_scope')->filter()->unique()->sort()->values();
+        $hfEnvs   = $topIps->pluck('environment')->filter()->unique()->sort()->values();
+        $hfOs     = $topIps->pluck('os_family')->filter()->unique()->sort()->values();
+    @endphp
     <div class="va-card mb-3">
         <div class="d-flex align-items-center justify-content-between mb-2">
             <div class="section-label mb-0"><i class="bi bi-hdd-network"></i>Vulnerable Hosts</div>
-            <span style="font-size:.71rem;color:#94a3b8;font-weight:600">
-                {{ $topIps->count() }} host{{ $topIps->count() !== 1 ? 's' : '' }} &middot; all scans
+            <span id="hf-count" style="font-size:.71rem;color:#94a3b8;font-weight:600">
+                {{ $topIps->count() }} host{{ $topIps->count() !== 1 ? 's' : '' }}
             </span>
         </div>
+
+        {{-- Filter bar --}}
+        <div id="host-filter-bar" style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;
+                                          margin-bottom:.85rem;padding:.55rem .75rem;
+                                          background:#f8fafc;border-radius:9px;border:1px solid #e8f5c2">
+            <input id='hf-search' type='text' placeholder='Search IP / hostname / system…'
+                   style='border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .6rem;
+                          font-size:.79rem;min-width:180px;flex:1 1 180px;outline:none;
+                          color:#0f172a;background:#fff'>
+
+            <select id='hf-scope'
+                    style='border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .5rem;font-size:.79rem;background:#fff;color:#374151'>
+                <option value=''>All Scopes</option>
+                @foreach($hfScopes as $sv)<option value='{{ $sv }}'>{{ $sv }}</option>@endforeach
+            </select>
+
+            <select id='hf-env'
+                    style='border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .5rem;font-size:.79rem;background:#fff;color:#374151'>
+                <option value=''>All Environments</option>
+                @foreach($hfEnvs as $ev)<option value='{{ $ev }}'>{{ $ev }}</option>@endforeach
+            </select>
+
+            <select id='hf-os'
+                    style='border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .5rem;font-size:.79rem;background:#fff;color:#374151'>
+                <option value=''>All OS</option>
+                @foreach($hfOs as $ov)<option value='{{ $ov }}'>{{ $ov }}</option>@endforeach
+            </select>
+
+            <select id='hf-sev'
+                    style='border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .5rem;font-size:.79rem;background:#fff;color:#374151'>
+                <option value=''>Any Severity</option>
+                <option value='crit'>Has Critical</option>
+                <option value='high'>Has High</option>
+                <option value='med'>Has Medium</option>
+                <option value='low'>Has Low</option>
+                <option value='active'>Has Active</option>
+                <option value='clean'>Resolved Only</option>
+            </select>
+
+            <button id='hf-clear' type='button'
+                    style='border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .6rem;font-size:.78rem;
+                           background:#fff;color:#64748b;cursor:pointer;white-space:nowrap;display:none'>
+                <i class='bi bi-x-circle me-1'></i>Clear
+            </button>
+        </div>
+
     @else
     <div class="va-card mb-3" style="text-align:center;padding:2.5rem;color:#94a3b8">
         <i class="bi bi-cloud-upload" style="font-size:1.8rem;display:block;margin-bottom:.6rem;opacity:.4"></i>
@@ -288,7 +339,7 @@
 
     @if($topIps->count())
         <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+            <table id='host-table' style="width:100%;border-collapse:collapse;font-size:.8rem">
                 <thead>
                     <tr style="border-bottom:2px solid #e8f5c2">
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">#</th>
@@ -330,6 +381,12 @@
                     data-scope="{{ $ip->identified_scope }}"
                     data-env="{{ $ip->environment }}"
                     data-sla="{{ $ip->remediation_sla }}"
+                    data-os="{{ $ip->os_family }}"
+                    data-crit="{{ $ip->critical }}"
+                    data-high="{{ $ip->high }}"
+                    data-med="{{ $ip->medium }}"
+                    data-low="{{ $ip->low }}"
+                    data-active="{{ $ip->active_count }}"
                     data-update-url="{{ route('vuln-assessments.hosts.update', [$assessment, $ip->ip_address]) }}"
                     data-destroy-url="{{ route('vuln-assessments.hosts.destroy', [$assessment, $ip->ip_address]) }}">
 
@@ -999,6 +1056,86 @@ document.addEventListener('DOMContentLoaded', function () {
         form.submit();
     });
 });
+
+// ── Host table filter ────────────────────────────────────────────────────────
+(function () {
+    var search  = document.getElementById('hf-search');
+    var sScope  = document.getElementById('hf-scope');
+    var sEnv    = document.getElementById('hf-env');
+    var sOs     = document.getElementById('hf-os');
+    var sSev    = document.getElementById('hf-sev');
+    var btnClr  = document.getElementById('hf-clear');
+    var counter = document.getElementById('hf-count');
+    var tbl     = document.getElementById('host-table');
+    if (!search || !tbl) return;
+
+    var rows  = Array.from(tbl.querySelectorAll('tbody tr'));
+    var total = rows.length;
+
+    function apply() {
+        var q     = search.value.toLowerCase().trim();
+        var scope = sScope.value;
+        var env   = sEnv.value;
+        var os    = sOs.value;
+        var sev   = sSev.value;
+        var vis   = 0;
+
+        rows.forEach(function (row) {
+            var show = true;
+            var d    = row.dataset;
+
+            if (q) {
+                var ip   = (d.ip       || '').toLowerCase();
+                var host = (d.hostname || '').toLowerCase();
+                var sys  = (d.system   || '').toLowerCase();
+                if (ip.indexOf(q) === -1 && host.indexOf(q) === -1 && sys.indexOf(q) === -1) {
+                    show = false;
+                }
+            }
+            if (show && scope && d.scope !== scope) show = false;
+            if (show && env   && d.env   !== env)   show = false;
+            if (show && os    && d.os    !== os)     show = false;
+
+            if (show && sev) {
+                var crit   = parseInt(d.crit   || 0);
+                var high   = parseInt(d.high   || 0);
+                var med    = parseInt(d.med    || 0);
+                var low    = parseInt(d.low    || 0);
+                var active = parseInt(d.active || 0);
+                if      (sev === 'crit')  { if (crit < 1)   show = false; }
+                else if (sev === 'high')  { if (high < 1)   show = false; }
+                else if (sev === 'med')   { if (med  < 1)   show = false; }
+                else if (sev === 'low')   { if (low  < 1)   show = false; }
+                else if (sev === 'active'){ if (active < 1) show = false; }
+                else if (sev === 'clean') { if (active > 0) show = false; }
+            }
+
+            row.style.display = show ? '' : 'none';
+            if (show) vis++;
+        });
+
+        if (counter) {
+            counter.textContent = vis === total
+                ? total + ' host' + (total !== 1 ? 's' : '')
+                : vis + ' of ' + total + ' hosts';
+        }
+        if (btnClr) btnClr.style.display = (q || scope || env || os || sev) ? '' : 'none';
+    }
+
+    search.addEventListener('input',  apply);
+    sScope.addEventListener('change', apply);
+    sEnv.addEventListener('change',   apply);
+    sOs.addEventListener('change',    apply);
+    sSev.addEventListener('change',   apply);
+    if (btnClr) {
+        btnClr.addEventListener('click', function () {
+            search.value = ''; sScope.value = ''; sEnv.value = '';
+            sOs.value = ''; sSev.value = '';
+            apply();
+        });
+    }
+    apply();
+})();
 </script>
 @endpush
 
