@@ -74,7 +74,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments/{vulnAssessment}/progress',               [VulnAssessmentController::class, 'progress'])->name('vuln-assessments.progress');
     Route::post('/vuln-assessments/{vulnAssessment}/upload',                [VulnAssessmentController::class, 'uploadScan'])->middleware('throttle:upload')->name('vuln-assessments.upload');
     Route::get('/vuln-assessments/{vulnAssessment}/scan-status/{scan}',     [VulnAssessmentController::class, 'uploadStatus'])->name('vuln-assessments.upload.status');
-    Route::post('/vuln-assessments/{vulnAssessment}/upload-chunk',          [VulnAssessmentController::class, 'uploadChunk'])->middleware('throttle:upload')->name('vuln-assessments.upload.chunk');
+    Route::post('/vuln-assessments/{vulnAssessment}/upload-chunk',          [VulnAssessmentController::class, 'uploadChunk'])->middleware('throttle:upload-chunk')->name('vuln-assessments.upload.chunk');
     Route::patch('/vuln-assessments/{vulnAssessment}/remediations/{remediation}', [VulnAssessmentController::class, 'updateRemediation'])->name('vuln-assessments.remediation.update');
     Route::patch('/vuln-assessments/{vulnAssessment}/remediations-bulk',          [VulnAssessmentController::class, 'bulkUpdateRemediation'])->name('vuln-assessments.remediation.bulk-update');
     Route::get('/vuln-assessments/{vulnAssessment}/os-assets',              [VulnAssessmentController::class, 'osAssets'])->name('vuln-assessments.os-assets');

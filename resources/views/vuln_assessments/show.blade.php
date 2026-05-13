@@ -531,7 +531,7 @@
                     <input type="file" id="scan-file-input" class="form-control" accept=".xml,.nessus,.csv,.txt"
                            multiple style="border-radius:8px;font-size:.875rem">
                     <div style="font-size:.73rem;color:#94a3b8;margin-top:.4rem">
-                        Supported: <strong>.nessus</strong> (XML), <strong>.csv</strong> (Tenable export). Max 50 MB per file.
+                        Supported: <strong>.nessus</strong> (XML), <strong>.csv</strong> (Tenable export). Max 250 MB per file.
                         Files &gt;5 MB upload in chunks automatically.
                     </div>
                 </div>
@@ -561,7 +561,8 @@
 @push('scripts')
 <script nonce="{{ csp_nonce() }}">
 (function () {
-    const CHUNK_SIZE = 5 * 1024 * 1024;
+    const CHUNK_SIZE    = 5 * 1024 * 1024;
+    const MAX_FILE_SIZE = 250 * 1024 * 1024; // 250 MB
     const UPLOAD_URL = '{{ route('vuln-assessments.upload', $assessment) }}';
     const CHUNK_URL  = '{{ route('vuln-assessments.upload.chunk', $assessment) }}';
     const STATUS_BASE = '{{ url('/vuln-assessments/' . $assessment->uuid . '/scan-status') }}/';
@@ -585,6 +586,16 @@
     fileInput.addEventListener('change', function () {
         const files = Array.from(fileInput.files);
         if (!files.length) { fileList.style.display = 'none'; return; }
+
+        const oversized = files.filter(f => f.size > MAX_FILE_SIZE);
+        if (oversized.length) {
+            errorBox.textContent = oversized.map(f => '"' + f.name + '" exceeds the 250 MB limit.').join(' ');
+            errorBox.style.display = 'block';
+            fileInput.value = '';
+            fileList.style.display = 'none';
+            return;
+        }
+        errorBox.style.display = 'none';
 
         fileList.innerHTML = '';
         files.forEach(function (file, i) {

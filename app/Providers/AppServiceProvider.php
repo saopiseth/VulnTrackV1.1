@@ -67,9 +67,16 @@ class AppServiceProvider extends ServiceProvider
                     ->withErrors(['otp' => 'Too many verification attempts. Please sign in again.']));
         });
 
-        // File upload: 10 scan uploads per 5 minutes per user.
+        // File upload: 20 complete scan submissions per 5 minutes per user.
         RateLimiter::for('upload', function (Request $request) {
-            return Limit::perMinutes(5, 10)->by('upload|' . ($request->user()?->id ?? $request->ip()));
+            return Limit::perMinutes(5, 20)->by('upload|' . ($request->user()?->id ?? $request->ip()));
+        });
+
+        // Chunk upload: high limit so a single chunked file (up to 250 MB at 5 MB per chunk
+        // = up to 50 requests per file) never triggers a rate-limit error.
+        // 1 000 chunks per 5 minutes per user ≈ 5 GB/5 min — plenty for normal use.
+        RateLimiter::for('upload-chunk', function (Request $request) {
+            return Limit::perMinutes(5, 1000)->by('upload-chunk|' . ($request->user()?->id ?? $request->ip()));
         });
 
         // ── Agent API rate limiters ───────────────────────────────
