@@ -94,6 +94,20 @@ class VulnAssessmentController extends Controller
             $scopeIps = $scopeByIp->keys()->all();
         }
 
+        // Load scope IPs early; null means no filter (no scope group applied).
+        $scopeIps  = null;
+        $scopeByIp = collect();
+        if ($assessment->scope_group_id) {
+            $scopeByIp = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
+                         'system_owner', 'identified_scope', 'environment', 'remediation_sla')
+                ->get()
+                ->keyBy('ip_address');
+            $scopeIps = $scopeByIp->keys()->all();
+        }
+
         // â”€â”€ Stats from vuln_tracked (cumulative across ALL scans) â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Active = New | Open | Unresolved | Reopened (not yet resolved)
         $stats  = null;
@@ -143,7 +157,6 @@ class VulnAssessmentController extends Controller
                     ip_address ASC")
                 ->get();
 
-            // Scope metadata â€” look up by the assessment's scope_group_id, keyed by ip_address
             $topIps = $topIps->map(function ($row) use ($scopeByIp) {
                 $scope = $scopeByIp->get($row->ip_address);
                 $row->scope_id           = $scope?->id;
@@ -316,6 +329,20 @@ class VulnAssessmentController extends Controller
         $baseline = $assessment->baselineScan();
         $latestScan = $assessment->latestScan();
         $activeScan = $latestScan ?? $baseline;
+
+        // Load scope IPs early; null means no filter (no scope group applied).
+        $scopeIps  = null;
+        $scopeByIp = collect();
+        if ($assessment->scope_group_id) {
+            $scopeByIp = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
+                         'system_owner', 'identified_scope', 'environment', 'remediation_sla')
+                ->get()
+                ->keyBy('ip_address');
+            $scopeIps = $scopeByIp->keys()->all();
+        }
 
         // Load scope IPs early; null means no filter (no scope group applied).
         $scopeIps  = null;
@@ -2288,12 +2315,20 @@ class VulnAssessmentController extends Controller
             }
         }
 
-        // Vulnerability status by user group
-        // Rows: [group_name, status, count] â€” includes "Unassigned" bucket
-        $groupStatusRaw = VulnRemediation::where('vuln_remediations.assessment_id', $assessment->id)
-            ->leftJoin('user_groups as ug', 'ug.id', '=', 'vuln_remediations.assigned_group_id')
-            ->selectRaw("COALESCE(ug.name, 'Unassigned') as group_name, vuln_remediations.status, COUNT(*) as cnt")
-            ->groupBy('group_name', 'vuln_remediations.status')
+        // Vulnerability status by system owner (from asset_inventories)
+        $groupStatusRaw = DB::table('vuln_tracked as vt')
+            ->where('vt.assessment_id', $assessment->id)
+            ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+            ->leftJoin('vuln_remediations as vr', function ($j) use ($assessment) {
+                $j->on('vr.plugin_id',  '=', 'vt.plugin_id')
+                  ->on('vr.ip_address', '=', 'vt.ip_address')
+                  ->where('vr.assessment_id', '=', $assessment->id);
+            })
+            ->leftJoin('asset_inventories as ai', 'ai.ip_address', '=', 'vt.ip_address')
+            ->selectRaw("COALESCE(NULLIF(ai.system_owner, ''), 'Unassigned') as group_name,
+                         COALESCE(vr.status, 'Open') as status,
+                         COUNT(*) as cnt")
+            ->groupBy('group_name', 'status')
             ->orderBy('group_name')
             ->get();
 

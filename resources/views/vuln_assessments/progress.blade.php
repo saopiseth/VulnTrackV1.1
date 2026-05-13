@@ -134,10 +134,10 @@
         </div>
     </div>
 
-    {{-- ── Vulnerability Status by Group ─────────────────────────────── --}}
+    {{-- ── Vulnerability Status by Owner ──────────────────────────────── --}}
     <div class="col-12">
         <div class="chart-card">
-            <div class="chart-title">Vulnerability Status by Group</div>
+            <div class="chart-title">Vulnerability Status by Owner</div>
             <canvas id="groupStatusChart" style="max-height:320px"></canvas>
         </div>
     </div>
@@ -306,7 +306,7 @@
             }
         }
     });
-    // ── 6. Vulnerability Status by Group (grouped bar) ──────────────
+    // ── 6. Vulnerability Status by Owner (grouped bar) ───────────────
     var groupNames    = {!! json_encode($groupNames) !!};
     var groupStatData = {!! json_encode($groupStatData) !!};
 
@@ -345,7 +345,7 @@
         });
     } else {
         document.getElementById('groupStatusChart').closest('.chart-card').innerHTML +=
-            '<p style="text-align:center;color:#94a3b8;font-size:.82rem;margin-top:1rem">No group assignments yet.</p>';
+            '<p style="text-align:center;color:#94a3b8;font-size:.82rem;margin-top:1rem">No owner data available.</p>';
         document.getElementById('groupStatusChart').style.display = 'none';
     }
 })();
