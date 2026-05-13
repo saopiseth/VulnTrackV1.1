@@ -147,7 +147,9 @@ class ProcessScanUpload implements ShouldQueue
                     ->get()
                     ->groupBy('ip_address');
 
-                // Collect unique open ports per IP (exclude port 0 / empty)
+                // Collect unique open ports per IP (exclude port 0 / empty).
+                // Nessus can report enough distinct ports to exceed MySQL's default GROUP_CONCAT limit.
+                DB::statement('SET SESSION group_concat_max_len = 16777215');
                 $allPorts = DB::table('vuln_findings')
                     ->whereIn('ip_address', $ipList)
                     ->whereRaw("port != '' AND port != '0'")

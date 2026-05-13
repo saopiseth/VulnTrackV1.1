@@ -24,7 +24,7 @@ return new class extends Migration
                 'None-Bank',
             ])->default('Business Operational');
             $table->string('os')->nullable();
-            $table->string('open_ports')->nullable();         // e.g. "22,80,443"
+            $table->mediumText('open_ports')->nullable();     // e.g. "22,80,443"; large scans can have many ports
             $table->unsignedInteger('vuln_critical')->default(0);
             $table->unsignedInteger('vuln_high')->default(0);
             $table->unsignedInteger('vuln_medium')->default(0);
