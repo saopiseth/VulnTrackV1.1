@@ -80,6 +80,20 @@ class VulnAssessmentController extends Controller
 
         $activeScan = $latestScan ?? $baseline;
 
+        // Load scope IPs early; null means no filter (no scope group applied).
+        $scopeIps  = null;
+        $scopeByIp = collect();
+        if ($assessment->scope_group_id) {
+            $scopeByIp = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
+                         'system_owner', 'identified_scope', 'environment', 'remediation_sla')
+                ->get()
+                ->keyBy('ip_address');
+            $scopeIps = $scopeByIp->keys()->all();
+        }
+
         // â”€â”€ Stats from vuln_tracked (cumulative across ALL scans) â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Active = New | Open | Unresolved | Reopened (not yet resolved)
         $stats  = null;
@@ -94,6 +108,7 @@ class VulnAssessmentController extends Controller
             $stats = VulnTracked::where('assessment_id', $assessment->id)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
                 ->whereIn('tracking_status', $openStatuses)
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("
                     COUNT(*) as total,
                     SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
@@ -107,6 +122,7 @@ class VulnAssessmentController extends Controller
             $openIn = implode("','", $openStatuses);
             $topIps = VulnTracked::where('assessment_id', $assessment->id)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("ip_address,
                     MIN(hostname)      as hostname,
                     MIN(os_name)       as os_name,
@@ -128,17 +144,6 @@ class VulnAssessmentController extends Controller
                 ->get();
 
             // Scope metadata â€” look up by the assessment's scope_group_id, keyed by ip_address
-            $scopeByIp = collect();
-            if ($assessment->scope_group_id) {
-                $scopeByIp = DB::table('assessment_scopes')
-                    ->where('group_id', $assessment->scope_group_id)
-                    ->whereNotNull('ip_address')
-                    ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
-                             'system_owner', 'identified_scope', 'environment', 'remediation_sla')
-                    ->get()
-                    ->keyBy('ip_address');
-            }
-
             $topIps = $topIps->map(function ($row) use ($scopeByIp) {
                 $scope = $scopeByIp->get($row->ip_address);
                 $row->scope_id           = $scope?->id;
@@ -158,6 +163,7 @@ class VulnAssessmentController extends Controller
 
             $stats = VulnFinding::whereIn('scan_id', $allScanIds)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("
                     COUNT(*) as total,
                     SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
@@ -168,6 +174,7 @@ class VulnAssessmentController extends Controller
 
             $topIps = VulnFinding::whereIn('scan_id', $allScanIds)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("ip_address,
                     MIN(hostname)  as hostname,
                     MIN(os_name)   as os_name,
@@ -197,7 +204,8 @@ class VulnAssessmentController extends Controller
         $hostComparison = null;
         if ($latestScan) {
             $base = VulnTracked::where('assessment_id', $assessment->id)
-                        ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low']);
+                        ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                        ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps));
 
             $comparison = [
                 'persistent' => (clone $base)->whereIn('tracking_status', ['Open', 'Unresolved'])->count(),
@@ -210,6 +218,10 @@ class VulnAssessmentController extends Controller
         if ($baseline && $latestScan) {
             $baselineIps = $baseline->hostSet();
             $latestIps   = $latestScan->hostSet();
+            if ($scopeIps !== null) {
+                $baselineIps = $baselineIps->intersect($scopeIps);
+                $latestIps   = $latestIps->intersect($scopeIps);
+            }
             $hostComparison = [
                 'baseline_count' => $baselineIps->count(),
                 'latest_count'   => $latestIps->count(),
@@ -224,6 +236,7 @@ class VulnAssessmentController extends Controller
         // Unique active hosts across ALL scans (from tracking table)
         $activeHostCount = VulnTracked::where('assessment_id', $assessment->id)
             ->whereIn('tracking_status', VulnTracked::openStatuses())
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->distinct('ip_address')->count('ip_address');
 
         // Remediation progress â€” driven by vuln_tracked (scan-confirmed) + vuln_remediations (workflow)
@@ -233,6 +246,7 @@ class VulnAssessmentController extends Controller
             $remStats = DB::table('vuln_tracked as vt')
                 ->where('vt.assessment_id', $assessment->id)
                 ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('vt.ip_address', $scopeIps))
                 ->leftJoin('vuln_remediations as vr', function ($j) use ($assessment) {
                     $j->on('vr.plugin_id',  '=', 'vt.plugin_id')
                       ->on('vr.ip_address', '=', 'vt.ip_address')
@@ -254,12 +268,15 @@ class VulnAssessmentController extends Controller
 
         // OS distribution from vuln_host_os
         $osDistribution = VulnHostOs::where('assessment_id', $assessment->id)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw("COALESCE(os_override_family, os_family) as family, COUNT(*) as cnt")
             ->groupBy('family')
             ->orderByDesc('cnt')
             ->get();
 
-        $osHostCount = VulnHostOs::where('assessment_id', $assessment->id)->count();
+        $osHostCount = VulnHostOs::where('assessment_id', $assessment->id)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
+            ->count();
 
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
@@ -299,6 +316,20 @@ class VulnAssessmentController extends Controller
         $baseline = $assessment->baselineScan();
         $latestScan = $assessment->latestScan();
         $activeScan = $latestScan ?? $baseline;
+
+        // Load scope IPs early; null means no filter (no scope group applied).
+        $scopeIps  = null;
+        $scopeByIp = collect();
+        if ($assessment->scope_group_id) {
+            $scopeByIp = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
+                         'system_owner', 'identified_scope', 'environment', 'remediation_sla')
+                ->get()
+                ->keyBy('ip_address');
+            $scopeIps = $scopeByIp->keys()->all();
+        }
         $openStatuses = VulnTracked::openStatuses();
         $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
         $stats = null;
@@ -311,6 +342,7 @@ class VulnAssessmentController extends Controller
             $stats = VulnTracked::where('assessment_id', $assessment->id)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
                 ->whereIn('tracking_status', $openStatuses)
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("
                     COUNT(*) as total,
                     SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
@@ -322,6 +354,7 @@ class VulnAssessmentController extends Controller
             $openIn = implode("','", $openStatuses);
             $topIps = VulnTracked::where('assessment_id', $assessment->id)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("ip_address,
                     MIN(hostname)      as hostname,
                     MIN(os_name)       as os_name,
@@ -415,6 +448,7 @@ class VulnAssessmentController extends Controller
             $remStats = DB::table('vuln_tracked as vt')
                 ->where('vt.assessment_id', $assessment->id)
                 ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('vt.ip_address', $scopeIps))
                 ->leftJoin('vuln_remediations as vr', function ($j) use ($assessment) {
                     $j->on('vr.plugin_id',  '=', 'vt.plugin_id')
                         ->on('vr.ip_address', '=', 'vt.ip_address')
@@ -442,6 +476,7 @@ class VulnAssessmentController extends Controller
             $allScanIds = $assessment->scans->pluck('id');
             $stats = VulnFinding::whereIn('scan_id', $allScanIds)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("
                     COUNT(*) as total,
                     SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
