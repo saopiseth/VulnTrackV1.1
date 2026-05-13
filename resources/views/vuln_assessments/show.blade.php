@@ -465,9 +465,22 @@
                 <span class="scan-badge scan-latest">Latest</span>
                 @endif
             </div>
-            <div style="font-size:.73rem;color:#94a3b8;margin-top:.2rem;display:flex;gap:.75rem;flex-wrap:wrap">
-                <span><i class="bi bi-list-check me-1"></i>{{ $scan->finding_count }} findings</span>
-                <span style="color:#1e40af"><i class="bi bi-hdd-network me-1"></i>{{ $scan->host_count }} host{{ $scan->host_count !== 1 ? 's' : '' }}</span>
+            <div style="font-size:.73rem;color:#94a3b8;margin-top:.2rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+                @if($scan->isCompleted())
+                    <span><i class="bi bi-list-check me-1"></i>{{ $scan->finding_count }} finding{{ $scan->finding_count !== 1 ? 's' : '' }}</span>
+                    <span style="color:#1e40af"><i class="bi bi-hdd-network me-1"></i>{{ $scan->host_count }} host{{ $scan->host_count !== 1 ? 's' : '' }}</span>
+                @elseif($scan->isFailed())
+                    <span style="color:#dc2626;font-weight:600;background:#fef2f2;padding:.1rem .5rem;border-radius:6px">
+                        <i class="bi bi-x-circle-fill me-1"></i>Processing failed
+                    </span>
+                    @if($scan->upload_error)
+                    <span style="color:#dc2626" title="{{ $scan->upload_error }}">{{ Str::limit($scan->upload_error, 80) }}</span>
+                    @endif
+                @else
+                    <span style="color:#92400e;font-weight:600;background:#fef3c7;padding:.1rem .5rem;border-radius:6px">
+                        <i class="bi bi-hourglass-split me-1"></i>Processing…
+                    </span>
+                @endif
                 <span>{{ $scan->created_at->format('d M Y, H:i') }}</span>
                 @if($scan->creator)<span><i class="bi bi-person me-1"></i>{{ $scan->creator->name }}</span>@endif
                 @if($scan->notes)<span><i class="bi bi-chat-dots me-1"></i>{{ $scan->notes }}</span>@endif

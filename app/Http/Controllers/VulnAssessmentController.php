@@ -1385,7 +1385,7 @@ class VulnAssessmentController extends Controller
                 : back()->withErrors(['scan_file' => $msg]);
         }
 
-        $dupError = "\"$filename\" has already been uploaded to this assessment. "
+        $dupError = '"' . $filename . '" has already been uploaded to this assessment. '
                   . 'Rename the file or delete the existing scan before re-uploading.';
 
         if ($assessment->scans()->where('filename', $filename)
@@ -1413,7 +1413,15 @@ class VulnAssessmentController extends Controller
             'file_path'     => $path,
         ]);
 
-        ProcessScanUpload::dispatch($scan->id, $path, $ext);
+        try {
+            ProcessScanUpload::dispatchSync($scan->id, $path, $ext);
+        } catch (\Throwable $e) {
+            // Scan status already set to 'failed' inside the job — just surface the error.
+            if ($request->wantsJson()) {
+                return response()->json(['errors' => ['scan_file' => 'Processing failed: ' . $e->getMessage()]], 500);
+            }
+            return back()->withErrors(['scan_file' => 'Processing failed: ' . $e->getMessage()]);
+        }
 
         AuditLog::record('scan.uploaded', $assessment, ['filename' => $filename, 'is_baseline' => $isBaseline]);
 
@@ -1422,7 +1430,7 @@ class VulnAssessmentController extends Controller
         }
 
         return redirect()->route('vuln-assessments.show', $assessment)
-            ->with('success', "\"$filename\" uploaded â€” processing in background. Refresh to see results.");
+            ->with('success', '”' . $filename . '” uploaded and processed successfully.');
     }
 
     public function uploadStatus(VulnAssessment $vulnAssessment, VulnScan $scan): \Illuminate\Http\JsonResponse
@@ -1490,7 +1498,7 @@ class VulnAssessmentController extends Controller
         Storage::disk('local')->deleteDirectory($chunkDir);
 
         $assessment = $vulnAssessment;
-        $dupError   = "\"$filename\" has already been uploaded to this assessment.";
+        $dupError   = '"' . $filename . '" has already been uploaded to this assessment.';
 
         if ($assessment->scans()->where('filename', $filename)
                 ->whereIn('upload_status', ['pending', 'processing', 'completed'])->exists()) {
@@ -1512,7 +1520,11 @@ class VulnAssessmentController extends Controller
             'file_path'     => $finalPath,
         ]);
 
-        ProcessScanUpload::dispatch($scan->id, $finalPath, $ext);
+        try {
+            ProcessScanUpload::dispatchSync($scan->id, $finalPath, $ext);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Processing failed: ' . $e->getMessage()], 500);
+        }
 
         return response()->json(['status' => 'queued', 'scan_id' => $scan->id]);
     }
