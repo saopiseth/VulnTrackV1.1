@@ -1369,7 +1369,7 @@ class VulnAssessmentController extends Controller
         $this->authorize('manage', $vulnAssessment);
 
         $request->validate([
-            'scan_file' => ['required', 'file', 'max:256000', 'mimes:xml,csv,txt'],
+            'scan_file' => ['required', 'file', 'max:256000'],
             'notes'     => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -1377,6 +1377,13 @@ class VulnAssessmentController extends Controller
         $file       = $request->file('scan_file');
         $filename   = $file->getClientOriginalName();
         $ext        = strtolower($file->getClientOriginalExtension());
+
+        if (!in_array($ext, ['xml', 'nessus', 'csv', 'txt'], true)) {
+            $msg = 'Unsupported file type ".' . $ext . '". Accepted: .nessus, .xml, .csv';
+            return $request->wantsJson()
+                ? response()->json(['errors' => ['scan_file' => $msg]], 422)
+                : back()->withErrors(['scan_file' => $msg]);
+        }
 
         $dupError = "\"$filename\" has already been uploaded to this assessment. "
                   . 'Rename the file or delete the existing scan before re-uploading.';
@@ -1469,7 +1476,13 @@ class VulnAssessmentController extends Controller
         $out = fopen($fullPath, 'wb');
         for ($i = 0; $i < $totalChunks; $i++) {
             $chunkPath = Storage::disk('local')->path($chunkDir . '/chunk_' . $i);
-            $in        = fopen($chunkPath, 'rb');
+            if (!file_exists($chunkPath)) {
+                fclose($out);
+                @unlink($fullPath);
+                Storage::disk('local')->deleteDirectory($chunkDir);
+                return response()->json(['message' => "Assembly failed: chunk {$i} is missing. Please retry the upload."], 500);
+            }
+            $in = fopen($chunkPath, 'rb');
             stream_copy_to_stream($in, $out);
             fclose($in);
         }
@@ -1482,7 +1495,7 @@ class VulnAssessmentController extends Controller
         if ($assessment->scans()->where('filename', $filename)
                 ->whereIn('upload_status', ['pending', 'processing', 'completed'])->exists()) {
             Storage::disk('local')->delete($finalPath);
-            return response()->json(['errors' => ['scan_file' => $dupError]], 422);
+            return response()->json(['message' => $dupError], 422);
         }
 
         $isBaseline = $assessment->scans()
