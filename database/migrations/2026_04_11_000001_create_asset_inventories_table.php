@@ -31,7 +31,7 @@ return new class extends Migration
             $table->unsignedInteger('vuln_low')->default(0);
             $table->string('tags')->nullable();
             $table->text('notes')->nullable();
-            $table->enum('status', ['Active', 'Inactive', 'Decommissioned'])->default('Active');
+            $table->string('status', 50)->default('Active');
             $table->timestamp('last_scanned_at')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();

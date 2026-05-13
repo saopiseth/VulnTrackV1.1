@@ -84,7 +84,7 @@
             <div class="kv-row">
                 <span class="kv-label">Status</span>
                 <span class="kv-val">
-                    @php $stColors=['Active'=>['#dcfce7','#166534'],'Not Found in Latest Scan'=>['#fef3c7','#92400e'],'Inactive'=>['#f1f5f9','#475569'],'Decommissioned'=>['#fee2e2','#991b1b']];
+                    @php $stColors=['Active'=>['#dcfce7','#166534'],'Not Found in Scan'=>['#fef3c7','#92400e'],'Not Found in Latest Scan'=>['#fef3c7','#92400e'],'Decommissioned'=>['#fee2e2','#991b1b']];
                     [$stbg,$stcol]=$stColors[$assetInventory->status]??['#f1f5f9','#475569']; @endphp
                     <span class="badge-scope" style="background:{{ $stbg }};color:{{ $stcol }}">{{ $assetInventory->status }}</span>
                 </span>

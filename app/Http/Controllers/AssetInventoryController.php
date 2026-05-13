@@ -32,7 +32,11 @@ class AssetInventoryController extends Controller
             'scopeOptions'  => AssessmentScope::scopeOptions(),
             'envOptions'    => AssessmentScope::environmentOptions(),
             'slaOptions'    => AssessmentScope::remediationSlaOptions(),
-            'statusOptions' => ['Active', 'Not Found in Latest Scan', 'Inactive', 'Decommissioned'],
+            'statusOptions' => [
+                AssetInventory::STATUS_ACTIVE,
+                AssetInventory::STATUS_NOT_FOUND,
+                AssetInventory::STATUS_DECOMMISSIONED,
+            ],
         ]);
     }
 

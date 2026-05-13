@@ -47,7 +47,7 @@
         &nbsp;·&nbsp;
         <span style="color:#166534;font-weight:600">{{ $assets->total() }} asset{{ $assets->total() == 1 ? '' : 's' }} total</span>
         &nbsp;·&nbsp;
-        <span style="color:#64748b;font-size:.8rem">Assets not in this scan are marked <em>Not Found in Latest Scan</em></span>
+        <span style="color:#64748b;font-size:.8rem">Assets not found on the latest scan date are marked <em>Not Found in Scan</em></span>
     </div>
 </div>
 @else
@@ -151,8 +151,8 @@
                     $slaColors = ['Priority Level 1'=>['#fee2e2','#991b1b'],'Priority Level 2'=>['#fef3c7','#92400e'],
                         'Priority Level 3'=>['#e0f2fe','#0c4a6e'],'Priority Level 4'=>['#f0fdf4','#166534']];
                     [$slabg,$slacol] = $slaColors[$asset->remediation_sla] ?? ['#f1f5f9','#475569'];
-                    $statusColors = ['Active'=>['#dcfce7','#166534'],'Not Found in Latest Scan'=>['#fef3c7','#92400e'],
-                        'Inactive'=>['#f1f5f9','#475569'],'Decommissioned'=>['#fee2e2','#991b1b']];
+                    $statusColors = ['Active'=>['#dcfce7','#166534'],'Not Found in Scan'=>['#fef3c7','#92400e'],
+                        'Not Found in Latest Scan'=>['#fef3c7','#92400e'],'Decommissioned'=>['#fee2e2','#991b1b']];
                     [$stbg,$stcol] = $statusColors[$asset->status] ?? ['#f1f5f9','#475569'];
                 @endphp
                 <tr data-id="{{ $asset->id }}"

@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\DB;
 
 class AssetInventory extends Model
 {
+    public const STATUS_ACTIVE = 'Active';
+    public const STATUS_NOT_FOUND = 'Not Found in Scan';
+    public const STATUS_LEGACY_NOT_FOUND = 'Not Found in Latest Scan';
+    public const STATUS_DECOMMISSIONED = 'Decommissioned';
+
     protected $table = 'asset_inventories';
 
     protected $fillable = [
@@ -47,7 +52,7 @@ class AssetInventory extends Model
 
     /**
      * Sync business fields from assessment_scopes into asset_inventories (non-destructive),
-     * and insert scope IPs that have no inventory record yet as 'Not Found in Latest Scan'.
+     * and insert scope IPs that have no inventory record yet as 'Not Found in Scan'.
      */
     public static function syncFromScopes(): void
     {
@@ -74,7 +79,7 @@ class AssetInventory extends Model
                 ai.updated_at       = NOW()
         ");
 
-        // Insert scope IPs not yet tracked in the inventory as 'Not Found in Latest Scan'
+        // Insert scope IPs not yet tracked in the inventory as 'Not Found in Scan'
         DB::statement("
             INSERT IGNORE INTO asset_inventories
                 (ip_address, system_name, identified_scope, environment,
@@ -86,7 +91,7 @@ class AssetInventory extends Model
                 MAX(sc.environment),
                 MAX(sc.system_owner),
                 MAX(sc.remediation_sla),
-                'Not Found in Latest Scan',
+                '" . self::STATUS_NOT_FOUND . "',
                 NOW(),
                 NOW()
             FROM assessment_scopes sc
@@ -98,23 +103,36 @@ class AssetInventory extends Model
     }
 
     /**
-     * After a new scan is processed, mark every inventory record as
-     * 'Not Found in Latest Scan', then flip the scanned IPs back to 'Active'.
-     * Records manually set to Inactive or Decommissioned are left unchanged.
+     * Recalculate asset status from the newest scan result date.
+     * Assets seen on the newest last_scanned_at date are Active; older managed
+     * assets are Not Found in Scan. Decommissioned is a manual lifecycle state.
      */
-    public static function applyLatestScanStatus(array $scannedIps): void
+    public static function applyLatestScanStatus(): void
     {
-        if (empty($scannedIps)) {
+        $latestScanDate = DB::table('asset_inventories')
+            ->whereNotNull('last_scanned_at')
+            ->selectRaw('MAX(DATE(last_scanned_at)) as latest_scan_date')
+            ->value('latest_scan_date');
+
+        if (!$latestScanDate) {
             return;
         }
 
         DB::table('asset_inventories')
-            ->whereIn('status', ['Active', 'Not Found in Latest Scan'])
-            ->update(['status' => 'Not Found in Latest Scan', 'updated_at' => now()]);
+            ->where('status', self::STATUS_LEGACY_NOT_FOUND)
+            ->update(['status' => self::STATUS_NOT_FOUND, 'updated_at' => now()]);
 
         DB::table('asset_inventories')
-            ->whereIn('ip_address', $scannedIps)
-            ->update(['status' => 'Active', 'updated_at' => now()]);
+            ->where('status', '!=', self::STATUS_DECOMMISSIONED)
+            ->where(fn ($query) => $query
+                ->whereNull('last_scanned_at')
+                ->orWhereRaw('DATE(last_scanned_at) < ?', [$latestScanDate]))
+            ->update(['status' => self::STATUS_NOT_FOUND, 'updated_at' => now()]);
+
+        DB::table('asset_inventories')
+            ->where('status', '!=', self::STATUS_DECOMMISSIONED)
+            ->whereRaw('DATE(last_scanned_at) = ?', [$latestScanDate])
+            ->update(['status' => self::STATUS_ACTIVE, 'updated_at' => now()]);
     }
 
     /** Returns badge style metadata for the detected OS family. */

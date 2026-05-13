@@ -171,10 +171,8 @@ class ProcessScanUpload implements ShouldQueue
                     }
                 }
 
-                // ── Apply Active / Not Found status based on this scan ────────
-                // All records not in this scan become 'Not Found in Latest Scan';
-                // IPs found here are marked 'Active'.
-                AssetInventory::applyLatestScanStatus($ipList);
+                // ── Apply Active / Not Found status based on the latest scan date ──
+                AssetInventory::applyLatestScanStatus();
 
                 // ── Tracking engine ───────────────────────────────────────────
                 (new VulnTrackingService())->track($assessment, $scan);
