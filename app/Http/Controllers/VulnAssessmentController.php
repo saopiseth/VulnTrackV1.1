@@ -94,20 +94,6 @@ class VulnAssessmentController extends Controller
             $scopeIps = $scopeByIp->keys()->all();
         }
 
-        // Load scope IPs early; null means no filter (no scope group applied).
-        $scopeIps  = null;
-        $scopeByIp = collect();
-        if ($assessment->scope_group_id) {
-            $scopeByIp = DB::table('assessment_scopes')
-                ->where('group_id', $assessment->scope_group_id)
-                ->whereNotNull('ip_address')
-                ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
-                         'system_owner', 'identified_scope', 'environment', 'remediation_sla')
-                ->get()
-                ->keyBy('ip_address');
-            $scopeIps = $scopeByIp->keys()->all();
-        }
-
         // â”€â”€ Stats from vuln_tracked (cumulative across ALL scans) â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Active = New | Open | Unresolved | Reopened (not yet resolved)
         $stats  = null;

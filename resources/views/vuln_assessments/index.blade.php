@@ -90,17 +90,44 @@
 </div>
 @endif
 
-{{-- Global glance stats (2 queries across all assessments) --}}
+{{-- Global glance stats – scope-aware (respects each assessment's scope_group_id) --}}
 @php
     $allIds = $assessments->pluck('id');
-    $gStats = \App\Models\VulnTracked::whereIn('assessment_id', $allIds)
-        ->selectRaw("
-            SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END)  as active_total,
-            SUM(CASE WHEN tracking_status = 'Resolved'         THEN 1 ELSE 0 END)  as resolved_total
-        ")->first();
-    $gHosts = \App\Models\VulnTracked::whereIn('assessment_id', $allIds)
-        ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
-        ->distinct('ip_address')->count('ip_address');
+
+    // Pre-load scope IP lists for every scoped assessment on this page (1 query each)
+    $scopeIpsMap = [];
+    foreach ($assessments as $_a) {
+        if ($_a->scope_group_id) {
+            $scopeIpsMap[$_a->id] = \DB::table('assessment_scopes')
+                ->where('group_id', $_a->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->pluck('ip_address')
+                ->all();
+        }
+    }
+
+    // Aggregate global stats respecting per-assessment scope
+    $gActiveTotal   = 0;
+    $gResolvedTotal = 0;
+    $gHostsSet      = collect();
+    foreach ($assessments as $_a) {
+        $_sIps = $scopeIpsMap[$_a->id] ?? null;
+        $_row = \App\Models\VulnTracked::where('assessment_id', $_a->id)
+            ->when($_sIps !== null, fn($q) => $q->whereIn('ip_address', $_sIps))
+            ->selectRaw("
+                SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as active_total,
+                SUM(CASE WHEN tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved_total
+            ")->first();
+        $gActiveTotal   += (int)($_row->active_total   ?? 0);
+        $gResolvedTotal += (int)($_row->resolved_total ?? 0);
+        $_ips = \App\Models\VulnTracked::where('assessment_id', $_a->id)
+            ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
+            ->when($_sIps !== null, fn($q) => $q->whereIn('ip_address', $_sIps))
+            ->distinct('ip_address')->pluck('ip_address');
+        $gHostsSet = $gHostsSet->merge($_ips);
+    }
+    $gStats = (object)['active_total' => $gActiveTotal, 'resolved_total' => $gResolvedTotal];
+    $gHosts = $gHostsSet->unique()->count();
 @endphp
 <div class="row g-2 mb-4">
     <div class="col-6 col-md-3">
@@ -153,8 +180,11 @@
 <div class="row g-3">
     @forelse($assessments as $a)
     @php
+        $scopeIps = $scopeIpsMap[$a->id] ?? null;
+
         $tracked = \App\Models\VulnTracked::where('assessment_id', $a->id)
             ->whereIn('severity', ['Critical','High','Medium','Low'])
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw("
                 SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as active,
                 SUM(CASE WHEN tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
@@ -167,6 +197,7 @@
         // Remediation breakdown (all tracking statuses)
         $remBreak = \App\Models\VulnTracked::where('vuln_tracked.assessment_id', $a->id)
             ->whereIn('vuln_tracked.severity', ['Critical','High','Medium','Low'])
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
             ->leftJoin('vuln_remediations', function($j) use ($a) {
                 $j->on('vuln_remediations.plugin_id',  '=', 'vuln_tracked.plugin_id')
                   ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
@@ -190,6 +221,7 @@
         $resolvedCount = (int)($tracked->resolved ?? 0);
         $uniqueHosts   = \App\Models\VulnTracked::where('assessment_id', $a->id)
             ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->distinct('ip_address')->count('ip_address');
 
         $accentColor = $tracked->c > 0 ? '#dc2626'
