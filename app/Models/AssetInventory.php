@@ -56,19 +56,20 @@ class AssetInventory extends Model
      */
     public static function syncFromScopes(): void
     {
-        // Update existing records by IP match — scope wins only when it has a non-empty value
+        // Update existing records — use the most recently updated assessment_scope row per IP
         DB::statement("
             UPDATE asset_inventories ai
             JOIN (
-                SELECT ip_address,
-                    MAX(system_name)      AS system_name,
-                    MAX(identified_scope) AS identified_scope,
-                    MAX(environment)      AS environment,
-                    MAX(system_owner)     AS system_owner,
-                    MAX(remediation_sla)  AS remediation_sla
-                FROM assessment_scopes
-                WHERE ip_address IS NOT NULL AND ip_address != ''
-                GROUP BY ip_address
+                SELECT s.ip_address, s.system_name, s.identified_scope,
+                       s.environment, s.system_owner, s.remediation_sla
+                FROM assessment_scopes s
+                INNER JOIN (
+                    SELECT ip_address, MAX(updated_at) AS max_upd
+                    FROM assessment_scopes
+                    WHERE ip_address IS NOT NULL AND ip_address != ''
+                    GROUP BY ip_address
+                ) latest ON s.ip_address = latest.ip_address
+                         AND s.updated_at = latest.max_upd
             ) sc ON sc.ip_address = ai.ip_address
             SET
                 ai.system_name      = COALESCE(NULLIF(sc.system_name,      ''), ai.system_name),
@@ -84,21 +85,21 @@ class AssetInventory extends Model
             INSERT IGNORE INTO asset_inventories
                 (ip_address, system_name, identified_scope, environment,
                  system_owner, remediation_sla, status, created_at, updated_at)
-            SELECT
-                sc.ip_address,
-                MAX(sc.system_name),
-                MAX(sc.identified_scope),
-                MAX(sc.environment),
-                MAX(sc.system_owner),
-                MAX(sc.remediation_sla),
-                '" . self::STATUS_NOT_FOUND . "',
-                NOW(),
-                NOW()
-            FROM assessment_scopes sc
-            LEFT JOIN asset_inventories ai ON ai.ip_address = sc.ip_address
-            WHERE sc.ip_address IS NOT NULL AND sc.ip_address != ''
+            SELECT s.ip_address, s.system_name, s.identified_scope,
+                   s.environment, s.system_owner, s.remediation_sla,
+                   '" . self::STATUS_NOT_FOUND . "',
+                   NOW(), NOW()
+            FROM assessment_scopes s
+            INNER JOIN (
+                SELECT ip_address, MAX(updated_at) AS max_upd
+                FROM assessment_scopes
+                WHERE ip_address IS NOT NULL AND ip_address != ''
+                GROUP BY ip_address
+            ) latest ON s.ip_address = latest.ip_address
+                     AND s.updated_at = latest.max_upd
+            LEFT JOIN asset_inventories ai ON ai.ip_address = s.ip_address
+            WHERE s.ip_address IS NOT NULL AND s.ip_address != ''
               AND ai.id IS NULL
-            GROUP BY sc.ip_address
         ");
     }
 

@@ -148,13 +148,20 @@ class ProcessScanUpload implements ShouldQueue
                 }
 
                 // ── Enrich asset_inventories from assessment_scopes ──────────
-                // Copy business fields (Role, Scope, Env, Owner, SLA) from any
-                // assessment_scope record whose ip_address matches a newly upserted asset.
-                $scopeBusinessData = DB::table('assessment_scopes')
+                // Use the most recently updated scope record per IP.
+                $latestPerIp = DB::table('assessment_scopes')
                     ->whereIn('ip_address', $ipList)
                     ->whereNotNull('ip_address')
-                    ->get(['ip_address', 'system_name', 'identified_scope',
-                           'environment', 'system_owner', 'remediation_sla']);
+                    ->selectRaw('ip_address, MAX(updated_at) AS max_upd')
+                    ->groupBy('ip_address');
+
+                $scopeBusinessData = DB::table('assessment_scopes as s')
+                    ->joinSub($latestPerIp, 'latest', fn ($j) =>
+                        $j->on('s.ip_address', '=', 'latest.ip_address')
+                          ->on('s.updated_at', '=', 'latest.max_upd')
+                    )
+                    ->get(['s.ip_address', 's.system_name', 's.identified_scope',
+                           's.environment', 's.system_owner', 's.remediation_sla']);
 
                 foreach ($scopeBusinessData as $scope) {
                     $payload = [];

@@ -22,7 +22,7 @@ class AssetInventoryController extends Controller
             ->first();
 
         $assets = $this->filteredAssetQuery($request)
-            ->orderBy('ip_address')
+            ->orderByRaw('CASE WHEN last_scanned_at IS NULL THEN 1 ELSE 0 END, last_scanned_at DESC, ip_address ASC')
             ->paginate(25)
             ->withQueryString();
 
