@@ -94,7 +94,7 @@ class VulnAssessmentController extends Controller
             $scopeIps = $scopeByIp->keys()->all();
         }
 
-        // â”€â”€ Stats from vuln_tracked (cumulative across ALL scans) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Stats from vuln_tracked (cumulative across ALL scans) â"€â"€â"€â"€â"€â"€â"€â"€â"€
         // Active = New | Open | Unresolved | Reopened (not yet resolved)
         $stats  = null;
         $topIps = collect();
@@ -117,7 +117,7 @@ class VulnAssessmentController extends Controller
                     SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as low
                 ")->first();
 
-            // ALL IPs ever seen â€” no tracking_status filter so Resolved IPs stay visible.
+            // ALL IPs ever seen â€" no tracking_status filter so Resolved IPs stay visible.
             // Scope data loaded separately (no fan-out join).
             $openIn = implode("','", $openStatuses);
             $topIps = VulnTracked::where('assessment_id', $assessment->id)
@@ -157,7 +157,7 @@ class VulnAssessmentController extends Controller
             });
 
         } elseif ($assessment->scans->isNotEmpty()) {
-            // Fallback: no tracked data yet â€” aggregate across ALL uploaded scans
+            // Fallback: no tracked data yet â€" aggregate across ALL uploaded scans
             $allScanIds = $assessment->scans->pluck('id');
 
             $stats = VulnFinding::whereIn('scan_id', $allScanIds)
@@ -240,7 +240,7 @@ class VulnAssessmentController extends Controller
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->distinct('ip_address')->count('ip_address');
 
-        // Remediation progress â€” driven by vuln_tracked (scan-confirmed) + vuln_remediations (workflow)
+        // Remediation progress â€" driven by vuln_tracked (scan-confirmed) + vuln_remediations (workflow)
         $remStats = null;
         if ($hasTracked) {
             $openIn = implode("','", VulnTracked::openStatuses()); // 'New','Open','Unresolved','Reopened'
@@ -1259,7 +1259,7 @@ class VulnAssessmentController extends Controller
                 ->pluck('ip_address')->all();
         }
 
-        // â”€â”€ Base query: vuln_tracked (ALL scans, cumulative) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Base query: vuln_tracked (ALL scans, cumulative) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         $query = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
@@ -1313,7 +1313,7 @@ class VulnAssessmentController extends Controller
             $query->whereIn('vuln_tracked.tracking_status', VulnTracked::openStatuses());
         }
 
-        // â”€â”€ Standard filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Standard filters â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         if ($request->filled('severity') && in_array($request->severity, $displaySeverities)) {
             $query->where('vuln_tracked.severity', $request->severity);
         }
@@ -1336,7 +1336,7 @@ class VulnAssessmentController extends Controller
             });
         }
 
-        // â”€â”€ Remediation status filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Remediation status filter â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         $remStatusFilter = $request->input('rem_status');
         if ($remStatusFilter === 'unresolved') {
             $query->where(function ($q) use ($unresolvedStatuses) {
@@ -1353,13 +1353,13 @@ class VulnAssessmentController extends Controller
             ->paginate(30)
             ->withQueryString();
 
-        // â”€â”€ Remediations keyed for display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Remediations keyed for display â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         $remediations = VulnRemediation::where('assessment_id', $assessment->id)
             ->with('assignedGroup.members')
             ->get()
             ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
 
-        // â”€â”€ Remediation status counts (scoped) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Remediation status counts (scoped) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         $remStatusCounts = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
@@ -1368,11 +1368,11 @@ class VulnAssessmentController extends Controller
                      ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
                      ->where('vuln_remediations.assessment_id', '=', $assessment->id);
             })
-            ->selectRaw(“COALESCE(vuln_remediations.status, 'Open') as rem_status, COUNT(*) as cnt”)
-            ->groupBy(DB::raw(“COALESCE(vuln_remediations.status, 'Open')”))
+            ->selectRaw("COALESCE(vuln_remediations.status, 'Open') as rem_status, COUNT(*) as cnt")
+            ->groupBy(DB::raw("COALESCE(vuln_remediations.status, 'Open')"))
             ->pluck('cnt', 'rem_status');
 
-        // â”€â”€ Tracking status counts (scoped; drives filter-tab badges) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ Tracking status counts (scoped; drives filter-tab badges) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
             ->whereIn('severity', $displaySeverities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
@@ -1384,7 +1384,7 @@ class VulnAssessmentController extends Controller
         $slaPolicy  = $assessment->slaPolicy
                    ?? SlaPolicy::where('is_default', true)->first();
 
-        // â”€â”€ SLA status counts (scoped) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â"€â"€ SLA status counts (scoped) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         $slaCounts = null;
         if ($slaPolicy) {
             $allTracked = VulnTracked::where('assessment_id', $assessment->id)
@@ -1519,7 +1519,7 @@ class VulnAssessmentController extends Controller
         }
 
         return redirect()->route('vuln-assessments.show', $assessment)
-            ->with('success', '”' . $filename . '” uploaded and processed successfully.');
+            ->with('success', '"' . $filename . '" uploaded and processed successfully.');
     }
 
     public function uploadStatus(VulnAssessment $vulnAssessment, VulnScan $scan): \Illuminate\Http\JsonResponse
@@ -1674,7 +1674,7 @@ class VulnAssessmentController extends Controller
             $groupId = (int) $rawGroupId;
             abort_unless(UserGroup::where('id', $groupId)->exists(), 422);
         } else {
-            // Empty string = “No Group” placeholder selected; nothing to do.
+            // Empty string = "No Group" placeholder selected; nothing to do.
             return back();
         }
 
@@ -1757,7 +1757,7 @@ class VulnAssessmentController extends Controller
         $total = $updated + $skipped;
         $msg   = "Auto-classified {$updated} of {$total} findings.";
         if ($skipped > 0) {
-            $msg .= " {$skipped} could not be classified (marked 'Other') â€” review manually.";
+            $msg .= " {$skipped} could not be classified (marked 'Other') â€" review manually.";
         }
 
         return back()->with('success', $msg);
@@ -1903,7 +1903,7 @@ class VulnAssessmentController extends Controller
         return back()->with('success', 'Scope group updated.');
     }
 
-    // â”€â”€ Reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â"€â"€ Reports â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     private function csvSafe(?string $value): string
     {
@@ -2008,7 +2008,7 @@ class VulnAssessmentController extends Controller
 
         return [
             'rpt_company'         => $get('report_company',         config('app.name', 'Security Assessment')),
-            'rpt_confidentiality' => $get('report_confidentiality', 'Confidential â€” Internal Use Only'),
+            'rpt_confidentiality' => $get('report_confidentiality', 'Confidential â€" Internal Use Only'),
             'rpt_prepared_by'     => $get('report_prepared_by',     'Vulnerability Management Team'),
             'rpt_tool'            => $get('report_tool',            'Tenable Nessus'),
             'rpt_footer'          => $get('report_footer_text',     ''),
@@ -2210,7 +2210,7 @@ class VulnAssessmentController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    //â”€â”€ OS Assets + Override â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //â"€â"€ OS Assets + Override â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     public function osAssets(Request $request, VulnAssessment $vulnAssessment)
     {
@@ -2282,7 +2282,7 @@ class VulnAssessmentController extends Controller
         return back()->with('success', 'OS override saved.');
     }
 
-    // â”€â”€ Progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â"€â"€ Progress â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     public function progress(VulnAssessment $vulnAssessment)
     {
         $assessment = $vulnAssessment;
@@ -2359,8 +2359,8 @@ class VulnAssessmentController extends Controller
                          ->on('vr.ip_address',     '=', 'vf.ip_address')
                          ->where('vr.assessment_id', '=', $assessment->id);
                 })
-                ->selectRaw(“COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt”)
-                ->groupBy(DB::raw(“COALESCE(vr.status, 'Open')”))
+                ->selectRaw("COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt")
+                ->groupBy(DB::raw("COALESCE(vr.status, 'Open')"))
                 ->pluck('cnt', 'rem_status');
 
             foreach ($remStatuses as $status) {
