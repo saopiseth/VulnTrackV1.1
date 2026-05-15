@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Tracks vulnerability lifecycle across scans.
  *
- * Unique identity: (assessment_id + ip_address + plugin_id)
- * Port is intentionally excluded — the same plugin firing on ports 443 and
- * 8443 is the same vulnerability on the same host, not two separate issues.
+ * Unique identity: vuln_key = SHA1(plugin_id|ip|port|protocol)
+ * Port is included so the same plugin firing on ports 80 and 443 is tracked
+ * as two distinct vulnerabilities (Nessus convention).
  *
  * Status logic per scan upload:
  *
@@ -23,17 +23,19 @@ use Illuminate\Support\Facades\DB;
  *     → All findings created as Open  (baseline established)
  *
  *   Subsequent scans — for each finding present in the current scan:
- *     — fingerprint exists AND status is active  → Open  (still present, last_seen updated)
- *     — fingerprint exists AND status Resolved   → Reopened (reappeared after fix)
- *     — fingerprint does NOT exist               → New  (never seen before)
+ *     — vuln_key exists AND status is Resolved   → Reopened (reappeared after fix)
+ *     — vuln_key exists AND status is Open|Reopened → Unresolved (confirmed still present)
+ *     — vuln_key exists AND status is New|Unresolved → unchanged
+ *     — vuln_key does NOT exist                  → New  (never seen before)
  *
- *   After processing all current findings:
- *     — Any tracked item still active but NOT seen in this scan → Resolved
+ *   After processing current findings (verification scan only):
+ *     — Tracked item still active, host WAS scanned, NOT in current findings → Resolved
  *
  * Status lifecycle:
  *   [first scan]  Open
- *   [subsequent]  New → Open → Resolved        (normal path)
- *                 Resolved → Reopened → Open   (regression path)
+ *   [subsequent]  New → New → Resolved          (new finding fixed before confirmation)
+ *                 Open → Unresolved → Resolved  (normal path)
+ *                 Resolved → Reopened → Unresolved → Resolved  (regression path)
  *
  * "Active" = New | Open | Unresolved | Reopened
  * "Closed"  = Resolved
@@ -42,15 +44,15 @@ class VulnTrackingService
 {
     public const OPEN_STATUSES = ['New', 'Open', 'Unresolved', 'Reopened'];
 
-    public static function fp(string $ip, string $pluginId): string
-    {
-        return $ip . '|' . $pluginId;
-    }
-
     /**
+     * @param  string[]  $scannedHostIps  All IPs the scanner visited (from hostOsMap keys).
+     *                                    If provided, hosts that were scanned but have zero
+     *                                    remaining findings can still have their tracked items
+     *                                    resolved.  Falls back to deriving hosts from findings
+     *                                    when empty (legacy / CSV path).
      * @return array{created:int, reopened:int, still_open:int, resolved:int, severity_changed:int}
      */
-    public function track(VulnAssessment $assessment, VulnScan $scan): array
+    public function track(VulnAssessment $assessment, VulnScan $scan, array $scannedHostIps = []): array
     {
         $scanTime = $scan->created_at ?? now();
 
@@ -184,7 +186,14 @@ class VulnTrackingService
             return $stats;
         }
 
-        $scannedIps = $currentMap->map(fn($f) => $f->ip_address)->flip(); // O(1) lookup
+        // Use the full host list when available (covers hosts with zero remaining
+        // findings after remediation).  Fall back to deriving from findings so that
+        // the CSV path and legacy calls without $scannedHostIps still work.
+        if (!empty($scannedHostIps)) {
+            $scannedIps = collect(array_flip($scannedHostIps)); // O(1) lookup
+        } else {
+            $scannedIps = $currentMap->map(fn($f) => $f->ip_address)->flip();
+        }
 
         $toResolve = $existingTracked->filter(
             function ($tracked) use ($currentMap, $acceptedRisks, $scannedIps) {

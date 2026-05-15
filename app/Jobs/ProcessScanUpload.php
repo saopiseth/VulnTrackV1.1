@@ -186,7 +186,7 @@ class ProcessScanUpload implements ShouldQueue
                 AssetInventory::applyLatestScanStatus();
 
                 // ── Tracking engine ───────────────────────────────────────────
-                (new VulnTrackingService())->track($assessment, $scan);
+                (new VulnTrackingService())->track($assessment, $scan, array_keys($hostOsMap));
             });
 
             $scan->update(['upload_status' => 'completed']);
