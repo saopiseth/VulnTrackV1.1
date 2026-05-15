@@ -101,7 +101,7 @@ class VulnAssessmentController extends Controller
 
         $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
 
-        $openStatuses = VulnTracked::openStatuses(); // ['New','Open','Unresolved','Reopened']
+        $openStatuses = VulnTracked::openStatuses(); // ['New','Open','Reopened','Persistent']
 
         if ($hasTracked) {
             // Active-only stats for the summary bar
@@ -318,7 +318,7 @@ class VulnAssessmentController extends Controller
         $latestScan = $assessment->latestScan();
         $activeScan = $latestScan ?? $baseline;
 
-        // Load scope IPs early; null means no filter (no scope group applied).
+        // Load scope IPs; null means no filter (no scope group configured).
         $scopeIps  = null;
         $scopeByIp = collect();
         if ($assessment->scope_group_id) {
@@ -331,21 +331,7 @@ class VulnAssessmentController extends Controller
                 ->keyBy('ip_address');
             $scopeIps = $scopeByIp->keys()->all();
         }
-
-        // Load scope IPs early; null means no filter (no scope group applied).
-        $scopeIps  = null;
-        $scopeByIp = collect();
-        if ($assessment->scope_group_id) {
-            $scopeByIp = DB::table('assessment_scopes')
-                ->where('group_id', $assessment->scope_group_id)
-                ->whereNotNull('ip_address')
-                ->select('id', 'ip_address', 'hostname', 'system_name', 'system_criticality',
-                         'system_owner', 'identified_scope', 'environment', 'remediation_sla')
-                ->get()
-                ->keyBy('ip_address');
-            $scopeIps = $scopeByIp->keys()->all();
-        }
-        $openStatuses = VulnTracked::openStatuses();
+        $openStatuses = VulnTracked::openStatuses(); // ['New','Open','Reopened','Persistent']
         $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
         $stats = null;
         $topIps = collect();
@@ -1264,9 +1250,19 @@ class VulnAssessmentController extends Controller
         $displaySeverities  = ['Critical', 'High', 'Medium', 'Low'];
         $unresolvedStatuses = ['Open', 'In Progress'];
 
+        // Resolved status is scoped to the assessment's scope group when configured.
+        $scopeIps = null;
+        if ($assessment->scope_group_id) {
+            $scopeIps = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->pluck('ip_address')->all();
+        }
+
         // â”€â”€ Base query: vuln_tracked (ALL scans, cumulative) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         $query = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
             ->select('vuln_tracked.*', 'vf.plugin_output')
             ->visibleTo(Auth::user());
 
@@ -1363,21 +1359,23 @@ class VulnAssessmentController extends Controller
             ->get()
             ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
 
-        // â”€â”€ Remediation status counts (all tracking statuses included) â”€â”€â”€â”€â”€â”€â”€
+        // â”€â”€ Remediation status counts (scoped) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         $remStatusCounts = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
             ->leftJoin('vuln_remediations', function ($join) use ($assessment) {
                 $join->on('vuln_remediations.plugin_id',  '=', 'vuln_tracked.plugin_id')
                      ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
                      ->where('vuln_remediations.assessment_id', '=', $assessment->id);
             })
-            ->selectRaw("COALESCE(vuln_remediations.status, 'Open') as rem_status, COUNT(*) as cnt")
+            ->selectRaw(“COALESCE(vuln_remediations.status, 'Open') as rem_status, COUNT(*) as cnt”)
             ->groupBy('rem_status')
             ->pluck('cnt', 'rem_status');
 
-        // â”€â”€ Tracking status counts (for filter tab badges) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // â”€â”€ Tracking status counts (scoped; drives filter-tab badges) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
             ->whereIn('severity', $displaySeverities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw('tracking_status, COUNT(*) as cnt')
             ->groupBy('tracking_status')
             ->pluck('cnt', 'tracking_status');
@@ -1386,11 +1384,12 @@ class VulnAssessmentController extends Controller
         $slaPolicy  = $assessment->slaPolicy
                    ?? SlaPolicy::where('is_default', true)->first();
 
-        // â”€â”€ SLA status counts across all findings (not just current page) â”€â”€â”€
+        // â”€â”€ SLA status counts (scoped) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         $slaCounts = null;
         if ($slaPolicy) {
             $allTracked = VulnTracked::where('assessment_id', $assessment->id)
                 ->whereIn('severity', $displaySeverities)
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->get(['severity', 'first_seen_at', 'tracking_status', 'resolved_at']);
 
             $slaCounts = ['on-track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
@@ -1421,11 +1420,21 @@ class VulnAssessmentController extends Controller
         $initialScans      = $assessment->scans->where('is_verification', false)->values();
         $verificationScans = $assessment->scans->where('is_verification', true)->values();
 
+        // Scope: only count tracked items whose IP is in the selected scope group.
+        $scopeIps = null;
+        if ($assessment->scope_group_id) {
+            $scopeIps = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->pluck('ip_address')->all();
+        }
+
         $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
         $trackingStats = null;
         if ($hasTracked) {
             $openIn = implode("','", VulnTracked::openStatuses());
             $trackingStats = VulnTracked::where('assessment_id', $assessment->id)
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw("
                     COUNT(*) as total,
                     SUM(CASE WHEN tracking_status IN ('$openIn') THEN 1 ELSE 0 END) as open_count,
@@ -2283,7 +2292,16 @@ class VulnAssessmentController extends Controller
 
         $severities = ['Critical', 'High', 'Medium', 'Low'];
 
-        // Per-scan severity counts (one query per scan â€” typically < 10 scans)
+        // All counts are scoped to the assessment's scope group when configured.
+        $scopeIps = null;
+        if ($assessment->scope_group_id) {
+            $scopeIps = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('ip_address')
+                ->pluck('ip_address')->all();
+        }
+
+        // Per-scan severity counts (scoped by IP when scope group is set)
         $scanLabels     = [];
         $severityTrend  = array_fill_keys($severities, []);
 
@@ -2293,6 +2311,7 @@ class VulnAssessmentController extends Controller
 
             $counts = VulnFinding::where('scan_id', $scan->id)
                 ->whereIn('severity', $severities)
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
                 ->selectRaw('severity, COUNT(*) as cnt')
                 ->groupBy('severity')
                 ->pluck('cnt', 'severity');
@@ -2302,42 +2321,45 @@ class VulnAssessmentController extends Controller
             }
         }
 
-        // Current tracking status distribution
+        // Current tracking status distribution (scoped)
         $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
             ->whereIn('severity', $severities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw('tracking_status, COUNT(*) as cnt')
             ->groupBy('tracking_status')
             ->pluck('cnt', 'tracking_status');
 
-        // Remediation status distribution
+        // Remediation status distribution (scoped)
         $remCounts = VulnRemediation::where('assessment_id', $assessment->id)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw('status, COUNT(*) as cnt')
             ->groupBy('status')
             ->pluck('cnt', 'status');
 
-        // Severity distribution (current state from vuln_tracked)
+        // Severity distribution — current state from vuln_tracked (scoped)
         $currentSevCounts = VulnTracked::where('assessment_id', $assessment->id)
             ->whereIn('severity', $severities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw('severity, COUNT(*) as cnt')
             ->groupBy('severity')
             ->pluck('cnt', 'severity');
 
-        // Per-scan Ã— remediation status trend (x = scan, lines = rem status)
+        // Per-scan × remediation status trend (scoped)
         $remStatuses = ['Open', 'In Progress', 'Resolved', 'Accepted Risk'];
 
-        // For each scan: count findings joined with their current remediation status
         $scanRemTrend = array_fill_keys($remStatuses, []);
 
         foreach ($scans as $scan) {
             $counts = DB::table('vuln_findings as vf')
                 ->where('vf.scan_id', $scan->id)
                 ->whereIn('vf.severity', $severities)
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('vf.ip_address', $scopeIps))
                 ->leftJoin('vuln_remediations as vr', function ($join) use ($assessment) {
                     $join->on('vr.plugin_id',      '=', 'vf.plugin_id')
                          ->on('vr.ip_address',     '=', 'vf.ip_address')
                          ->where('vr.assessment_id', '=', $assessment->id);
                 })
-                ->selectRaw("COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt")
+                ->selectRaw(“COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt”)
                 ->groupBy('rem_status')
                 ->pluck('cnt', 'rem_status');
 
@@ -2346,10 +2368,11 @@ class VulnAssessmentController extends Controller
             }
         }
 
-        // Vulnerability status by system owner (from asset_inventories)
+        // Vulnerability status by system owner (scoped)
         $groupStatusRaw = DB::table('vuln_tracked as vt')
             ->where('vt.assessment_id', $assessment->id)
             ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('vt.ip_address', $scopeIps))
             ->leftJoin('vuln_remediations as vr', function ($j) use ($assessment) {
                 $j->on('vr.plugin_id',  '=', 'vt.plugin_id')
                   ->on('vr.ip_address', '=', 'vt.ip_address')
