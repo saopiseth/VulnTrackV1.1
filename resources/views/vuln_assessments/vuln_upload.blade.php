@@ -239,42 +239,65 @@
         <table class="table table-sm mb-0" style="font-size:.79rem">
             <thead>
             <tr style="border-bottom:2px solid #dbeafe">
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">File</th>
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">By</th>
-                <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Findings</th>
-                <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Status</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">File</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Size</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Uploaded</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">By</th>
+                <th class="text-end" style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Result</th>
                 <th style="border:none;padding:.3rem 0"></th>
             </tr>
             </thead>
             <tbody>
             @foreach($initialScans as $scan)
             <tr style="border-bottom:1px solid #f1f5f9">
-                <td style="padding:.5rem 0;vertical-align:middle">
-                    <div style="color:#475569;font-size:.79rem;font-family:monospace">{{ Str::limit($scan->filename, 40) }}</div>
+                <td style="padding:.45rem 0;vertical-align:middle;max-width:160px">
+                    <div style="color:#0f172a;font-size:.77rem;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                         title="{{ $scan->filename }}">{{ Str::limit($scan->filename, 36) }}</div>
                     @if($scan->is_baseline)
-                    <span style="background:var(--lime-muted);color:var(--lime-dark);padding:.08rem .4rem;border-radius:20px;font-size:.64rem;font-weight:700">Baseline</span>
+                    <span style="background:var(--lime-muted);color:var(--lime-dark);padding:.05rem .38rem;border-radius:20px;font-size:.62rem;font-weight:700">Baseline</span>
                     @endif
                 </td>
-                <td style="padding:.5rem .4rem;vertical-align:middle;color:#475569;font-size:.79rem">
-                    {{ Str::limit($scan->creator?->name ?? '—', 18) }}
+                <td style="padding:.45rem .4rem;vertical-align:middle;white-space:nowrap">
+                    <span style="font-size:.75rem;color:#475569">
+                        @if($scan->file_size)
+                            @php
+                                $fs = $scan->file_size;
+                                echo $fs >= 1073741824 ? number_format($fs/1073741824,2).' GB'
+                                   : ($fs >= 1048576 ? number_format($fs/1048576,1).' MB'
+                                   : number_format($fs/1024,1).' KB');
+                            @endphp
+                        @else —
+                        @endif
+                    </span>
                 </td>
-                <td class="text-end" style="padding:.5rem .4rem;vertical-align:middle">
-                    @if($scan->isCompleted())
-                    <span style="font-weight:700;color:#0f172a">{{ number_format($scan->finding_count) }}</span>
-                    <div style="font-size:.68rem;color:#94a3b8">{{ $scan->host_count }} host{{ $scan->host_count !== 1 ? 's' : '' }}</div>
-                    @else — @endif
+                <td style="padding:.45rem .4rem;vertical-align:middle;white-space:nowrap">
+                    <span style="font-size:.74rem;color:#475569">{{ $scan->created_at->format('d M Y') }}</span>
+                    <div style="font-size:.67rem;color:#94a3b8">{{ $scan->created_at->format('H:i') }}</div>
                 </td>
-                <td class="text-end" style="padding:.5rem .4rem;vertical-align:middle">
+                <td style="padding:.45rem .4rem;vertical-align:middle;color:#475569;font-size:.76rem;white-space:nowrap">
+                    {{ Str::limit($scan->creator?->name ?? '—', 16) }}
+                </td>
+                <td class="text-end" style="padding:.45rem .4rem;vertical-align:middle">
                     @if($scan->isCompleted())
-                    <span style="background:#d1fae5;color:#065f46;padding:.1rem .5rem;border-radius:20px;font-size:.67rem;font-weight:700">Done</span>
+                    <span style="background:#d1fae5;color:#065f46;padding:.1rem .5rem;border-radius:20px;font-size:.66rem;font-weight:700">
+                        <i class="bi bi-check-circle-fill me-1"></i>{{ number_format($scan->finding_count) }} findings
+                    </span>
+                    <div style="font-size:.67rem;color:#94a3b8;margin-top:.1rem">{{ $scan->host_count }} host{{ $scan->host_count !== 1 ? 's' : '' }}</div>
                     @elseif($scan->isFailed())
-                    <span style="background:#fee2e2;color:#991b1b;padding:.1rem .5rem;border-radius:20px;font-size:.67rem;font-weight:700"
-                          title="{{ $scan->upload_error }}">Failed</span>
+                    <span style="background:#fee2e2;color:#991b1b;padding:.1rem .5rem;border-radius:20px;font-size:.66rem;font-weight:700"
+                          title="{{ $scan->upload_error }}">
+                        <i class="bi bi-x-circle-fill me-1"></i>Failed
+                    </span>
+                    @if($scan->upload_error)
+                    <div style="font-size:.67rem;color:#ef4444;margin-top:.1rem;max-width:140px;white-space:normal">{{ Str::limit($scan->upload_error, 60) }}</div>
+                    @endif
                     @else
-                    <span style="background:#fef3c7;color:#92400e;padding:.1rem .5rem;border-radius:20px;font-size:.67rem;font-weight:700">Processing</span>
+                    <span style="background:#fef3c7;color:#92400e;padding:.1rem .5rem;border-radius:20px;font-size:.66rem;font-weight:700">
+                        <i class="bi bi-gear-fill me-1"></i>Processing
+                    </span>
                     @endif
                 </td>
-                <td style="padding:.5rem 0;vertical-align:middle;text-align:right">
+                <td style="padding:.45rem 0;vertical-align:middle;text-align:right">
                     <form method="POST"
                           action="{{ route('vuln-assessments.scans.destroy', [$assessment, $scan]) }}"
                           onsubmit="return confirm('Delete this scan?\n\nThis removes all {{ number_format($scan->finding_count) }} findings and cannot be undone.')">
@@ -413,39 +436,62 @@
         <table class="table table-sm mb-0" style="font-size:.79rem">
             <thead>
             <tr style="border-bottom:2px solid #bbf7d0">
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">File</th>
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">By</th>
-                <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Findings</th>
-                <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Status</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">File</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Size</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Uploaded</th>
+                <th style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">By</th>
+                <th class="text-end" style="font-size:.65rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Result</th>
                 <th style="border:none;padding:.3rem 0"></th>
             </tr>
             </thead>
             <tbody>
             @foreach($verificationScans as $scan)
             <tr style="border-bottom:1px solid #f1f5f9">
-                <td style="padding:.5rem 0;vertical-align:middle">
-                    <div style="color:#475569;font-size:.79rem;font-family:monospace">{{ Str::limit($scan->filename, 40) }}</div>
+                <td style="padding:.45rem 0;vertical-align:middle;max-width:160px">
+                    <div style="color:#0f172a;font-size:.77rem;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                         title="{{ $scan->filename }}">{{ Str::limit($scan->filename, 36) }}</div>
                 </td>
-                <td style="padding:.5rem .4rem;vertical-align:middle;color:#475569;font-size:.79rem">
-                    {{ Str::limit($scan->creator?->name ?? '—', 18) }}
+                <td style="padding:.45rem .4rem;vertical-align:middle;white-space:nowrap">
+                    <span style="font-size:.75rem;color:#475569">
+                        @if($scan->file_size)
+                            @php
+                                $fs = $scan->file_size;
+                                echo $fs >= 1073741824 ? number_format($fs/1073741824,2).' GB'
+                                   : ($fs >= 1048576 ? number_format($fs/1048576,1).' MB'
+                                   : number_format($fs/1024,1).' KB');
+                            @endphp
+                        @else —
+                        @endif
+                    </span>
                 </td>
-                <td class="text-end" style="padding:.5rem .4rem;vertical-align:middle">
+                <td style="padding:.45rem .4rem;vertical-align:middle;white-space:nowrap">
+                    <span style="font-size:.74rem;color:#475569">{{ $scan->created_at->format('d M Y') }}</span>
+                    <div style="font-size:.67rem;color:#94a3b8">{{ $scan->created_at->format('H:i') }}</div>
+                </td>
+                <td style="padding:.45rem .4rem;vertical-align:middle;color:#475569;font-size:.76rem;white-space:nowrap">
+                    {{ Str::limit($scan->creator?->name ?? '—', 16) }}
+                </td>
+                <td class="text-end" style="padding:.45rem .4rem;vertical-align:middle">
                     @if($scan->isCompleted())
-                    <span style="font-weight:700;color:#0f172a">{{ number_format($scan->finding_count) }}</span>
-                    <div style="font-size:.68rem;color:#94a3b8">{{ $scan->host_count }} host{{ $scan->host_count !== 1 ? 's' : '' }}</div>
-                    @else — @endif
-                </td>
-                <td class="text-end" style="padding:.5rem .4rem;vertical-align:middle">
-                    @if($scan->isCompleted())
-                    <span style="background:#d1fae5;color:#065f46;padding:.1rem .5rem;border-radius:20px;font-size:.67rem;font-weight:700">Done</span>
+                    <span style="background:#d1fae5;color:#065f46;padding:.1rem .5rem;border-radius:20px;font-size:.66rem;font-weight:700">
+                        <i class="bi bi-check-circle-fill me-1"></i>{{ number_format($scan->finding_count) }} findings
+                    </span>
+                    <div style="font-size:.67rem;color:#94a3b8;margin-top:.1rem">{{ $scan->host_count }} host{{ $scan->host_count !== 1 ? 's' : '' }}</div>
                     @elseif($scan->isFailed())
-                    <span style="background:#fee2e2;color:#991b1b;padding:.1rem .5rem;border-radius:20px;font-size:.67rem;font-weight:700"
-                          title="{{ $scan->upload_error }}">Failed</span>
+                    <span style="background:#fee2e2;color:#991b1b;padding:.1rem .5rem;border-radius:20px;font-size:.66rem;font-weight:700"
+                          title="{{ $scan->upload_error }}">
+                        <i class="bi bi-x-circle-fill me-1"></i>Failed
+                    </span>
+                    @if($scan->upload_error)
+                    <div style="font-size:.67rem;color:#ef4444;margin-top:.1rem;max-width:140px;white-space:normal">{{ Str::limit($scan->upload_error, 60) }}</div>
+                    @endif
                     @else
-                    <span style="background:#fef3c7;color:#92400e;padding:.1rem .5rem;border-radius:20px;font-size:.67rem;font-weight:700">Processing</span>
+                    <span style="background:#fef3c7;color:#92400e;padding:.1rem .5rem;border-radius:20px;font-size:.66rem;font-weight:700">
+                        <i class="bi bi-gear-fill me-1"></i>Processing
+                    </span>
                     @endif
                 </td>
-                <td style="padding:.5rem 0;vertical-align:middle;text-align:right">
+                <td style="padding:.45rem 0;vertical-align:middle;text-align:right">
                     <form method="POST"
                           action="{{ route('vuln-assessments.scans.destroy', [$assessment, $scan]) }}"
                           onsubmit="return confirm('Delete this verification scan?\n\nThis removes all {{ number_format($scan->finding_count) }} findings and cannot be undone.')">

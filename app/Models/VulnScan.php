@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class VulnScan extends Model
 {
     protected $fillable = [
-        'assessment_id', 'filename', 'scan_name', 'scan_date',
+        'assessment_id', 'filename', 'file_size', 'scan_name', 'scan_date',
         'is_baseline', 'is_verification', 'finding_count', 'host_count',
         'notes', 'created_by', 'upload_status', 'upload_error', 'file_path',
     ];

@@ -1482,14 +1482,15 @@ class VulnAssessmentController extends Controller
         $path = $file->store('scan-uploads', 'local');
 
         $scan = VulnScan::create([
-            'assessment_id'  => $assessment->id,
-            'filename'       => $filename,
-            'is_baseline'    => $isBaseline,
+            'assessment_id'   => $assessment->id,
+            'filename'        => $filename,
+            'file_size'       => $file->getSize(),
+            'is_baseline'     => $isBaseline,
             'is_verification' => $request->boolean('is_verification'),
-            'notes'          => $request->notes,
-            'created_by'     => Auth::id(),
-            'upload_status'  => 'pending',
-            'file_path'      => $path,
+            'notes'           => $request->notes,
+            'created_by'      => Auth::id(),
+            'upload_status'   => 'pending',
+            'file_path'       => $path,
         ]);
 
         try {
@@ -1601,14 +1602,15 @@ class VulnAssessmentController extends Controller
             ->count() === 0;
 
         $scan = VulnScan::create([
-            'assessment_id'  => $assessment->id,
-            'filename'       => $filename,
-            'is_baseline'    => $isBaseline,
+            'assessment_id'   => $assessment->id,
+            'filename'        => $filename,
+            'file_size'       => filesize($fullPath),
+            'is_baseline'     => $isBaseline,
             'is_verification' => (bool) $request->input('is_verification'),
-            'notes'          => $request->input('notes'),
-            'created_by'     => Auth::id(),
-            'upload_status'  => 'pending',
-            'file_path'      => $finalPath,
+            'notes'           => $request->input('notes'),
+            'created_by'      => Auth::id(),
+            'upload_status'   => 'pending',
+            'file_path'       => $finalPath,
         ]);
 
         try {
