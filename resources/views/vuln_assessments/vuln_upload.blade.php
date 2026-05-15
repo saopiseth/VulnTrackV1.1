@@ -163,17 +163,28 @@
     </div>
 
     {{-- Drop zone --}}
-    <div id="init-dropzone"
-         style="border:2px dashed #93c5fd;border-radius:10px;padding:1.1rem 1rem;
-                text-align:center;cursor:pointer;background:#f0f7ff;
-                transition:background .15s,border-color .15s"
-         onclick="document.getElementById('init-file-input').click()">
-        <i class="bi bi-file-earmark-bar-graph"
-           style="font-size:1.5rem;color:#3b82f6;display:block;margin-bottom:.3rem"></i>
-        <div style="font-size:.82rem;font-weight:600;color:#1e40af">Drop .nessus files here or click to browse</div>
-        <div style="font-size:.71rem;color:#94a3b8;margin-top:.15rem">Multiple files · max 1 GB each · .nessus .xml .csv</div>
-        <input type="file" id="init-file-input" accept=".xml,.nessus,.csv" multiple style="display:none">
-    </div>
+    <label id="init-dropzone" for="init-file-input"
+           style="display:block;border:2px dashed #93c5fd;border-radius:10px;
+                  padding:1.4rem 1rem 1.1rem;text-align:center;cursor:pointer;
+                  background:#f0f7ff;transition:background .15s,border-color .15s;
+                  user-select:none">
+        <i class="bi bi-cloud-arrow-up"
+           style="font-size:2rem;color:#3b82f6;display:block;margin-bottom:.4rem"></i>
+        <div style="font-size:.85rem;font-weight:700;color:#1e40af;margin-bottom:.5rem">
+            Drag &amp; drop files here
+        </div>
+        <span style="display:inline-flex;align-items:center;gap:.4rem;
+                     background:#2563eb;color:#fff;border:none;border-radius:8px;
+                     padding:.38rem .9rem;font-size:.8rem;font-weight:600;cursor:pointer;
+                     box-shadow:0 1px 4px rgba(37,99,235,.3)">
+            <i class="bi bi-folder2-open"></i> Browse Files…
+        </span>
+        <div style="font-size:.7rem;color:#94a3b8;margin-top:.5rem">
+            Multiple files supported · .nessus &nbsp;.xml &nbsp;.csv · max 1 GB each
+        </div>
+        <input type="file" id="init-file-input" accept=".xml,.nessus,.csv" multiple
+               style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+    </label>
 
     {{-- File queue --}}
     <div id="init-file-list" style="display:none;margin-top:.7rem">
@@ -358,17 +369,28 @@
     @else
 
     {{-- Drop zone --}}
-    <div id="verif-dropzone"
-         style="border:2px dashed #4ade80;border-radius:10px;padding:1.1rem 1rem;
-                text-align:center;cursor:pointer;background:#f0fdf4;
-                transition:background .15s,border-color .15s"
-         onclick="document.getElementById('verif-file-input').click()">
-        <i class="bi bi-file-earmark-check"
-           style="font-size:1.5rem;color:#16a34a;display:block;margin-bottom:.3rem"></i>
-        <div style="font-size:.82rem;font-weight:600;color:#065f46">Drop .nessus files here or click to browse</div>
-        <div style="font-size:.71rem;color:#94a3b8;margin-top:.15rem">Multiple files · max 1 GB each · .nessus .xml .csv</div>
-        <input type="file" id="verif-file-input" accept=".xml,.nessus,.csv" multiple style="display:none">
-    </div>
+    <label id="verif-dropzone" for="verif-file-input"
+           style="display:block;border:2px dashed #4ade80;border-radius:10px;
+                  padding:1.4rem 1rem 1.1rem;text-align:center;cursor:pointer;
+                  background:#f0fdf4;transition:background .15s,border-color .15s;
+                  user-select:none">
+        <i class="bi bi-cloud-arrow-up"
+           style="font-size:2rem;color:#16a34a;display:block;margin-bottom:.4rem"></i>
+        <div style="font-size:.85rem;font-weight:700;color:#065f46;margin-bottom:.5rem">
+            Drag &amp; drop files here
+        </div>
+        <span style="display:inline-flex;align-items:center;gap:.4rem;
+                     background:#16a34a;color:#fff;border:none;border-radius:8px;
+                     padding:.38rem .9rem;font-size:.8rem;font-weight:600;cursor:pointer;
+                     box-shadow:0 1px 4px rgba(22,163,74,.3)">
+            <i class="bi bi-folder2-open"></i> Browse Files…
+        </span>
+        <div style="font-size:.7rem;color:#94a3b8;margin-top:.5rem">
+            Multiple files supported · .nessus &nbsp;.xml &nbsp;.csv · max 1 GB each
+        </div>
+        <input type="file" id="verif-file-input" accept=".xml,.nessus,.csv" multiple
+               style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+    </label>
 
     {{-- File queue --}}
     <div id="verif-file-list" style="display:none;margin-top:.7rem">
