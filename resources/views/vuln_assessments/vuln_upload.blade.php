@@ -430,38 +430,52 @@
         return m ? decodeURIComponent(m[1]) : CSRF;
     }
 
+    async function refreshCsrf() {
+        try { await fetch(window.location.href, { method: 'GET', credentials: 'same-origin' }); } catch (_) {}
+    }
+
     function fmt(bytes) {
         return bytes < 1048576 ? (bytes/1024).toFixed(1)+' KB' : (bytes/1048576).toFixed(1)+' MB';
     }
 
     function uploadRegular(file, meta, onProgress) {
         return new Promise(function (resolve, reject) {
-            const fd = new FormData();
-            fd.append('scan_file',       file);
-            fd.append('notes',           meta.remarks);
-            fd.append('is_verification', meta.isVerif ? '1' : '0');
+            var retried = false;
+            function attempt() {
+                const fd = new FormData();
+                fd.append('scan_file',       file);
+                fd.append('notes',           meta.remarks);
+                fd.append('is_verification', meta.isVerif ? '1' : '0');
 
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', UPLOAD_URL);
-            xhr.setRequestHeader('X-CSRF-TOKEN', getCsrf());
-            xhr.setRequestHeader('Accept', 'application/json');
-            xhr.upload.addEventListener('progress', function (e) {
-                if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 85));
-            });
-            xhr.onload = function () {
-                const res = (() => { try { return JSON.parse(xhr.responseText); } catch (_) { return {}; } })();
-                if (xhr.status === 200) {
-                    resolve({ scanId: res.scan_id });
-                } else if (xhr.status === 422) {
-                    const msg = res.errors?.scan_file?.[0] || res.errors?.scan_file || res.message || '';
-                    if (String(msg).includes('already been uploaded')) resolve({ skipped: true });
-                    else reject(msg || 'Validation failed.');
-                } else {
-                    reject(res.errors?.scan_file?.[0] || res.message || 'Upload failed (HTTP '+xhr.status+').');
-                }
-            };
-            xhr.onerror = function () { reject('Network error — check connection and try again.'); };
-            xhr.send(fd);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', UPLOAD_URL);
+                xhr.setRequestHeader('X-CSRF-TOKEN', getCsrf());
+                xhr.setRequestHeader('Accept', 'application/json');
+                xhr.upload.addEventListener('progress', function (e) {
+                    if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 85));
+                });
+                xhr.onload = async function () {
+                    const res = (() => { try { return JSON.parse(xhr.responseText); } catch (_) { return {}; } })();
+                    if (xhr.status === 200) {
+                        resolve({ scanId: res.scan_id });
+                    } else if (xhr.status === 419 && !retried) {
+                        retried = true;
+                        await refreshCsrf();
+                        attempt();
+                    } else if (xhr.status === 419) {
+                        reject('Session expired — please refresh the page and try again.');
+                    } else if (xhr.status === 422) {
+                        const msg = res.errors?.scan_file?.[0] || res.errors?.scan_file || res.message || '';
+                        if (String(msg).includes('already been uploaded')) resolve({ skipped: true });
+                        else reject(msg || 'Validation failed.');
+                    } else {
+                        reject(res.errors?.scan_file?.[0] || res.message || 'Upload failed (HTTP '+xhr.status+').');
+                    }
+                };
+                xhr.onerror = function () { reject('Network error — check connection and try again.'); };
+                xhr.send(fd);
+            }
+            attempt();
         });
     }
 
@@ -490,7 +504,7 @@
                 body: fd,
             });
             if (resp.status === 419) {
-                await new Promise(function(r) { setTimeout(r, 300); });
+                await refreshCsrf();
                 resp = await fetch(CHUNK_URL, {
                     method: 'POST',
                     headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
