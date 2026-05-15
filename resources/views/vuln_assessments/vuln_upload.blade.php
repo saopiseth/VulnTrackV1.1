@@ -166,9 +166,10 @@
              onclick="document.getElementById('init-file-input').click()">
             <i class="bi bi-file-earmark-bar-graph"
                style="font-size:1.5rem;color:#3b82f6;display:block;margin-bottom:.35rem"></i>
-            <div style="font-size:.82rem;font-weight:600;color:#1e40af">Drop .nessus file here or click to browse</div>
+            <div style="font-size:.82rem;font-weight:600;color:#1e40af">Drop .nessus files here or click to browse</div>
+            <div style="font-size:.72rem;color:#94a3b8;margin-top:.1rem">Multiple files supported · max 1 GB each</div>
             <div id="init-file-name" style="font-size:.74rem;color:#64748b;margin-top:.2rem">No file selected</div>
-            <input type="file" id="init-file-input" accept=".xml,.nessus,.csv" style="display:none">
+            <input type="file" id="init-file-input" accept=".xml,.nessus,.csv" multiple style="display:none">
         </div>
 
         <div class="mb-2">
@@ -313,9 +314,10 @@
              onclick="document.getElementById('verif-file-input').click()">
             <i class="bi bi-file-earmark-check"
                style="font-size:1.5rem;color:#16a34a;display:block;margin-bottom:.35rem"></i>
-            <div style="font-size:.82rem;font-weight:600;color:#065f46">Drop .nessus file here or click to browse</div>
+            <div style="font-size:.82rem;font-weight:600;color:#065f46">Drop .nessus files here or click to browse</div>
+            <div style="font-size:.72rem;color:#94a3b8;margin-top:.1rem">Multiple files supported · max 1 GB each</div>
             <div id="verif-file-name" style="font-size:.74rem;color:#64748b;margin-top:.2rem">No file selected</div>
-            <input type="file" id="verif-file-input" accept=".xml,.nessus,.csv" style="display:none">
+            <input type="file" id="verif-file-input" accept=".xml,.nessus,.csv" multiple style="display:none">
         </div>
 
         <div class="mb-2">
@@ -422,7 +424,7 @@
 <script nonce="{{ csp_nonce() }}">
 (function () {
     const CHUNK_SIZE    = 5 * 1024 * 1024;
-    const MAX_FILE_SIZE = 250 * 1024 * 1024;
+    const MAX_FILE_SIZE = 1024 * 1024 * 1024;
     const POLL_INTERVAL = 2500;
     const POLL_TIMEOUT  = 10 * 60 * 1000;
     const UPLOAD_URL    = '{{ route('vuln-assessments.upload', $assessment) }}';
@@ -444,6 +446,7 @@
     }
 
     function fmt(bytes) {
+        if (bytes >= 1073741824) return (bytes/1073741824).toFixed(2)+' GB';
         return bytes < 1048576 ? (bytes/1024).toFixed(1)+' KB' : (bytes/1048576).toFixed(1)+' MB';
     }
 
@@ -588,14 +591,21 @@
         });
 
         fileInput.addEventListener('change', function () {
-            const f = fileInput.files[0];
-            if (!f) { fileNameEl.textContent = 'No file selected'; return; }
-            if (f.size > MAX_FILE_SIZE) {
-                showAlert('danger', '"' + f.name + '" exceeds the 250 MB limit.');
+            const files = Array.from(fileInput.files);
+            if (!files.length) { fileNameEl.textContent = 'No file selected'; return; }
+            const oversized = files.filter(function(f) { return f.size > MAX_FILE_SIZE; });
+            if (oversized.length) {
+                showAlert('danger', oversized.map(function(f) { return '"' + f.name + '" exceeds the 1 GB limit.'; }).join('<br>'));
                 fileInput.value = '';
+                fileNameEl.textContent = 'No file selected';
                 return;
             }
-            fileNameEl.textContent = f.name + ' (' + fmt(f.size) + ')';
+            if (files.length === 1) {
+                fileNameEl.textContent = files[0].name + ' (' + fmt(files[0].size) + ')';
+            } else {
+                const total = files.reduce(function(a, f) { return a + f.size; }, 0);
+                fileNameEl.textContent = files.length + ' files selected (' + fmt(total) + ' total)';
+            }
             fileNameEl.style.color = cfg.accentColor;
             hideAlert();
         });
@@ -620,51 +630,65 @@
         function hideAlert() { alertEl.style.display = 'none'; }
 
         btn.addEventListener('click', async function () {
-            const file = fileInput.files[0];
-            if (!file) { showAlert('danger', 'Please select a file first.'); return; }
-
-            const meta = {
-                remarks: remarksInput ? remarksInput.value.trim() : '',
-                isVerif: cfg.isVerif,
-            };
+            const files = Array.from(fileInput.files);
+            if (!files.length) { showAlert('danger', 'Please select a file first.'); return; }
 
             btn.disabled  = true;
             btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Uploading…';
             hideAlert();
-            setProgress(0, 'Uploading…');
 
-            try {
-                const result = file.size > CHUNK_SIZE
-                    ? await uploadChunked(file, meta, function(pct) { setProgress(pct, 'Uploading… ' + pct + '%'); })
-                    : await uploadRegular(file,  meta, function(pct) { setProgress(pct, 'Uploading… ' + pct + '%'); });
+            const total   = files.length;
+            const results = { ok: 0, skipped: 0, failed: [] };
 
-                if (result.skipped) {
-                    setProgress(100, 'Already uploaded');
-                    showAlert('danger', 'This file was already uploaded to this assessment.');
-                    btn.disabled  = false;
-                    btn.innerHTML = cfg.btnLabel;
-                    return;
+            for (let fi = 0; fi < total; fi++) {
+                const file      = files[fi];
+                const meta      = { remarks: remarksInput ? remarksInput.value.trim() : '', isVerif: cfg.isVerif };
+                const fileLabel = total > 1 ? 'File ' + (fi+1) + '/' + total + ': ' : '';
+
+                setProgress(0, fileLabel + 'Uploading…');
+
+                try {
+                    const result = file.size > CHUNK_SIZE
+                        ? await uploadChunked(file, meta, function(pct) { setProgress(pct, fileLabel + 'Uploading… ' + pct + '%'); })
+                        : await uploadRegular(file,  meta, function(pct) { setProgress(pct, fileLabel + 'Uploading… ' + pct + '%'); });
+
+                    if (result.skipped) {
+                        results.skipped++;
+                        continue;
+                    }
+
+                    setProgress(90, fileLabel + 'Processing…');
+                    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Processing…';
+
+                    const status = await pollScan(result.scanId, Date.now() + POLL_TIMEOUT);
+                    if (status === 'completed') {
+                        setProgress(100, fileLabel + 'Done!');
+                        results.ok++;
+                    } else if (status === 'timeout') {
+                        setProgress(100, fileLabel + 'Queued');
+                        results.ok++;
+                    } else {
+                        results.failed.push('"' + file.name + '": processing failed — check scan list for details.');
+                    }
+                } catch (err) {
+                    results.failed.push('"' + file.name + '": ' + String(err));
                 }
+            }
 
-                setProgress(90, 'Processing…');
-                btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Processing…';
-
-                const status = await pollScan(result.scanId, Date.now() + POLL_TIMEOUT);
-                if (status === 'completed') {
-                    setProgress(100, 'Done!');
-                    showAlert('success', 'Scan imported successfully. Refreshing…');
+            if (results.failed.length === 0) {
+                const parts = [];
+                if (results.ok > 0)      parts.push(results.ok + ' scan' + (results.ok > 1 ? 's' : '') + ' imported successfully.');
+                if (results.skipped > 0) parts.push(results.skipped + ' already uploaded (skipped).');
+                showAlert('success', parts.join(' ') + (results.ok > 0 ? ' Refreshing…' : ''));
+                if (results.ok > 0) {
                     setTimeout(function () { window.location.href = REDIRECT; }, 900);
-                } else if (status === 'timeout') {
-                    setProgress(100, 'Queued');
-                    showAlert('success', 'Upload received — still processing. Refresh shortly.');
+                } else {
                     btn.disabled  = false;
                     btn.innerHTML = cfg.btnLabel;
-                } else {
-                    throw 'Server-side processing failed. Check the scan list for error details.';
                 }
-            } catch (err) {
+            } else {
                 progressWrap.style.display = 'none';
-                showAlert('danger', String(err));
+                showAlert('danger', results.failed.join('<br>'));
                 btn.disabled  = false;
                 btn.innerHTML = cfg.btnLabel;
             }

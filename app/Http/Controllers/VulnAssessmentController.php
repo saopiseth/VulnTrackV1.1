@@ -1446,7 +1446,7 @@ class VulnAssessmentController extends Controller
         $this->authorize('manage', $vulnAssessment);
 
         $request->validate([
-            'scan_file'       => ['required', 'file', 'max:256000'],
+            'scan_file'       => ['required', 'file', 'max:1048576'],
             'notes'           => ['nullable', 'string', 'max:1000'],
             'is_verification' => ['nullable', 'boolean'],
         ]);
@@ -1531,7 +1531,7 @@ class VulnAssessmentController extends Controller
         $request->validate([
             'upload_id'    => ['required', 'string', 'regex:/^[a-f0-9\-]{36}$/i'],
             'chunk_index'  => ['required', 'integer', 'min:0'],
-            'total_chunks' => ['required', 'integer', 'min:1', 'max:55'],
+            'total_chunks' => ['required', 'integer', 'min:1', 'max:210'],
             'filename'     => ['required', 'string', 'max:255'],
             'notes'        => ['nullable', 'string', 'max:1000'],
             'chunk'        => ['required', 'file'],
