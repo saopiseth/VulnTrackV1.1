@@ -477,7 +477,8 @@
                     } else if (xhr.status === 419 || xhr.status === 401) {
                         reject(`Session expired. Please <a href="{{ route('login') }}" style="color:inherit;font-weight:700">log in again</a> and retry.`);
                     } else if (xhr.status === 422) {
-                        const msg = res.errors?.scan_file?.[0] || res.errors?.scan_file || res.message || '';
+                        const sf  = res.errors?.scan_file;
+                        const msg = (Array.isArray(sf) ? sf[0] : sf) || res.message || '';
                         if (String(msg).includes('already been uploaded')) resolve({ skipped: true });
                         else reject(msg || 'Validation failed.');
                     } else {
