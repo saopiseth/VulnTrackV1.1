@@ -1444,8 +1444,6 @@ class VulnAssessmentController extends Controller
 
         $request->validate([
             'scan_file'       => ['required', 'file', 'max:256000'],
-            'scan_name'       => ['nullable', 'string', 'max:255'],
-            'scan_date'       => ['nullable', 'date'],
             'notes'           => ['nullable', 'string', 'max:1000'],
             'is_verification' => ['nullable', 'boolean'],
         ]);
@@ -1483,8 +1481,6 @@ class VulnAssessmentController extends Controller
         $scan = VulnScan::create([
             'assessment_id'  => $assessment->id,
             'filename'       => $filename,
-            'scan_name'      => $request->input('scan_name'),
-            'scan_date'      => $request->input('scan_date'),
             'is_baseline'    => $isBaseline,
             'is_verification' => $request->boolean('is_verification'),
             'notes'          => $request->notes,
@@ -1534,8 +1530,6 @@ class VulnAssessmentController extends Controller
             'chunk_index'  => ['required', 'integer', 'min:0'],
             'total_chunks' => ['required', 'integer', 'min:1', 'max:55'],
             'filename'     => ['required', 'string', 'max:255'],
-            'scan_name'    => ['nullable', 'string', 'max:255'],
-            'scan_date'    => ['nullable', 'date'],
             'notes'        => ['nullable', 'string', 'max:1000'],
             'chunk'        => ['required', 'file'],
             'is_verification' => ['nullable', 'boolean'],
@@ -1596,8 +1590,6 @@ class VulnAssessmentController extends Controller
         $scan = VulnScan::create([
             'assessment_id'  => $assessment->id,
             'filename'       => $filename,
-            'scan_name'      => $request->input('scan_name'),
-            'scan_date'      => $request->input('scan_date'),
             'is_baseline'    => $isBaseline,
             'is_verification' => (bool) $request->input('is_verification'),
             'notes'          => $request->input('notes'),

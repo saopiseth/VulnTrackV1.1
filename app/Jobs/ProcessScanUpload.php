@@ -49,9 +49,11 @@ class ProcessScanUpload implements ShouldQueue
                     $inserted += $this->persistParsedRows($rows, $assessment, $scan, $now);
                 };
 
-                $hostOsMap = in_array($this->fileExtension, ['xml', 'nessus'])
+                $parseResult = in_array($this->fileExtension, ['xml', 'nessus'])
                     ? $this->parseXml($fullPath, $flushRows)
                     : $this->parseCsv($fullPath, $flushRows);
+
+                $hostOsMap = $parseResult['hostOsMap'];
 
                 $hostCount = VulnFinding::where('scan_id', $scan->id)
                     ->distinct('ip_address')
@@ -60,6 +62,8 @@ class ProcessScanUpload implements ShouldQueue
                 $scan->update([
                     'finding_count' => $inserted,
                     'host_count'    => $hostCount,
+                    'scan_name'     => $parseResult['scanName'] ?: null,
+                    'scan_date'     => $parseResult['scanDate'] ?: null,
                 ]);
 
                 // ── Upsert vuln_host_os per IP ────────────────────────────────
@@ -270,8 +274,15 @@ class ProcessScanUpload implements ShouldQueue
         $seen      = [];
         $hostOsMap = [];
         $batchSize = 50;
+        $scanName  = '';
+        $minDate   = null;
 
         while ($reader->read()) {
+            // Capture the scan name from the Report element's name attribute.
+            if ($reader->nodeType === \XMLReader::ELEMENT && $reader->name === 'Report') {
+                $scanName = (string) ($reader->getAttribute('name') ?? '');
+            }
+
             if ($reader->nodeType !== \XMLReader::ELEMENT || $reader->name !== 'ReportHost') {
                 continue;
             }
@@ -287,6 +298,9 @@ class ProcessScanUpload implements ShouldQueue
             $hostname = (string) ($host->HostProperties->xpath('tag[@name="hostname"]')[0] ?? '');
             $tsRaw    = (string) ($host->HostProperties->xpath('tag[@name="HOST_START"]')[0] ?? '');
             $ts       = $tsRaw ? date('Y-m-d H:i:s', strtotime($tsRaw)) : null;
+            if ($ts && ($minDate === null || $ts < $minDate)) {
+                $minDate = $ts;
+            }
 
             $reportItems = iterator_to_array($host->ReportItem ?? []);
             $osResult    = OsDetector::detectFromXml($host->HostProperties, $reportItems);
@@ -370,18 +384,23 @@ class ProcessScanUpload implements ShouldQueue
             $flushRows($rows);
         }
 
-        return $hostOsMap;
+        return [
+            'hostOsMap' => $hostOsMap,
+            'scanName'  => $scanName,
+            'scanDate'  => $minDate ? date('Y-m-d', strtotime($minDate)) : null,
+        ];
     }
 
     // ── CSV parser (streaming via fgetcsv — unchanged from original) ──────────
     private function parseCsv(string $path, callable $flushRows): array
     {
-        $handle  = fopen($path, 'r');
-        $headers = array_map(fn($h) => strtolower(trim($h)), fgetcsv($handle) ?: []);
-        $rows      = [];
-        $seen      = [];
-        $hostOsMap = [];
-        $batchSize = 100;
+        $handle     = fopen($path, 'r');
+        $headers    = array_map(fn($h) => strtolower(trim($h)), fgetcsv($handle) ?: []);
+        $rows       = [];
+        $seen       = [];
+        $hostOsMap  = [];
+        $batchSize  = 100;
+        $csvMinDate = null;
 
         $col = function (array $row, array $keys) use ($headers): string {
             foreach ($keys as $k) {
@@ -450,6 +469,17 @@ class ProcessScanUpload implements ShouldQueue
                 $vulnName, $desc, $osDetected, $portVal, $protoVal, $output, $cveVal
             );
 
+            $rawDate = $col($line, ['first seen', 'first_seen', 'scan date', 'scan_date', 'date']);
+            if ($rawDate) {
+                $parsed = strtotime($rawDate);
+                if ($parsed !== false) {
+                    $dateStr = date('Y-m-d', $parsed);
+                    if ($csvMinDate === null || $dateStr < $csvMinDate) {
+                        $csvMinDate = $dateStr;
+                    }
+                }
+            }
+
             $rows[] = [
                 'ip_address'         => $ip,
                 'hostname'           => $hostname,
@@ -485,6 +515,10 @@ class ProcessScanUpload implements ShouldQueue
             $flushRows($rows);
         }
 
-        return $hostOsMap;
+        return [
+            'hostOsMap' => $hostOsMap,
+            'scanName'  => null,
+            'scanDate'  => $csvMinDate,
+        ];
     }
 }

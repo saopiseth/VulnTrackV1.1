@@ -152,19 +152,6 @@
 
     {{-- Form --}}
     <div id="init-form-wrap">
-        <div class="row g-2 mb-2">
-            <div class="col-7">
-                <label style="font-size:.77rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Scan Name</label>
-                <input type="text" id="init-scan-name" class="form-control form-control-sm"
-                       placeholder="e.g. Q1 2025 Baseline"
-                       style="border-radius:8px;border-color:#bfdbfe;font-size:.83rem">
-            </div>
-            <div class="col-5">
-                <label style="font-size:.77rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Scan Date</label>
-                <input type="date" id="init-scan-date" class="form-control form-control-sm"
-                       style="border-radius:8px;border-color:#bfdbfe;font-size:.83rem">
-            </div>
-        </div>
 
         <div id="init-dropzone"
              style="border:2px dashed #93c5fd;border-radius:10px;padding:1.2rem;
@@ -319,19 +306,6 @@
     </div>
     @else
     <div id="verif-form-wrap">
-        <div class="row g-2 mb-2">
-            <div class="col-7">
-                <label style="font-size:.77rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Verification Name</label>
-                <input type="text" id="verif-scan-name" class="form-control form-control-sm"
-                       placeholder="e.g. Q2 2025 Retest"
-                       style="border-radius:8px;border-color:#86efac;font-size:.83rem">
-            </div>
-            <div class="col-5">
-                <label style="font-size:.77rem;font-weight:600;color:#374151;display:block;margin-bottom:.3rem">Verification Date</label>
-                <input type="date" id="verif-scan-date" class="form-control form-control-sm"
-                       style="border-radius:8px;border-color:#86efac;font-size:.83rem">
-            </div>
-        </div>
 
         <div id="verif-dropzone"
              style="border:2px dashed #4ade80;border-radius:10px;padding:1.2rem;
@@ -478,8 +452,6 @@
         return new Promise(function (resolve, reject) {
             const fd = new FormData();
             fd.append('scan_file',       file);
-            fd.append('scan_name',       meta.scanName);
-            fd.append('scan_date',       meta.scanDate);
             fd.append('notes',           meta.remarks);
             fd.append('is_verification', meta.isVerif ? '1' : '0');
 
@@ -519,8 +491,6 @@
             fd.append('chunk_index',     i);
             fd.append('total_chunks',    total);
             fd.append('filename',        file.name);
-            fd.append('scan_name',       meta.scanName);
-            fd.append('scan_date',       meta.scanDate);
             fd.append('notes',           meta.remarks);
             fd.append('is_verification', meta.isVerif ? '1' : '0');
             fd.append('chunk',           file.slice(i*CHUNK_SIZE, (i+1)*CHUNK_SIZE), file.name);
@@ -577,8 +547,6 @@
 
     function makeCard(cfg) {
         const fileInput    = document.getElementById(cfg.fileInput);
-        const nameInput    = document.getElementById(cfg.nameInput);
-        const dateInput    = document.getElementById(cfg.dateInput);
         const remarksInput = document.getElementById(cfg.remarksInput);
         const fileNameEl   = document.getElementById(cfg.fileNameEl);
         const dropzone     = document.getElementById(cfg.dropzone);
@@ -647,10 +615,8 @@
             if (!file) { showAlert('danger', 'Please select a file first.'); return; }
 
             const meta = {
-                scanName: nameInput  ? nameInput.value.trim()  : '',
-                scanDate: dateInput  ? dateInput.value         : '',
-                remarks:  remarksInput ? remarksInput.value.trim() : '',
-                isVerif:  cfg.isVerif,
+                remarks: remarksInput ? remarksInput.value.trim() : '',
+                isVerif: cfg.isVerif,
             };
 
             btn.disabled  = true;
@@ -698,8 +664,6 @@
 
     makeCard({
         fileInput:    'init-file-input',
-        nameInput:    'init-scan-name',
-        dateInput:    'init-scan-date',
         remarksInput: 'init-remarks',
         fileNameEl:   'init-file-name',
         dropzone:     'init-dropzone',
@@ -717,8 +681,6 @@
 
     makeCard({
         fileInput:    'verif-file-input',
-        nameInput:    'verif-scan-name',
-        dateInput:    'verif-scan-date',
         remarksInput: 'verif-remarks',
         fileNameEl:   'verif-file-name',
         dropzone:     'verif-dropzone',
