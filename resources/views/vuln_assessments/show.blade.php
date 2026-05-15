@@ -654,6 +654,16 @@
     const REDIRECT      = '{{ route('vuln-assessments.show', $assessment) }}';
     const CSRF          = document.querySelector('meta[name="csrf-token"]').content;
 
+    // Always return the freshest available CSRF token.
+    // Laravel sets the XSRF-TOKEN cookie (plain token, readable by JS) on every
+    // successful response, so it stays in sync with the current session even if
+    // the page has been open for a while. Falls back to the meta-tag value when
+    // the cookie is absent (e.g. on the very first page load with no prior response).
+    function getCsrf() {
+        var m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : CSRF;
+    }
+
     const fileInput  = document.getElementById('scan-file-input');
     const notesInput = document.getElementById('upload-notes');
     const verifInput = document.getElementById('upload-verification');
@@ -741,7 +751,7 @@
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', UPLOAD_URL);
-            xhr.setRequestHeader('X-CSRF-TOKEN', CSRF);
+            xhr.setRequestHeader('X-CSRF-TOKEN', getCsrf());
             xhr.setRequestHeader('Accept', 'application/json');
 
             xhr.upload.addEventListener('progress', function (e) {
@@ -788,15 +798,31 @@
 
             onProgress(Math.round(((i + 0.5) / total) * 85));
 
-            const resp = await fetch(CHUNK_URL, {
+            // Send chunk — retry once on 419 (stale CSRF token).
+            // getCsrf() reads the XSRF-TOKEN cookie that Laravel refreshed on the
+            // previous response, so the retry almost always succeeds.
+            var resp = await fetch(CHUNK_URL, {
                 method: 'POST',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+                credentials: 'same-origin',
                 body: fd,
             });
+            if (resp.status === 419) {
+                await new Promise(function(r) { setTimeout(r, 300); });
+                resp = await fetch(CHUNK_URL, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+                    credentials: 'same-origin',
+                    body: fd,
+                });
+            }
 
             let data = {};
             try { data = await resp.json(); } catch (_) {}
 
+            if (resp.status === 419) {
+                throw 'Session expired — please refresh the page and try again.';
+            }
             if (resp.status === 422) {
                 const msg = data.errors?.filename?.[0] || data.errors?.chunk?.[0] || data.message || '';
                 if (String(msg).includes('already been uploaded')) return { skipped: true };
