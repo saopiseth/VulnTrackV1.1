@@ -117,7 +117,7 @@ class VulnAssessmentController extends Controller
                     SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as low
                 ")->first();
 
-            // ALL IPs ever seen â€" no tracking_status filter so Resolved IPs stay visible.
+            // ALL IPs ever seen — no tracking_status filter so Resolved IPs stay visible.
             // Scope data loaded separately (no fan-out join).
             $openIn = implode("','", $openStatuses);
             $topIps = VulnTracked::where('assessment_id', $assessment->id)
@@ -157,7 +157,7 @@ class VulnAssessmentController extends Controller
             });
 
         } elseif ($assessment->scans->isNotEmpty()) {
-            // Fallback: no tracked data yet â€" aggregate across ALL uploaded scans
+            // Fallback: no tracked data yet — aggregate across ALL uploaded scans
             $allScanIds = $assessment->scans->pluck('id');
 
             $stats = VulnFinding::whereIn('scan_id', $allScanIds)
@@ -240,7 +240,7 @@ class VulnAssessmentController extends Controller
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->distinct('ip_address')->count('ip_address');
 
-        // Remediation progress â€" driven by vuln_tracked (scan-confirmed) + vuln_remediations (workflow)
+        // Remediation progress — driven by vuln_tracked (scan-confirmed) + vuln_remediations (workflow)
         $remStats = null;
         if ($hasTracked) {
             $openIn = implode("','", VulnTracked::openStatuses()); // 'New','Open','Unresolved','Reopened'
@@ -1757,7 +1757,7 @@ class VulnAssessmentController extends Controller
         $total = $updated + $skipped;
         $msg   = "Auto-classified {$updated} of {$total} findings.";
         if ($skipped > 0) {
-            $msg .= " {$skipped} could not be classified (marked 'Other') â€" review manually.";
+            $msg .= " {$skipped} could not be classified (marked 'Other') — review manually.";
         }
 
         return back()->with('success', $msg);
@@ -2008,7 +2008,7 @@ class VulnAssessmentController extends Controller
 
         return [
             'rpt_company'         => $get('report_company',         config('app.name', 'Security Assessment')),
-            'rpt_confidentiality' => $get('report_confidentiality', 'Confidential â€" Internal Use Only'),
+            'rpt_confidentiality' => $get('report_confidentiality', 'Confidential — Internal Use Only'),
             'rpt_prepared_by'     => $get('report_prepared_by',     'Vulnerability Management Team'),
             'rpt_tool'            => $get('report_tool',            'Tenable Nessus'),
             'rpt_footer'          => $get('report_footer_text',     ''),
