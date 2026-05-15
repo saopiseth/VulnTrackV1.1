@@ -1369,7 +1369,7 @@ class VulnAssessmentController extends Controller
                      ->where('vuln_remediations.assessment_id', '=', $assessment->id);
             })
             ->selectRaw(“COALESCE(vuln_remediations.status, 'Open') as rem_status, COUNT(*) as cnt”)
-            ->groupBy('rem_status')
+            ->groupBy('vuln_remediations.status')
             ->pluck('cnt', 'rem_status');
 
         // â”€â”€ Tracking status counts (scoped; drives filter-tab badges) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2360,7 +2360,7 @@ class VulnAssessmentController extends Controller
                          ->where('vr.assessment_id', '=', $assessment->id);
                 })
                 ->selectRaw(“COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt”)
-                ->groupBy('rem_status')
+                ->groupBy('vr.status')
                 ->pluck('cnt', 'rem_status');
 
             foreach ($remStatuses as $status) {
