@@ -72,6 +72,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments/{vulnAssessment}/KRI-Report/powerpoint',   [VulnAssessmentController::class, 'kriReportPowerPoint'])->name('vuln-assessments.kri-report.powerpoint');
     Route::get('/vuln-assessments/{vulnAssessment}/findings',               [VulnAssessmentController::class, 'findings'])->name('vuln-assessments.findings');
     Route::get('/vuln-assessments/{vulnAssessment}/progress',               [VulnAssessmentController::class, 'progress'])->name('vuln-assessments.progress');
+    Route::get('/vuln-assessments/{vulnAssessment}/vuln-upload',             [VulnAssessmentController::class, 'vulnUpload'])->name('vuln-assessments.vuln-upload');
     Route::post('/vuln-assessments/{vulnAssessment}/upload',                [VulnAssessmentController::class, 'uploadScan'])->middleware('throttle:upload')->name('vuln-assessments.upload');
     Route::get('/vuln-assessments/{vulnAssessment}/scan-status/{scan}',     [VulnAssessmentController::class, 'uploadStatus'])->name('vuln-assessments.upload.status');
     Route::post('/vuln-assessments/{vulnAssessment}/upload-chunk',          [VulnAssessmentController::class, 'uploadChunk'])->middleware('throttle:upload-chunk')->name('vuln-assessments.upload.chunk');

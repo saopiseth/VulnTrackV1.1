@@ -279,27 +279,10 @@ class VulnAssessmentController extends Controller
 
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
-        $initialScans      = $assessment->scans->where('is_verification', false)->values();
-        $verificationScans = $assessment->scans->where('is_verification', true)->values();
-
-        $trackingStats = null;
-        if ($hasTracked) {
-            $openIn = implode("','", VulnTracked::openStatuses());
-            $trackingStats = VulnTracked::where('assessment_id', $assessment->id)
-                ->selectRaw("
-                    COUNT(*) as total,
-                    SUM(CASE WHEN tracking_status IN ('$openIn') THEN 1 ELSE 0 END) as open_count,
-                    SUM(CASE WHEN tracking_status = 'Resolved'  THEN 1 ELSE 0 END) as resolved,
-                    SUM(CASE WHEN tracking_status = 'New'       THEN 1 ELSE 0 END) as new_count,
-                    SUM(CASE WHEN tracking_status = 'Reopened'  THEN 1 ELSE 0 END) as reopened
-                ")->first();
-        }
-
         return view('vuln_assessments.show', compact(
             'assessment', 'baseline', 'latestScan', 'activeScan',
             'stats', 'topIps', 'comparison', 'hostComparison', 'activeHostCount', 'remStats',
-            'osDistribution', 'osHostCount', 'scopeGroups',
-            'initialScans', 'verificationScans', 'trackingStats'
+            'osDistribution', 'osHostCount', 'scopeGroups'
         ));
     }
 
@@ -1426,6 +1409,32 @@ class VulnAssessmentController extends Controller
             'assessment', 'baseline', 'latestScan', 'findings', 'remediations',
             'trackingFilter', 'trackingCounts',
             'remStatusCounts', 'remStatusFilter', 'userGroups', 'slaPolicy', 'slaCounts'
+        ));
+    }
+
+    public function vulnUpload(VulnAssessment $vulnAssessment)
+    {
+        $assessment = $vulnAssessment->load('scans.creator');
+
+        $initialScans      = $assessment->scans->where('is_verification', false)->values();
+        $verificationScans = $assessment->scans->where('is_verification', true)->values();
+
+        $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
+        $trackingStats = null;
+        if ($hasTracked) {
+            $openIn = implode("','", VulnTracked::openStatuses());
+            $trackingStats = VulnTracked::where('assessment_id', $assessment->id)
+                ->selectRaw("
+                    COUNT(*) as total,
+                    SUM(CASE WHEN tracking_status IN ('$openIn') THEN 1 ELSE 0 END) as open_count,
+                    SUM(CASE WHEN tracking_status = 'Resolved'  THEN 1 ELSE 0 END) as resolved,
+                    SUM(CASE WHEN tracking_status = 'New'       THEN 1 ELSE 0 END) as new_count,
+                    SUM(CASE WHEN tracking_status = 'Reopened'  THEN 1 ELSE 0 END) as reopened
+                ")->first();
+        }
+
+        return view('vuln_assessments.vuln_upload', compact(
+            'assessment', 'initialScans', 'verificationScans', 'trackingStats'
         ));
     }
 
