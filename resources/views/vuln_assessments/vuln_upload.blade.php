@@ -466,7 +466,7 @@
                         await refreshCsrf();
                         attempt();
                     } else if (xhr.status === 419 || xhr.status === 401) {
-                        reject('Session expired. Please <a href="{{ route(\'login\') }}" style="color:inherit;font-weight:700">log in again</a> and retry.');
+                        reject(`Session expired. Please <a href="{{ route('login') }}" style="color:inherit;font-weight:700">log in again</a> and retry.`);
                     } else if (xhr.status === 422) {
                         const msg = res.errors?.scan_file?.[0] || res.errors?.scan_file || res.message || '';
                         if (String(msg).includes('already been uploaded')) resolve({ skipped: true });
@@ -519,7 +519,7 @@
             let data = {};
             try { data = await resp.json(); } catch (_) {}
 
-            if (resp.status === 419 || resp.status === 401) throw 'Session expired. Please <a href="{{ route('login') }}" style="color:inherit;font-weight:700">log in again</a> and retry.';
+            if (resp.status === 419 || resp.status === 401) throw `Session expired. Please <a href="{{ route('login') }}" style="color:inherit;font-weight:700">log in again</a> and retry.`;
             if (resp.status === 422) {
                 const msg = data.errors?.filename?.[0] || data.errors?.chunk?.[0] || data.message || '';
                 if (String(msg).includes('already been uploaded')) return { skipped: true };
