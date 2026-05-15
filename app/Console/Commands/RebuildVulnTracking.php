@@ -98,7 +98,7 @@ class RebuildVulnTracking extends Command
                 ->pluck('cnt', 'tracking_status');
 
             $this->line('   Status breakdown: ' .
-                collect(['Open', 'New', 'Unresolved', 'Reopened', 'Resolved'])
+                collect(VulnTracked::statuses())
                     ->map(fn($s) => "{$s}=" . ($counts[$s] ?? 0))
                     ->join('  ')
             );

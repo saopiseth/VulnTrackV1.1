@@ -25,22 +25,27 @@ class VulnTracked extends Model
         'tracking_status',
         'first_seen_at', 'last_seen_at', 'resolved_at',
         'first_scan_id', 'last_scan_id',
+        'reopen_count', 'verification_seen_count',
+        'is_false_negative', 'status_reason',
     ];
 
     protected $casts = [
-        'first_seen_at' => 'datetime',
-        'last_seen_at'  => 'datetime',
-        'resolved_at'   => 'datetime',
-        'cvss_score'    => 'float',
+        'first_seen_at'           => 'datetime',
+        'last_seen_at'            => 'datetime',
+        'resolved_at'             => 'datetime',
+        'cvss_score'              => 'float',
+        'reopen_count'            => 'integer',
+        'verification_seen_count' => 'integer',
+        'is_false_negative'       => 'boolean',
     ];
 
     // ── Status constants ──────────────────────────────────────────────────────
 
-    const STATUS_NEW        = 'New';
-    const STATUS_OPEN       = 'Open';        // baseline — first scan only
-    const STATUS_UNRESOLVED = 'Unresolved';  // confirmed present in a subsequent scan
-    const STATUS_REOPENED   = 'Reopened';    // was Resolved, reappeared
-    const STATUS_RESOLVED   = 'Resolved';
+    const STATUS_NEW        = 'New';        // appeared after the initial baseline scan
+    const STATUS_OPEN       = 'Open';       // present in baseline, actively tracked
+    const STATUS_REOPENED   = 'Reopened';   // was Resolved, reappeared
+    const STATUS_PERSISTENT = 'Persistent'; // Open across multiple verification scans
+    const STATUS_RESOLVED   = 'Resolved';   // absent from a verification scan
 
     /** All valid tracking_status values. */
     public static function statuses(): array
@@ -48,13 +53,13 @@ class VulnTracked extends Model
         return [
             self::STATUS_NEW,
             self::STATUS_OPEN,
-            self::STATUS_UNRESOLVED,
             self::STATUS_REOPENED,
+            self::STATUS_PERSISTENT,
             self::STATUS_RESOLVED,
         ];
     }
 
-    /** Statuses that are semantically "open" (active / unresolved). */
+    /** Statuses that are semantically "open" (active / not yet fixed). */
     public static function openStatuses(): array
     {
         return VulnTrackingService::OPEN_STATUSES;
@@ -76,12 +81,11 @@ class VulnTracked extends Model
     public static function statusStyle(string $status): array
     {
         return match ($status) {
-            self::STATUS_NEW        => ['#fee2e2', '#991b1b', 'bi-plus-circle-fill'],
+            self::STATUS_NEW        => ['#dbeafe', '#1d4ed8', 'bi-plus-circle-fill'],
             self::STATUS_OPEN       => ['#fef9c3', '#854d0e', 'bi-shield-exclamation'],
-            self::STATUS_UNRESOLVED => ['#fef3c7', '#92400e', 'bi-arrow-repeat'],
             self::STATUS_REOPENED   => ['#ffedd5', '#c2410c', 'bi-arrow-counterclockwise'],
+            self::STATUS_PERSISTENT => ['#fed7aa', '#c2410c', 'bi-exclamation-triangle-fill'],
             self::STATUS_RESOLVED   => ['#d1fae5', '#065f46', 'bi-check-circle-fill'],
-            'Pending'               => ['#fef9c3', '#854d0e', 'bi-arrow-repeat'], // legacy
             default                 => ['#f1f5f9', '#475569', 'bi-question-circle'],
         };
     }

@@ -115,7 +115,7 @@
         $_row = \App\Models\VulnTracked::where('assessment_id', $_a->id)
             ->when($_sIps !== null, fn($q) => $q->whereIn('ip_address', $_sIps))
             ->selectRaw("
-                SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as active_total,
+                SUM(CASE WHEN tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as active_total,
                 SUM(CASE WHEN tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved_total
             ")->first();
         $gActiveTotal   += (int)($_row->active_total   ?? 0);
@@ -186,12 +186,12 @@
             ->whereIn('severity', ['Critical','High','Medium','Low'])
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw("
-                SUM(CASE WHEN tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as active,
                 SUM(CASE WHEN tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-                SUM(CASE WHEN severity='Critical' AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as c,
-                SUM(CASE WHEN severity='High'     AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as h,
-                SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as m,
-                SUM(CASE WHEN severity='Low'      AND tracking_status IN ('New','Open','Unresolved','Reopened') THEN 1 ELSE 0 END) as l
+                SUM(CASE WHEN severity='Critical' AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as c,
+                SUM(CASE WHEN severity='High'     AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as h,
+                SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as m,
+                SUM(CASE WHEN severity='Low'      AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as l
             ")->first();
 
         // Remediation breakdown (all tracking statuses)

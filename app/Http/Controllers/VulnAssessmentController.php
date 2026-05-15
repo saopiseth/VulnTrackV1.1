@@ -194,11 +194,12 @@ class VulnAssessmentController extends Controller
 
         $comparison   = null;
 
-        // â”€â”€ Comparison: current vuln_tracked state vs baseline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Comparison: current vuln_tracked state vs baseline ────────────────
         // Only meaningful when a non-baseline scan exists.
         // Read directly from vuln_tracked (not history) so all scans are covered.
-        //   Persistent = Open | Unresolved  (in baseline, still present)
-        //   New        = New  | Reopened    (never in baseline, or returned after fix)
+        //   Open       = Open | Persistent  (in baseline, still present)
+        //   Reopened   = Reopened           (was fixed, regression)
+        //   New        = New                (appeared after the baseline)
         //   Resolved   = Resolved           (was present, now gone)
         $hostComparison = null;
         if ($latestScan) {
@@ -207,9 +208,10 @@ class VulnAssessmentController extends Controller
                         ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps));
 
             $comparison = [
-                'persistent' => (clone $base)->whereIn('tracking_status', ['Open', 'Unresolved'])->count(),
-                'new'        => (clone $base)->whereIn('tracking_status', ['New', 'Reopened'])->count(),
-                'resolved'   => (clone $base)->where('tracking_status', 'Resolved')->count(),
+                'open'     => (clone $base)->whereIn('tracking_status', ['Open', 'Persistent'])->count(),
+                'reopened' => (clone $base)->where('tracking_status', 'Reopened')->count(),
+                'new'      => (clone $base)->where('tracking_status', 'New')->count(),
+                'resolved' => (clone $base)->where('tracking_status', 'Resolved')->count(),
             ];
         }
 
@@ -1295,23 +1297,23 @@ class VulnAssessmentController extends Controller
                  ->where('vuln_remediations.assessment_id', '=', $assessment->id);
         });
 
-        // â”€â”€ Tracking status filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // new | unresolved | open | reopened | resolved | all | (default = all active)
+        // ── Tracking status filter ────────────────────────────────────────────
+        // new | open | reopened | persistent | resolved | all | (default = all)
         $trackingFilter = $request->input('tracking');
         if ($trackingFilter === 'resolved') {
             $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_RESOLVED);
         } elseif ($trackingFilter === 'new') {
             $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_NEW);
-        } elseif ($trackingFilter === 'unresolved') {
-            $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_UNRESOLVED);
         } elseif ($trackingFilter === 'open') {
             $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_OPEN);
         } elseif ($trackingFilter === 'reopened') {
             $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_REOPENED);
+        } elseif ($trackingFilter === 'persistent') {
+            $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_PERSISTENT);
         } elseif ($trackingFilter === 'all' || is_null($trackingFilter)) {
-            // no filter â€” show all statuses by default
+            // no filter — show all statuses by default
         } else {
-            // Fallback: all active (New + Open + Unresolved + Reopened)
+            // Fallback: all active
             $query->whereIn('vuln_tracked.tracking_status', VulnTracked::openStatuses());
         }
 
@@ -1350,7 +1352,7 @@ class VulnAssessmentController extends Controller
         }
 
         $findings = $query
-            ->orderByRaw("CASE vuln_tracked.tracking_status WHEN 'New' THEN 1 WHEN 'Reopened' THEN 2 WHEN 'Unresolved' THEN 3 WHEN 'Open' THEN 4 WHEN 'Resolved' THEN 5 ELSE 6 END")
+            ->orderByRaw("CASE vuln_tracked.tracking_status WHEN 'Persistent' THEN 1 WHEN 'Reopened' THEN 2 WHEN 'New' THEN 3 WHEN 'Open' THEN 4 WHEN 'Resolved' THEN 5 ELSE 6 END")
             ->orderByRaw("CASE vuln_tracked.severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
             ->paginate(30)
             ->withQueryString();
@@ -1427,9 +1429,10 @@ class VulnAssessmentController extends Controller
                 ->selectRaw("
                     COUNT(*) as total,
                     SUM(CASE WHEN tracking_status IN ('$openIn') THEN 1 ELSE 0 END) as open_count,
-                    SUM(CASE WHEN tracking_status = 'Resolved'  THEN 1 ELSE 0 END) as resolved,
-                    SUM(CASE WHEN tracking_status = 'New'       THEN 1 ELSE 0 END) as new_count,
-                    SUM(CASE WHEN tracking_status = 'Reopened'  THEN 1 ELSE 0 END) as reopened
+                    SUM(CASE WHEN tracking_status = 'Resolved'   THEN 1 ELSE 0 END) as resolved,
+                    SUM(CASE WHEN tracking_status = 'New'        THEN 1 ELSE 0 END) as new_count,
+                    SUM(CASE WHEN tracking_status = 'Reopened'   THEN 1 ELSE 0 END) as reopened,
+                    SUM(CASE WHEN tracking_status = 'Persistent' THEN 1 ELSE 0 END) as persistent
                 ")->first();
         }
 

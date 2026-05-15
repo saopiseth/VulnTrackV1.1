@@ -410,7 +410,7 @@ Vulnerabilities affecting multiple hosts are grouped together to avoid duplicati
 
 @foreach($findingsBySeverity[$sev] as $pid => $vuln)
 @php
-    $openHosts   = collect($vuln['hosts'])->filter(fn($h) => in_array($h['tracking_status'],['New','Open','Unresolved','Reopened']))->count();
+    $openHosts   = collect($vuln['hosts'])->filter(fn($h) => in_array($h['tracking_status'],['New','Open','Reopened','Persistent']))->count();
     $closedHosts = collect($vuln['hosts'])->filter(fn($h) => $h['tracking_status'] === 'Resolved')->count();
     $allIps      = collect($vuln['hosts'])->pluck('ip_address')->unique()->implode(', ');
     $firstSeen   = collect($vuln['hosts'])->pluck('first_seen_at')->filter()->min();
@@ -464,7 +464,7 @@ Vulnerabilities affecting multiple hosts are grouped together to avoid duplicati
     </thead>
     <tbody>
         @foreach($vuln['hosts'] as $h)
-        @php $hStatus = in_array($h['tracking_status'],['New','Open','Unresolved','Reopened']) ? 'Open' : 'Closed'; @endphp
+        @php $hStatus = in_array($h['tracking_status'],['New','Open','Reopened','Persistent']) ? 'Open' : 'Closed'; @endphp
         <tr>
             <td style="font-family:Consolas,monospace;">{{ $h['ip_address'] }}</td>
             <td>{{ $h['hostname'] ?: '—' }}</td>

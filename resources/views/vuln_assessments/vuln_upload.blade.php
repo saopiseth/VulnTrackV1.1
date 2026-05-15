@@ -120,6 +120,12 @@
             <div class="val" style="color:#ea580c">{{ number_format($trackingStats->reopened) }}</div>
         </div>
     </div>
+    <div class="col-6 col-sm-4 col-md">
+        <div class="stat-strip" style="border-color:#fdba74;background:#fff7ed">
+            <div class="lbl" style="color:#9a3412">Persistent</div>
+            <div class="val" style="color:#c2410c">{{ number_format($trackingStats->persistent) }}</div>
+        </div>
+    </div>
 </div>
 @endif
 

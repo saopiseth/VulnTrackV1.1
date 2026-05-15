@@ -47,7 +47,7 @@ class DashboardController extends Controller
     public function index()
     {
         $displaySeverities = ['Critical', 'High', 'Medium', 'Low'];
-        $openStatuses      = ['New', 'Open', 'Unresolved', 'Reopened'];
+        $openStatuses      = VulnTracked::openStatuses();
 
         // ── Top stats ────────────────────────────────────────────────────────
         $totalUsers       = User::count();

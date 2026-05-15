@@ -437,7 +437,7 @@ p { font-size: 8.5pt; line-height: 1.5; margin-bottom: 8px; }
 
     @foreach($findingsBySeverity[$sev] as $pid => $vuln)
     @php
-        $openHosts   = collect($vuln['hosts'])->filter(fn($h) => in_array($h['tracking_status'],['New','Open','Unresolved','Reopened']))->count();
+        $openHosts   = collect($vuln['hosts'])->filter(fn($h) => in_array($h['tracking_status'],['New','Open','Reopened','Persistent']))->count();
         $closedHosts = collect($vuln['hosts'])->filter(fn($h) => $h['tracking_status'] === 'Resolved')->count();
         $allIps      = collect($vuln['hosts'])->pluck('ip_address')->unique()->implode(', ');
     @endphp
@@ -490,7 +490,7 @@ p { font-size: 8.5pt; line-height: 1.5; margin-bottom: 8px; }
         </thead>
         <tbody>
             @foreach($vuln['hosts'] as $h)
-            @php $hStatus = in_array($h['tracking_status'],['New','Open','Unresolved','Reopened']) ? 'Open' : 'Closed'; @endphp
+            @php $hStatus = in_array($h['tracking_status'],['New','Open','Reopened','Persistent']) ? 'Open' : 'Closed'; @endphp
             <tr>
                 <td style="font-family:monospace;font-size:7.5pt;">{{ $h['ip_address'] }}</td>
                 <td style="font-size:7.5pt;">{{ $h['hostname'] ?: '—' }}</td>

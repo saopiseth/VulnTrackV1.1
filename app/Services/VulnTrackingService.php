@@ -42,7 +42,10 @@ use Illuminate\Support\Facades\DB;
  */
 class VulnTrackingService
 {
-    public const OPEN_STATUSES = ['New', 'Open', 'Unresolved', 'Reopened'];
+    public const OPEN_STATUSES = ['New', 'Open', 'Reopened', 'Persistent'];
+
+    /** Number of verification scans a finding must appear in before becoming Persistent. */
+    public const PERSISTENT_THRESHOLD = 2;
 
     /**
      * @param  string[]  $scannedHostIps  All IPs the scanner visited (from hostOsMap keys).
@@ -104,6 +107,7 @@ class VulnTrackingService
                     $tracked->update(array_merge($fields, [
                         'tracking_status' => 'Reopened',
                         'resolved_at'     => null,
+                        'reopen_count'    => $tracked->reopen_count + 1,
                     ]));
                     // Reset remediation back to Open (unless Accepted Risk)
                     VulnRemediation::where('assessment_id', $assessment->id)
@@ -119,18 +123,26 @@ class VulnTrackingService
 
                 } else {
                     // ── Confirm still present ─────────────────────────────────
-                    // Open / Reopened   → Unresolved  (was in baseline, still there)
-                    // New               → New          (IP never in baseline; stays New
-                    //                                   until scanner resolves it)
-                    // Unresolved        → Unresolved   (already confirmed)
-                    if ($prevStatus === 'Open' || $prevStatus === 'Reopened') {
-                        $newStatus = 'Unresolved';
-                    } else {
-                        $newStatus = $prevStatus; // New stays New, Unresolved stays Unresolved
+                    // On verification scans, increment the verification counter and
+                    // promote to Persistent once the threshold is reached.
+                    // On regular scans, status is unchanged (no demotion to Unresolved).
+                    $newVerifCount = $tracked->verification_seen_count;
+                    if ($scan->is_verification) {
+                        $newVerifCount++;
                     }
+
+                    if ($scan->is_verification
+                        && in_array($prevStatus, ['Open', 'Reopened'])
+                        && $newVerifCount >= self::PERSISTENT_THRESHOLD) {
+                        $newStatus = 'Persistent';
+                    } else {
+                        $newStatus = $prevStatus; // Open|Reopened|New|Persistent stays as-is
+                    }
+
                     $tracked->update(array_merge($fields, [
-                        'tracking_status' => $newStatus,
-                        'resolved_at'     => null,
+                        'tracking_status'         => $newStatus,
+                        'resolved_at'             => null,
+                        'verification_seen_count' => $newVerifCount,
                     ]));
                     $eventType = $newStatus === $prevStatus ? 'still_present' : 'status_changed';
                     $historyBatch[] = $this->historyRow(
