@@ -423,15 +423,18 @@
     const CHUNK_URL     = '{{ route('vuln-assessments.upload.chunk', $assessment) }}';
     const STATUS_BASE   = '{{ url('/vuln-assessments/' . $assessment->uuid . '/scan-status') }}/';
     const REDIRECT      = '{{ route('vuln-assessments.vuln-upload', $assessment) }}';
-    const CSRF          = document.querySelector('meta[name="csrf-token"]').content;
+    let csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-    function getCsrf() {
-        var m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-        return m ? decodeURIComponent(m[1]) : CSRF;
-    }
+    function getCsrf() { return csrfToken; }
 
     async function refreshCsrf() {
-        try { await fetch(window.location.href, { method: 'GET', credentials: 'same-origin' }); } catch (_) {}
+        try {
+            const resp = await fetch(window.location.href, { credentials: 'same-origin' });
+            const html = await resp.text();
+            const m = html.match(/<meta[^>]+name="csrf-token"[^>]+content="([^"]+)"/i)
+                   || html.match(/<meta[^>]+content="([^"]+)"[^>]+name="csrf-token"/i);
+            if (m) csrfToken = m[1];
+        } catch (_) {}
     }
 
     function fmt(bytes) {
@@ -458,12 +461,12 @@
                     const res = (() => { try { return JSON.parse(xhr.responseText); } catch (_) { return {}; } })();
                     if (xhr.status === 200) {
                         resolve({ scanId: res.scan_id });
-                    } else if (xhr.status === 419 && !retried) {
+                    } else if ((xhr.status === 419 || xhr.status === 401) && !retried) {
                         retried = true;
                         await refreshCsrf();
                         attempt();
-                    } else if (xhr.status === 419) {
-                        reject('Session expired — please refresh the page and try again.');
+                    } else if (xhr.status === 419 || xhr.status === 401) {
+                        reject('Session expired. Please <a href="{{ route(\'login\') }}" style="color:inherit;font-weight:700">log in again</a> and retry.');
                     } else if (xhr.status === 422) {
                         const msg = res.errors?.scan_file?.[0] || res.errors?.scan_file || res.message || '';
                         if (String(msg).includes('already been uploaded')) resolve({ skipped: true });
@@ -516,7 +519,7 @@
             let data = {};
             try { data = await resp.json(); } catch (_) {}
 
-            if (resp.status === 419) throw 'Session expired — please refresh the page and try again.';
+            if (resp.status === 419 || resp.status === 401) throw 'Session expired. Please <a href="{{ route('login') }}" style="color:inherit;font-weight:700">log in again</a> and retry.';
             if (resp.status === 422) {
                 const msg = data.errors?.filename?.[0] || data.errors?.chunk?.[0] || data.message || '';
                 if (String(msg).includes('already been uploaded')) return { skipped: true };
@@ -534,7 +537,7 @@
                 if (Date.now() > deadline) { clearInterval(tid); resolve('timeout'); return; }
                 try {
                     const resp = await fetch(STATUS_BASE + scanId, {
-                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
                     });
                     const data = await resp.json();
                     if (data.status === 'completed' || data.status === 'failed') {
