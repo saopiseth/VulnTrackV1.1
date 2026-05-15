@@ -169,12 +169,20 @@ class VulnTrackingService
             }
         }
 
-        // ── 5. Resolve: plugin absent for a host that WAS scanned ────────────
+        // ── 5. Resolve: plugin absent from a verification scan ───────────────
         //
-        // A finding is only resolved if the scanner actually visited that host
-        // in this scan but did NOT find the plugin. If the host is completely
-        // absent from the scan file (different machine scanned), we cannot
-        // conclude the vulnerability was fixed — leave it active.
+        // Auto-resolve is only triggered when the uploaded scan is explicitly
+        // flagged as a verification scan (is_verification = true). Regular scans
+        // may cover a different set of hosts or plugins and cannot safely conclude
+        // that an absent finding has been fixed.
+        if (!$scan->is_verification) {
+            // Flush history and return without resolving anything.
+            foreach (array_chunk($historyBatch, 500) as $chunk) {
+                DB::table('vuln_tracked_history')->insert($chunk);
+            }
+            return $stats;
+        }
+
         $scannedIps = $currentMap->map(fn($f) => $f->ip_address)->flip(); // O(1) lookup
 
         $toResolve = $existingTracked->filter(

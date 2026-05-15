@@ -1417,8 +1417,9 @@ class VulnAssessmentController extends Controller
         $this->authorize('manage', $vulnAssessment);
 
         $request->validate([
-            'scan_file' => ['required', 'file', 'max:256000'],
-            'notes'     => ['nullable', 'string', 'max:1000'],
+            'scan_file'       => ['required', 'file', 'max:256000'],
+        'notes'           => ['nullable', 'string', 'max:1000'],
+        'is_verification' => ['nullable', 'boolean'],
         ]);
 
         $assessment = $vulnAssessment;
@@ -1452,13 +1453,14 @@ class VulnAssessmentController extends Controller
         $path = $file->store('scan-uploads', 'local');
 
         $scan = VulnScan::create([
-            'assessment_id' => $assessment->id,
-            'filename'      => $filename,
-            'is_baseline'   => $isBaseline,
-            'notes'         => $request->notes,
-            'created_by'    => Auth::id(),
-            'upload_status' => 'pending',
-            'file_path'     => $path,
+            'assessment_id'  => $assessment->id,
+            'filename'       => $filename,
+            'is_baseline'    => $isBaseline,
+            'is_verification' => $request->boolean('is_verification'),
+            'notes'          => $request->notes,
+            'created_by'     => Auth::id(),
+            'upload_status'  => 'pending',
+            'file_path'      => $path,
         ]);
 
         try {
@@ -1504,6 +1506,7 @@ class VulnAssessmentController extends Controller
             'filename'     => ['required', 'string', 'max:255'],
             'notes'        => ['nullable', 'string', 'max:1000'],
             'chunk'        => ['required', 'file'],
+        'is_verification' => ['nullable', 'boolean'],
         ]);
 
         $uploadId    = $request->input('upload_id');
@@ -1559,13 +1562,14 @@ class VulnAssessmentController extends Controller
             ->count() === 0;
 
         $scan = VulnScan::create([
-            'assessment_id' => $assessment->id,
-            'filename'      => $filename,
-            'is_baseline'   => $isBaseline,
-            'notes'         => $request->input('notes'),
-            'created_by'    => Auth::id(),
-            'upload_status' => 'pending',
-            'file_path'     => $finalPath,
+            'assessment_id'  => $assessment->id,
+            'filename'       => $filename,
+            'is_baseline'    => $isBaseline,
+            'is_verification' => (bool) $request->input('is_verification'),
+            'notes'          => $request->input('notes'),
+            'created_by'     => Auth::id(),
+            'upload_status'  => 'pending',
+            'file_path'      => $finalPath,
         ]);
 
         try {

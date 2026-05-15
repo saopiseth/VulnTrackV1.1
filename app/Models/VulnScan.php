@@ -9,12 +9,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class VulnScan extends Model
 {
     protected $fillable = [
-        'assessment_id', 'filename', 'is_baseline', 'finding_count', 'host_count',
+        'assessment_id', 'filename', 'is_baseline', 'is_verification', 'finding_count', 'host_count',
         'notes', 'created_by', 'upload_status', 'upload_error', 'file_path',
     ];
 
     protected $casts = [
-        'is_baseline' => 'boolean',
+        'is_baseline'    => 'boolean',
+        'is_verification' => 'boolean',
     ];
 
     public function isPending(): bool    { return $this->upload_status === 'pending'; }

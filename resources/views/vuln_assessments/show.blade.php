@@ -540,6 +540,7 @@
                 @endif
                 <span>{{ $scan->created_at->format('d M Y, H:i') }}</span>
                 @if($scan->creator)<span><i class="bi bi-person me-1"></i>{{ $scan->creator->name }}</span>@endif
+                @if($scan->is_verification)<span style='background:#dbeafe;color:#1e40af;padding:.1rem .5rem;border-radius:6px;font-weight:600'><i class='bi bi-patch-check me-1'></i>Verification</span>@endif
                 @if($scan->notes)<span><i class="bi bi-chat-dots me-1"></i>{{ $scan->notes }}</span>@endif
             </div>
         </div>
@@ -611,8 +612,20 @@
 
                 <div class="mb-3">
                     <label class="form-label" style="font-size:.82rem;font-weight:600;color:#374151">Notes</label>
-                    <input type="text" id="upload-notes" class="form-control"
-                           placeholder="Optional notes (applied to all files)" style="border-radius:8px;font-size:.875rem">
+                    <input type='text' id='upload-notes' class='form-control'
+                           placeholder='Optional notes (applied to all files)' style='border-radius:8px;font-size:.875rem'>
+                </div>
+
+                <div class='mb-1'>
+                    <div class='form-check'>
+                        <input class='form-check-input' type='checkbox' id='upload-verification' value='1'>
+                        <label class='form-check-label' for='upload-verification' style='font-size:.82rem;font-weight:600;color:#374151'>
+                            Verification Scan
+                            <span style='display:block;font-size:.74rem;font-weight:400;color:#64748b;margin-top:.1rem'>
+                                Marks vulnerabilities no longer detected on scanned hosts as Resolved
+                            </span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -643,6 +656,7 @@
 
     const fileInput  = document.getElementById('scan-file-input');
     const notesInput = document.getElementById('upload-notes');
+    const verifInput = document.getElementById('upload-verification');
     const submitBtn  = document.getElementById('upload-submit-btn');
     const cancelBtn  = document.getElementById('upload-cancel-btn');
     const errorBox   = document.getElementById('upload-error');
@@ -718,11 +732,12 @@
     }
 
     // ── Regular upload (≤ 5 MB) ───────────────────────────────────
-    function uploadRegular(file, notes, onProgress) {
+    function uploadRegular(file, notes, isVerif, onProgress) {
         return new Promise(function (resolve, reject) {
             const fd = new FormData();
             fd.append('scan_file', file);
             fd.append('notes', notes);
+            fd.append('is_verification', isVerif ? '1' : '0');
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', UPLOAD_URL);
@@ -755,7 +770,7 @@
     }
 
     // ── Chunked upload (> 5 MB) ───────────────────────────────────
-    async function uploadChunked(file, notes, onProgress) {
+    async function uploadChunked(file, notes, isVerif, onProgress) {
         const total    = Math.ceil(file.size / CHUNK_SIZE);
         const uploadId = (crypto.randomUUID ? crypto.randomUUID()
             : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
@@ -767,8 +782,9 @@
             fd.append('chunk_index',  i);
             fd.append('total_chunks', total);
             fd.append('filename',     file.name);
-            fd.append('notes',        notes);
-            fd.append('chunk',        file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE), file.name);
+            fd.append('notes',           notes);
+            fd.append('is_verification', isVerif ? '1' : '0');
+            fd.append('chunk',           file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE), file.name);
 
             onProgress(Math.round(((i + 0.5) / total) * 85));
 
@@ -815,8 +831,9 @@
 
     // ── Main ─────────────────────────────────────────────────────
     async function runUploads() {
-        const files = Array.from(fileInput.files);
-        const notes = notesInput.value;
+        const files   = Array.from(fileInput.files);
+        const notes   = notesInput.value;
+        const isVerif = verifInput.checked;
 
         errorBox.style.display = 'none';
         submitBtn.disabled     = true;
@@ -835,8 +852,8 @@
 
             try {
                 const result = file.size > CHUNK_SIZE
-                    ? await uploadChunked(file, notes, pct => rowBar(i, pct))
-                    : await uploadRegular(file,  notes, pct => rowBar(i, pct));
+                    ? await uploadChunked(file, notes, isVerif, pct => rowBar(i, pct))
+                    : await uploadRegular(file,  notes, isVerif, pct => rowBar(i, pct));
 
                 if (result.skipped) {
                     rowBar(i, 100);
@@ -918,6 +935,7 @@
     document.getElementById('uploadModal').addEventListener('hidden.bs.modal', function () {
         fileInput.value        = '';
         notesInput.value       = '';
+        verifInput.checked     = false;
         errorBox.style.display = 'none';
         fileList.style.display = 'none';
         fileList.innerHTML     = '';
