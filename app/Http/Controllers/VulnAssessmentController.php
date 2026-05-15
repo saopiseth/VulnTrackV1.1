@@ -1544,6 +1544,16 @@ class VulnAssessmentController extends Controller
         $filename    = $request->input('filename');
         $chunkDir    = "chunks/{$uploadId}";
 
+        // Early duplicate check on the first chunk so the browser can skip
+        // the remaining chunks rather than uploading the whole file for nothing.
+        if ($chunkIndex === 0) {
+            $dupError = '"' . $filename . '" has already been uploaded to this assessment.';
+            if ($vulnAssessment->scans()->where('filename', $filename)
+                    ->whereIn('upload_status', ['pending', 'processing', 'completed'])->exists()) {
+                return response()->json(['message' => $dupError], 422);
+            }
+        }
+
         $request->file('chunk')->storeAs($chunkDir, "chunk_{$chunkIndex}", 'local');
 
         $received = count(Storage::disk('local')->files($chunkDir));
