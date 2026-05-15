@@ -99,48 +99,63 @@ class VulnAssessmentController extends Controller
         $stats  = null;
         $topIps = collect();
 
-        $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
-
         $openStatuses = VulnTracked::openStatuses(); // ['New','Open','Reopened','Persistent']
+        $openIn       = implode("','", $openStatuses);
 
-        if ($hasTracked) {
-            // Active-only stats for the summary bar
-            $stats = VulnTracked::where('assessment_id', $assessment->id)
+        // Drive the host list from deduplicated vuln_findings so every scanned IP appears,
+        // even when vuln_tracked is partially populated. Each unique vulnerability
+        // (vuln_key = SHA1(plugin_id|ip|port|protocol)) is counted once regardless of how
+        // many scan files contain it. vuln_tracked provides lifecycle status via LEFT JOIN;
+        // findings with no tracked row are treated as Open (active).
+        $allScanIds = $assessment->scans
+            ->where('upload_status', 'completed')
+            ->pluck('id');
+
+        if ($allScanIds->isNotEmpty()) {
+            $dedupSub = DB::table('vuln_findings')
+                ->whereIn('scan_id', $allScanIds)
                 ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-                ->whereIn('tracking_status', $openStatuses)
                 ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
+                ->selectRaw('vuln_key, MAX(scan_id) as rep_scan_id')
+                ->groupBy('vuln_key');
+
+            $baseQ = DB::table('vuln_findings as vf')
+                ->joinSub($dedupSub, 'd', fn($j) =>
+                    $j->on('vf.vuln_key', '=', 'd.vuln_key')
+                      ->on('vf.scan_id',  '=', 'd.rep_scan_id')
+                )
+                ->leftJoin('vuln_tracked as vt', fn($j) =>
+                    $j->on('vt.vuln_key', '=', 'vf.vuln_key')
+                      ->where('vt.assessment_id', '=', $assessment->id)
+                );
+
+            $stats = (clone $baseQ)
                 ->selectRaw("
-                    COUNT(*) as total,
-                    SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
-                    SUM(CASE WHEN severity='High'     THEN 1 ELSE 0 END) as high,
-                    SUM(CASE WHEN severity='Medium'   THEN 1 ELSE 0 END) as medium,
-                    SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as low
-                ")->first();
+                    SUM(CASE WHEN COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as total,
+                    SUM(CASE WHEN vf.severity='Critical' AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as critical,
+                    SUM(CASE WHEN vf.severity='High'     AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as high,
+                    SUM(CASE WHEN vf.severity='Medium'   AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as medium,
+                    SUM(CASE WHEN vf.severity='Low'      AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as low
+                ")
+                ->first();
 
-            // ALL IPs ever seen — no tracking_status filter so Resolved IPs stay visible.
-            // Scope data loaded separately (no fan-out join).
-            $openIn = implode("','", $openStatuses);
-            $topIps = VulnTracked::where('assessment_id', $assessment->id)
-                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-                ->selectRaw("ip_address,
-                    MIN(hostname)      as hostname,
-                    MIN(os_name)       as os_name,
-                    MIN(os_family)     as os_family,
-                    MIN(first_seen_at) as first_detected,
+            $topIps = (clone $baseQ)
+                ->selectRaw("
+                    vf.ip_address,
+                    MIN(vf.hostname)   as hostname,
+                    MIN(vf.os_name)    as os_name,
+                    MIN(vf.os_family)  as os_family,
+                    MIN(vf.created_at) as first_detected,
                     COUNT(*)           as total,
-                    SUM(CASE WHEN tracking_status IN ('$openIn')                             THEN 1 ELSE 0 END) as active_count,
-                    SUM(CASE WHEN tracking_status  = 'Resolved'                              THEN 1 ELSE 0 END) as resolved_count,
-                    SUM(CASE WHEN severity='Critical' AND tracking_status IN ('$openIn')     THEN 1 ELSE 0 END) as critical,
-                    SUM(CASE WHEN severity='High'     AND tracking_status IN ('$openIn')     THEN 1 ELSE 0 END) as high,
-                    SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('$openIn')     THEN 1 ELSE 0 END) as medium,
-                    SUM(CASE WHEN severity='Low'      AND tracking_status IN ('$openIn')     THEN 1 ELSE 0 END) as low")
-                ->groupBy('ip_address')
-                ->orderByRaw("
-                    SUM(CASE WHEN tracking_status IN ('$openIn') THEN 1 ELSE 0 END) DESC,
-                    SUM(CASE WHEN severity='Critical' AND tracking_status IN ('$openIn') THEN 1 ELSE 0 END) DESC,
-                    SUM(CASE WHEN severity='High'     AND tracking_status IN ('$openIn') THEN 1 ELSE 0 END) DESC,
-                    ip_address ASC")
+                    SUM(CASE WHEN COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as active_count,
+                    SUM(CASE WHEN vt.tracking_status = 'Resolved'                    THEN 1 ELSE 0 END) as resolved_count,
+                    SUM(CASE WHEN vf.severity='Critical' AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as critical,
+                    SUM(CASE WHEN vf.severity='High'     AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as high,
+                    SUM(CASE WHEN vf.severity='Medium'   AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as medium,
+                    SUM(CASE WHEN vf.severity='Low'      AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as low
+                ")
+                ->groupBy('vf.ip_address')
+                ->orderByRaw("active_count DESC, critical DESC, high DESC, vf.ip_address ASC")
                 ->get();
 
             $topIps = $topIps->map(function ($row) use ($scopeByIp) {
@@ -155,42 +170,9 @@ class VulnAssessmentController extends Controller
                 $row->remediation_sla    = $scope?->remediation_sla;
                 return $row;
             });
-
-        } elseif ($assessment->scans->isNotEmpty()) {
-            // Fallback: no tracked data yet — aggregate across ALL uploaded scans
-            $allScanIds = $assessment->scans->pluck('id');
-
-            $stats = VulnFinding::whereIn('scan_id', $allScanIds)
-                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-                ->selectRaw("
-                    COUNT(*) as total,
-                    SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
-                    SUM(CASE WHEN severity='High'     THEN 1 ELSE 0 END) as high,
-                    SUM(CASE WHEN severity='Medium'   THEN 1 ELSE 0 END) as medium,
-                    SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as low
-                ")->first();
-
-            $topIps = VulnFinding::whereIn('scan_id', $allScanIds)
-                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-                ->selectRaw("ip_address,
-                    MIN(hostname)  as hostname,
-                    MIN(os_name)   as os_name,
-                    MIN(os_family) as os_family,
-                    MIN(created_at) as first_detected,
-                    COUNT(DISTINCT plugin_id) as total,
-                    0 as active_count, 0 as resolved_count,
-                    SUM(CASE WHEN severity='Critical' THEN 1 ELSE 0 END) as critical,
-                    SUM(CASE WHEN severity='High'     THEN 1 ELSE 0 END) as high,
-                    SUM(CASE WHEN severity='Medium'   THEN 1 ELSE 0 END) as medium,
-                    SUM(CASE WHEN severity='Low'      THEN 1 ELSE 0 END) as low,
-                    NULL as system_name, NULL as system_criticality,
-                    NULL as system_owner, NULL as identified_scope")
-                ->groupBy('ip_address')
-                ->orderByDesc('critical')->orderByDesc('high')->orderByDesc('medium')->orderByDesc('total')
-                ->get();
         }
+
+        $hasTracked = VulnTracked::where('assessment_id', $assessment->id)->exists();
 
         $comparison   = null;
 
@@ -234,11 +216,7 @@ class VulnAssessmentController extends Controller
             ];
         }
 
-        // Unique active hosts across ALL scans (from tracking table)
-        $activeHostCount = VulnTracked::where('assessment_id', $assessment->id)
-            ->whereIn('tracking_status', VulnTracked::openStatuses())
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->distinct('ip_address')->count('ip_address');
+        $activeHostCount = $topIps->filter(fn($r) => ($r->active_count ?? 0) > 0)->count();
 
         // Remediation progress — driven by vuln_tracked (scan-confirmed) + vuln_remediations (workflow)
         $remStats = null;

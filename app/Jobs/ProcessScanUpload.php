@@ -56,6 +56,7 @@ class ProcessScanUpload implements ShouldQueue
                 $hostOsMap = $parseResult['hostOsMap'];
 
                 $hostCount = VulnFinding::where('scan_id', $scan->id)
+                    ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
                     ->distinct('ip_address')
                     ->count('ip_address');
 
