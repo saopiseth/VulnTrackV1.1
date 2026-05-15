@@ -205,8 +205,7 @@
         <table class="table table-sm mb-0" style="font-size:.79rem">
             <thead>
             <tr style="border-bottom:2px solid #dbeafe">
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">Scan</th>
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Date</th>
+                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">File</th>
                 <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">By</th>
                 <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Findings</th>
                 <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Status</th>
@@ -217,16 +216,10 @@
             @foreach($initialScans as $scan)
             <tr style="border-bottom:1px solid #f1f5f9">
                 <td style="padding:.5rem 0;vertical-align:middle">
-                    <div style="font-weight:600;color:#0f172a;font-size:.82rem">
-                        {{ $scan->scan_name ?: Str::limit($scan->filename, 28) }}
-                    </div>
-                    <div style="color:#94a3b8;font-size:.7rem;font-family:monospace">{{ Str::limit($scan->filename, 34) }}</div>
+                    <div style="color:#475569;font-size:.79rem;font-family:monospace">{{ Str::limit($scan->filename, 40) }}</div>
                     @if($scan->is_baseline)
                     <span style="background:var(--lime-muted);color:var(--lime-dark);padding:.08rem .4rem;border-radius:20px;font-size:.64rem;font-weight:700">Baseline</span>
                     @endif
-                </td>
-                <td style="padding:.5rem .4rem;vertical-align:middle;color:#475569;font-size:.79rem;white-space:nowrap">
-                    {{ $scan->scan_date ? $scan->scan_date->format('d M Y') : $scan->created_at->format('d M Y') }}
                 </td>
                 <td style="padding:.5rem .4rem;vertical-align:middle;color:#475569;font-size:.79rem">
                     {{ Str::limit($scan->creator?->name ?? '—', 18) }}
@@ -360,8 +353,7 @@
         <table class="table table-sm mb-0" style="font-size:.79rem">
             <thead>
             <tr style="border-bottom:2px solid #bbf7d0">
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">Scan</th>
-                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Date</th>
+                <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem 0;border:none;text-transform:uppercase;letter-spacing:.4px">File</th>
                 <th style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">By</th>
                 <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Findings</th>
                 <th class="text-end" style="font-size:.68rem;font-weight:700;color:#64748b;padding:.3rem .4rem;border:none;text-transform:uppercase;letter-spacing:.4px">Status</th>
@@ -372,13 +364,7 @@
             @foreach($verificationScans as $scan)
             <tr style="border-bottom:1px solid #f1f5f9">
                 <td style="padding:.5rem 0;vertical-align:middle">
-                    <div style="font-weight:600;color:#0f172a;font-size:.82rem">
-                        {{ $scan->scan_name ?: Str::limit($scan->filename, 28) }}
-                    </div>
-                    <div style="color:#94a3b8;font-size:.7rem;font-family:monospace">{{ Str::limit($scan->filename, 34) }}</div>
-                </td>
-                <td style="padding:.5rem .4rem;vertical-align:middle;color:#475569;font-size:.79rem;white-space:nowrap">
-                    {{ $scan->scan_date ? $scan->scan_date->format('d M Y') : $scan->created_at->format('d M Y') }}
+                    <div style="color:#475569;font-size:.79rem;font-family:monospace">{{ Str::limit($scan->filename, 40) }}</div>
                 </td>
                 <td style="padding:.5rem .4rem;vertical-align:middle;color:#475569;font-size:.79rem">
                     {{ Str::limit($scan->creator?->name ?? '—', 18) }}
