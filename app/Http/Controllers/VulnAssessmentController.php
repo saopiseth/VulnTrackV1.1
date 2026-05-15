@@ -377,13 +377,6 @@ class VulnAssessmentController extends Controller
                 ->get();
 
             if ($assessment->scope_group_id) {
-                $scopeByIp = DB::table('assessment_scopes')
-                    ->where('group_id', $assessment->scope_group_id)
-                    ->whereNotNull('ip_address')
-                    ->select('ip_address', 'system_name', 'system_criticality', 'system_owner', 'identified_scope')
-                    ->get()
-                    ->keyBy('ip_address');
-
                 $topIps = $topIps->map(function ($row) use ($scopeByIp) {
                     $scope = $scopeByIp->get($row->ip_address);
                     $row->system_name        = $scope?->system_name;
@@ -465,12 +458,17 @@ class VulnAssessmentController extends Controller
                 ->first();
 
             if ($latestScan) {
-                $base = VulnTracked::where('assessment_id', $assessment->id)
-                    ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low']);
+                $compRow = VulnTracked::where('assessment_id', $assessment->id)
+                    ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                    ->selectRaw("
+                        SUM(CASE WHEN tracking_status IN ('New','Reopened') THEN 1 ELSE 0 END) as new_count,
+                        SUM(CASE WHEN tracking_status = 'Resolved'          THEN 1 ELSE 0 END) as resolved_count
+                    ")
+                    ->first();
 
                 $comparison = [
-                    'new'      => (clone $base)->whereIn('tracking_status', ['New', 'Reopened'])->count(),
-                    'resolved' => (clone $base)->where('tracking_status', 'Resolved')->count(),
+                    'new'      => (int) ($compRow->new_count ?? 0),
+                    'resolved' => (int) ($compRow->resolved_count ?? 0),
                 ];
             }
         } elseif ($assessment->scans->isNotEmpty()) {
@@ -507,6 +505,7 @@ class VulnAssessmentController extends Controller
             if ($hasTracked && $slaPolicy) {
                 $trackedForSla = VulnTracked::where('assessment_id', $assessment->id)
                     ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                    ->whereNotNull('first_seen_at')
                     ->get(['severity', 'first_seen_at', 'tracking_status', 'resolved_at']);
 
                 foreach ($trackedForSla as $finding) {
@@ -2301,21 +2300,25 @@ class VulnAssessmentController extends Controller
                 ->pluck('ip_address')->all();
         }
 
-        // Per-scan severity counts (scoped by IP when scope group is set)
-        $scanLabels     = [];
-        $severityTrend  = array_fill_keys($severities, []);
+        // Per-scan severity counts — single batched query instead of N+1
+        $scanIds = $scans->pluck('id');
+
+        $rawSevCounts = VulnFinding::whereIn('scan_id', $scanIds)
+            ->whereIn('severity', $severities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
+            ->selectRaw('scan_id, severity, COUNT(*) as cnt')
+            ->groupBy('scan_id', 'severity')
+            ->get()
+            ->groupBy('scan_id');
+
+        $scanLabels    = [];
+        $severityTrend = array_fill_keys($severities, []);
 
         foreach ($scans as $scan) {
             $prefix = $scan->is_baseline ? 'Baseline' : 'Scan #' . $scan->id;
             $scanLabels[] = $prefix . ' (' . $scan->created_at->format('d M Y') . ')';
 
-            $counts = VulnFinding::where('scan_id', $scan->id)
-                ->whereIn('severity', $severities)
-                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-                ->selectRaw('severity, COUNT(*) as cnt')
-                ->groupBy('severity')
-                ->pluck('cnt', 'severity');
-
+            $counts = ($rawSevCounts->get($scan->id) ?? collect())->pluck('cnt', 'severity');
             foreach ($severities as $sev) {
                 $severityTrend[$sev][] = (int) ($counts[$sev] ?? 0);
             }
@@ -2347,22 +2350,25 @@ class VulnAssessmentController extends Controller
         // Per-scan × remediation status trend (scoped)
         $remStatuses = ['Open', 'In Progress', 'Resolved', 'Accepted Risk'];
 
+        // Per-scan remediation trend — single batched query instead of N+1
+        $rawRemCounts = DB::table('vuln_findings as vf')
+            ->whereIn('vf.scan_id', $scanIds)
+            ->whereIn('vf.severity', $severities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('vf.ip_address', $scopeIps))
+            ->leftJoin('vuln_remediations as vr', function ($join) use ($assessment) {
+                $join->on('vr.plugin_id',  '=', 'vf.plugin_id')
+                     ->on('vr.ip_address', '=', 'vf.ip_address')
+                     ->where('vr.assessment_id', '=', $assessment->id);
+            })
+            ->selectRaw("vf.scan_id, COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt")
+            ->groupBy('vf.scan_id', DB::raw("COALESCE(vr.status, 'Open')"))
+            ->get()
+            ->groupBy('scan_id');
+
         $scanRemTrend = array_fill_keys($remStatuses, []);
 
         foreach ($scans as $scan) {
-            $counts = DB::table('vuln_findings as vf')
-                ->where('vf.scan_id', $scan->id)
-                ->whereIn('vf.severity', $severities)
-                ->when($scopeIps !== null, fn($q) => $q->whereIn('vf.ip_address', $scopeIps))
-                ->leftJoin('vuln_remediations as vr', function ($join) use ($assessment) {
-                    $join->on('vr.plugin_id',      '=', 'vf.plugin_id')
-                         ->on('vr.ip_address',     '=', 'vf.ip_address')
-                         ->where('vr.assessment_id', '=', $assessment->id);
-                })
-                ->selectRaw("COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt")
-                ->groupBy(DB::raw("COALESCE(vr.status, 'Open')"))
-                ->pluck('cnt', 'rem_status');
-
+            $counts = ($rawRemCounts->get($scan->id) ?? collect())->pluck('cnt', 'rem_status');
             foreach ($remStatuses as $status) {
                 $scanRemTrend[$status][] = (int) ($counts[$status] ?? 0);
             }
@@ -2386,13 +2392,18 @@ class VulnAssessmentController extends Controller
             ->orderBy('group_name')
             ->get();
 
-        $groupNames   = $groupStatusRaw->pluck('group_name')->unique()->values()->toArray();
-        $groupStatData = array_fill_keys($remStatuses, []);
+        $groupNames = $groupStatusRaw->pluck('group_name')->unique()->values()->toArray();
 
+        // Pre-index by "group|status" so inner loop is O(1) instead of O(n)
+        $groupStatusLookup = [];
+        foreach ($groupStatusRaw as $row) {
+            $groupStatusLookup[$row->group_name . '|' . $row->status] = (int) $row->cnt;
+        }
+
+        $groupStatData = array_fill_keys($remStatuses, []);
         foreach ($remStatuses as $status) {
             foreach ($groupNames as $group) {
-                $row = $groupStatusRaw->first(fn($r) => $r->group_name === $group && $r->status === $status);
-                $groupStatData[$status][] = $row ? (int) $row->cnt : 0;
+                $groupStatData[$status][] = $groupStatusLookup[$group . '|' . $status] ?? 0;
             }
         }
 
