@@ -208,6 +208,12 @@ class ProcessScanUpload implements ShouldQueue
         }
 
         foreach ($rows as &$row) {
+            $row['vuln_key'] = sha1(implode('|', [
+                trim($row['plugin_id']),
+                strtolower(trim($row['ip_address'])),
+                (string) $row['port'],
+                strtolower(trim($row['protocol'])),
+            ]));
             $row = array_merge($row, [
                 'scan_id'       => $scan->id,
                 'assessment_id' => $assessment->id,

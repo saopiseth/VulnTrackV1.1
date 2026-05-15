@@ -62,18 +62,18 @@ class VulnTrackingService
             'severity_changed' => 0,
         ];
 
-        // ── 1. Load this scan's findings (fingerprint → finding) ─────────────
-        // keyBy naturally deduplicates same IP+plugin_id on different ports —
-        // the last row wins, which is fine (same vulnerability either way).
+        // ── 1. Load this scan's findings (vuln_key → finding) ───────────────
+        // vuln_key = SHA1(plugin_id|ip|port|protocol), so the same plugin on
+        // different ports is treated as distinct vulnerabilities (Nessus convention).
         $currentMap = VulnFinding::where('scan_id', $scan->id)
             ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
             ->get()
-            ->keyBy(fn($f) => self::fp($f->ip_address, $f->plugin_id));
+            ->keyBy(fn($f) => $f->vuln_key);
 
         // ── 2. Load all existing tracked items for this assessment ────────────
         $existingTracked = VulnTracked::where('assessment_id', $assessment->id)
             ->get()
-            ->keyBy(fn($t) => self::fp($t->ip_address, $t->plugin_id));
+            ->keyBy(fn($t) => $t->vuln_key);
 
         // First scan = no tracked rows exist yet → create everything as Open
         $isFirstScan = $existingTracked->isEmpty();
@@ -156,6 +156,7 @@ class VulnTrackingService
                     'assessment_id'   => $assessment->id,
                     'ip_address'      => $finding->ip_address,
                     'plugin_id'       => $finding->plugin_id,
+                    'vuln_key'        => $finding->vuln_key,
                     'cve'             => $finding->cve,
                     'tracking_status' => $initStatus,
                     'first_seen_at'   => $scanTime,
@@ -188,7 +189,7 @@ class VulnTrackingService
         $toResolve = $existingTracked->filter(
             function ($tracked) use ($currentMap, $acceptedRisks, $scannedIps) {
                 // Present in current scan → handled above
-                if ($currentMap->has(self::fp($tracked->ip_address, $tracked->plugin_id))) {
+                if ($currentMap->has($tracked->vuln_key)) {
                     return false;
                 }
                 // Already resolved → nothing to do

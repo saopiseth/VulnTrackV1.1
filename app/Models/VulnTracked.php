@@ -16,7 +16,7 @@ class VulnTracked extends Model
     protected $fillable = [
         'assessment_id',
         'ip_address', 'hostname',
-        'plugin_id', 'cve', 'cvss_score',
+        'plugin_id', 'vuln_key', 'cve', 'cvss_score',
         'vuln_name', 'description', 'remediation_text',
         'severity', 'port', 'protocol',
         'vuln_category', 'affected_component',
