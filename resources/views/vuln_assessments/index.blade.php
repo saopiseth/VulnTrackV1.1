@@ -90,45 +90,7 @@
 </div>
 @endif
 
-{{-- Global glance stats – scope-aware (respects each assessment's scope_group_id) --}}
-@php
-    $allIds = $assessments->pluck('id');
-
-    // Pre-load scope IP lists for every scoped assessment on this page (1 query each)
-    $scopeIpsMap = [];
-    foreach ($assessments as $_a) {
-        if ($_a->scope_group_id) {
-            $scopeIpsMap[$_a->id] = \DB::table('assessment_scopes')
-                ->where('group_id', $_a->scope_group_id)
-                ->whereNotNull('ip_address')
-                ->pluck('ip_address')
-                ->all();
-        }
-    }
-
-    // Aggregate global stats respecting per-assessment scope
-    $gActiveTotal   = 0;
-    $gResolvedTotal = 0;
-    $gHostsSet      = collect();
-    foreach ($assessments as $_a) {
-        $_sIps = $scopeIpsMap[$_a->id] ?? null;
-        $_row = \App\Models\VulnTracked::where('assessment_id', $_a->id)
-            ->when($_sIps !== null, fn($q) => $q->whereIn('ip_address', $_sIps))
-            ->selectRaw("
-                SUM(CASE WHEN tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as active_total,
-                SUM(CASE WHEN tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved_total
-            ")->first();
-        $gActiveTotal   += (int)($_row->active_total   ?? 0);
-        $gResolvedTotal += (int)($_row->resolved_total ?? 0);
-        $_ips = \App\Models\VulnTracked::where('assessment_id', $_a->id)
-            ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
-            ->when($_sIps !== null, fn($q) => $q->whereIn('ip_address', $_sIps))
-            ->distinct('ip_address')->pluck('ip_address');
-        $gHostsSet = $gHostsSet->merge($_ips);
-    }
-    $gStats = (object)['active_total' => $gActiveTotal, 'resolved_total' => $gResolvedTotal];
-    $gHosts = $gHostsSet->unique()->count();
-@endphp
+{{-- Global glance stats – computed in controller via scope-aware batch queries --}}
 <div class="row g-2 mb-4">
     <div class="col-6 col-md-3">
         <div class="glance-card">
@@ -180,54 +142,22 @@
 <div class="row g-3">
     @forelse($assessments as $a)
     @php
-        $scopeIps = $scopeIpsMap[$a->id] ?? null;
+        $row = $trackedStats->get($a->id);
+        $rem = $remStats->get($a->id);
 
-        $tracked = \App\Models\VulnTracked::where('assessment_id', $a->id)
-            ->whereIn('severity', ['Critical','High','Medium','Low'])
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->selectRaw("
-                SUM(CASE WHEN tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as active,
-                SUM(CASE WHEN tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-                SUM(CASE WHEN severity='Critical' AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as c,
-                SUM(CASE WHEN severity='High'     AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as h,
-                SUM(CASE WHEN severity='Medium'   AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as m,
-                SUM(CASE WHEN severity='Low'      AND tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as l
-            ")->first();
-
-        // Remediation breakdown (all tracking statuses)
-        $remBreak = \App\Models\VulnTracked::where('vuln_tracked.assessment_id', $a->id)
-            ->whereIn('vuln_tracked.severity', ['Critical','High','Medium','Low'])
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
-            ->leftJoin('vuln_remediations', function($j) use ($a) {
-                $j->on('vuln_remediations.plugin_id',  '=', 'vuln_tracked.plugin_id')
-                  ->on('vuln_remediations.ip_address', '=', 'vuln_tracked.ip_address')
-                  ->where('vuln_remediations.assessment_id', '=', $a->id);
-            })
-            ->selectRaw("
-                SUM(CASE WHEN COALESCE(vuln_remediations.status,'Open') = 'Open'          THEN 1 ELSE 0 END) as rem_open,
-                SUM(CASE WHEN vuln_remediations.status = 'In Progress'                    THEN 1 ELSE 0 END) as rem_in_progress,
-                SUM(CASE WHEN vuln_remediations.status = 'Resolved'                       THEN 1 ELSE 0 END) as rem_resolved,
-                SUM(CASE WHEN vuln_remediations.status = 'Accepted Risk'                  THEN 1 ELSE 0 END) as rem_accepted
-            ")->first();
-
-        $remOpen       = (int)($remBreak->rem_open        ?? 0);
-        $remInProgress = (int)($remBreak->rem_in_progress ?? 0);
-        $remResolved   = (int)($remBreak->rem_resolved    ?? 0);
-        $remAccepted   = (int)($remBreak->rem_accepted    ?? 0);
+        $remOpen       = (int) ($rem->rem_open        ?? 0);
+        $remInProgress = (int) ($rem->rem_in_progress ?? 0);
+        $remResolved   = (int) ($rem->rem_resolved    ?? 0);
+        $remAccepted   = (int) ($rem->rem_accepted    ?? 0);
         $remTotal      = $remOpen + $remInProgress + $remResolved + $remAccepted;
         $pctClosed     = $remTotal > 0 ? round(($remResolved + $remAccepted) / $remTotal * 100) : 0;
 
-        $activeCount   = (int)($tracked->active   ?? 0);
-        $resolvedCount = (int)($tracked->resolved ?? 0);
-        $uniqueHosts   = \App\Models\VulnTracked::where('assessment_id', $a->id)
-            ->whereIn('tracking_status', \App\Models\VulnTracked::openStatuses())
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->distinct('ip_address')->count('ip_address');
+        $uniqueHosts   = (int) ($hostCounts->get($a->id)?->unique_hosts ?? 0);
 
-        $accentColor = $tracked->c > 0 ? '#dc2626'
-            : ($tracked->h > 0 ? '#ea580c'
-            : ($tracked->m > 0 ? '#d97706'
-            : ($tracked->l > 0 ? '#64748b' : 'var(--lime)')));
+        $accentColor = ($row->c ?? 0) > 0 ? '#dc2626'
+            : (($row->h ?? 0) > 0 ? '#ea580c'
+            : (($row->m ?? 0) > 0 ? '#d97706'
+            : (($row->l ?? 0) > 0 ? '#64748b' : 'var(--lime)')));
 
         $chartId = 'donut-' . $a->id;
     @endphp
@@ -264,7 +194,7 @@
                         {{ $a->period_start?->format('d M Y') ?? '—' }} – {{ $a->period_end?->format('d M Y') ?? '—' }}
                     </span>
                     @endif
-                    <span><i class="bi bi-cloud-upload me-1"></i>{{ $a->scans->count() }} scan{{ $a->scans->count() !== 1 ? 's' : '' }}</span>
+                    <span><i class="bi bi-cloud-upload me-1"></i>{{ $a->scans_count }} scan{{ $a->scans_count !== 1 ? 's' : '' }}</span>
                     @if($a->creator)<span><i class="bi bi-person me-1"></i>{{ $a->creator->name }}</span>@endif
                 </div>
 
@@ -314,10 +244,10 @@
 
                         {{-- Severity pills --}}
                         <div class="d-flex gap-1 flex-wrap">
-                            @if($tracked->c > 0)<span class="sev-pill sev-c"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>C:{{ $tracked->c }}</span>@endif
-                            @if($tracked->h > 0)<span class="sev-pill sev-h"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>H:{{ $tracked->h }}</span>@endif
-                            @if($tracked->m > 0)<span class="sev-pill sev-m"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>M:{{ $tracked->m }}</span>@endif
-                            @if($tracked->l > 0)<span class="sev-pill sev-l"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>L:{{ $tracked->l }}</span>@endif
+                            @if(($row->c ?? 0) > 0)<span class="sev-pill sev-c"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>C:{{ $row->c }}</span>@endif
+                            @if(($row->h ?? 0) > 0)<span class="sev-pill sev-h"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>H:{{ $row->h }}</span>@endif
+                            @if(($row->m ?? 0) > 0)<span class="sev-pill sev-m"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>M:{{ $row->m }}</span>@endif
+                            @if(($row->l ?? 0) > 0)<span class="sev-pill sev-l"><i class="bi bi-circle-fill" style="font-size:.4rem"></i>L:{{ $row->l }}</span>@endif
                             @if($uniqueHosts > 0)
                             <span style="font-size:.68rem;color:#1e40af;background:#eff6ff;border-radius:20px;padding:.18rem .5rem;font-weight:600">
                                 <i class="bi bi-hdd-network" style="font-size:.6rem"></i> {{ $uniqueHosts }}h
@@ -327,7 +257,7 @@
                     </div>
                 </div>
 
-                @elseif($a->scans->count() > 0)
+                @elseif($a->scans_count > 0)
                 <div style="font-size:.8rem;color:#059669;padding:.4rem 0">
                     <i class="bi bi-check-circle-fill me-1"></i>No active findings
                 </div>
