@@ -1296,11 +1296,23 @@ class VulnAssessmentController extends Controller
             ->paginate($request->integer('per_page', 25))
             ->withQueryString();
 
-        // ── Remediations keyed for display ────────────────────────────────────
-        $remediations = VulnRemediation::where('assessment_id', $assessment->id)
-            ->with('assignedGroup.members')
-            ->get()
-            ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
+        // ── Remediations keyed for display (scoped to current page only) ─────
+        $pageFindings = $findings->getCollection();
+        if ($pageFindings->isEmpty()) {
+            $remediations = collect();
+        } else {
+            $remediations = VulnRemediation::where('assessment_id', $assessment->id)
+                ->where(function ($q) use ($pageFindings) {
+                    foreach ($pageFindings as $f) {
+                        $q->orWhere(fn($q2) => $q2
+                            ->where('plugin_id', $f->plugin_id)
+                            ->where('ip_address', $f->ip_address));
+                    }
+                })
+                ->with('assignedGroup.members')
+                ->get()
+                ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
+        }
 
         // ── Remediation status counts (scoped) ────────────────────────────────
         $remStatusCounts = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
@@ -1327,38 +1339,58 @@ class VulnAssessmentController extends Controller
         $slaPolicy  = $assessment->slaPolicy
                    ?? SlaPolicy::where('is_default', true)->first();
 
-        // ── SLA status counts (scoped) ─────────────────────────────────────────
+        // ── SLA status counts (scoped) — computed in SQL to avoid PHP row iteration
         $slaCounts = null;
         if ($slaPolicy) {
-            $slaCounts = ['on-track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
-            VulnTracked::where('assessment_id', $assessment->id)
+            $cd = (int) $slaPolicy->critical_days;
+            $hd = (int) $slaPolicy->high_days;
+            $md = (int) $slaPolicy->medium_days;
+            $ld = (int) $slaPolicy->low_days;
+
+            // Build severity→days CASE expression using safe integer values.
+            $daySql = "CASE severity WHEN 'Critical' THEN $cd WHEN 'High' THEN $hd WHEN 'Medium' THEN $md WHEN 'Low' THEN $ld ELSE 0 END";
+
+            $rows = DB::table('vuln_tracked')
+                ->where('assessment_id', $assessment->id)
                 ->whereIn('severity', $displaySeverities)
                 ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-                ->select(['id', 'severity', 'first_seen_at', 'tracking_status', 'resolved_at'])
-                ->lazyById(500)
-                ->each(function ($t) use ($slaPolicy, &$slaCounts) {
-                    [$status] = $slaPolicy->slaStatus(
-                        $t->severity,
-                        \Carbon\Carbon::parse($t->first_seen_at),
-                        $t->tracking_status === 'Resolved',
-                        $t->resolved_at ? \Carbon\Carbon::parse($t->resolved_at) : null
-                    );
-                    if (isset($slaCounts[$status])) {
-                        $slaCounts[$status]++;
-                    }
-                });
+                ->selectRaw("
+                    CASE
+                        WHEN tracking_status = 'Resolved' THEN
+                            CASE WHEN COALESCE(resolved_at, NOW()) <= DATE_ADD(first_seen_at, INTERVAL ($daySql) DAY)
+                                THEN 'met' ELSE 'breached' END
+                        ELSE
+                            CASE
+                                WHEN NOW() > DATE_ADD(first_seen_at, INTERVAL ($daySql) DAY)     THEN 'breached'
+                                WHEN NOW() > DATE_ADD(first_seen_at, INTERVAL ($daySql - 7) DAY) THEN 'approaching'
+                                ELSE 'on-track'
+                            END
+                    END as sla_status,
+                    COUNT(*) as cnt
+                ")
+                ->groupBy('sla_status')
+                ->pluck('cnt', 'sla_status');
+
+            $slaCounts = [
+                'on-track'    => (int) ($rows['on-track']    ?? 0),
+                'approaching' => (int) ($rows['approaching'] ?? 0),
+                'breached'    => (int) ($rows['breached']    ?? 0),
+                'met'         => (int) ($rows['met']         ?? 0),
+            ];
         }
 
-        // ── Filter dropdown data (scoped to assessment + RBAC) ─────────────────
-        $filterBase = VulnTracked::where('assessment_id', $assessment->id)
+        // ── Filter dropdown data (scoped to assessment + RBAC) — one query ────
+        $filterRows = VulnTracked::where('assessment_id', $assessment->id)
             ->whereIn('severity', $displaySeverities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->visibleTo($user);
+            ->visibleTo($user)
+            ->select(['hostname', 'ip_address', 'os_family', 'asset_owner'])
+            ->get();
 
-        $hosts      = (clone $filterBase)->whereNotNull('hostname')->distinct()->orderBy('hostname')->pluck('hostname');
-        $ips        = (clone $filterBase)->whereNotNull('ip_address')->distinct()->orderBy('ip_address')->pluck('ip_address');
-        $osFamilies = (clone $filterBase)->whereNotNull('os_family')->distinct()->orderBy('os_family')->pluck('os_family');
-        $owners     = (clone $filterBase)->whereNotNull('asset_owner')->distinct()->orderBy('asset_owner')->pluck('asset_owner');
+        $hosts      = $filterRows->pluck('hostname')->filter()->unique()->sort()->values();
+        $ips        = $filterRows->pluck('ip_address')->filter()->unique()->sort()->values();
+        $osFamilies = $filterRows->pluck('os_family')->filter()->unique()->sort()->values();
+        $owners     = $filterRows->pluck('asset_owner')->filter()->unique()->sort()->values();
 
         return view('vuln_assessments.findings', compact(
             'assessment', 'baseline', 'latestScan', 'findings', 'remediations',
