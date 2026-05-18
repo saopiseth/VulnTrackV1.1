@@ -574,29 +574,25 @@ class VulnAssessmentController extends Controller
 
             $slaCounts = ['on_track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
             if ($hasTracked && $slaPolicy) {
-                $trackedForSla = VulnTracked::where('assessment_id', $assessment->id)
+                VulnTracked::where('assessment_id', $assessment->id)
                     ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
                     ->whereNotNull('first_seen_at')
-                    ->get(['severity', 'first_seen_at', 'tracking_status', 'resolved_at']);
+                    ->select(['id', 'severity', 'first_seen_at', 'tracking_status', 'resolved_at'])
+                    ->lazyById(500)
+                    ->each(function ($finding) use ($slaPolicy, &$slaCounts) {
+                        [$status] = $slaPolicy->slaStatus(
+                            $finding->severity,
+                            \Carbon\Carbon::parse($finding->first_seen_at),
+                            $finding->tracking_status === VulnTracked::STATUS_RESOLVED,
+                            $finding->resolved_at ? \Carbon\Carbon::parse($finding->resolved_at) : null
+                        );
 
-                foreach ($trackedForSla as $finding) {
-                    if (!$finding->first_seen_at) {
-                        continue;
-                    }
-
-                    [$status] = $slaPolicy->slaStatus(
-                        $finding->severity,
-                        \Carbon\Carbon::parse($finding->first_seen_at),
-                        $finding->tracking_status === VulnTracked::STATUS_RESOLVED,
-                        $finding->resolved_at ? \Carbon\Carbon::parse($finding->resolved_at) : null
-                    );
-
-                    if ($status === 'on-track') {
-                        $slaCounts['on_track']++;
-                    } elseif (isset($slaCounts[$status])) {
-                        $slaCounts[$status]++;
-                    }
-                }
+                        if ($status === 'on-track') {
+                            $slaCounts['on_track']++;
+                        } elseif (isset($slaCounts[$status])) {
+                            $slaCounts[$status]++;
+                        }
+                    });
             }
 
             $resolvedByScan = (int) ($remStats->resolved_by_scan ?? 0);
@@ -1457,23 +1453,23 @@ class VulnAssessmentController extends Controller
         // â"€â"€ SLA status counts (scoped) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         $slaCounts = null;
         if ($slaPolicy) {
-            $allTracked = VulnTracked::where('assessment_id', $assessment->id)
+            $slaCounts = ['on-track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
+            VulnTracked::where('assessment_id', $assessment->id)
                 ->whereIn('severity', $displaySeverities)
                 ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-                ->get(['severity', 'first_seen_at', 'tracking_status', 'resolved_at']);
-
-            $slaCounts = ['on-track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
-            foreach ($allTracked as $t) {
-                [$status] = $slaPolicy->slaStatus(
-                    $t->severity,
-                    \Carbon\Carbon::parse($t->first_seen_at),
-                    $t->tracking_status === 'Resolved',
-                    $t->resolved_at ? \Carbon\Carbon::parse($t->resolved_at) : null
-                );
-                if (isset($slaCounts[$status])) {
-                    $slaCounts[$status]++;
-                }
-            }
+                ->select(['id', 'severity', 'first_seen_at', 'tracking_status', 'resolved_at'])
+                ->lazyById(500)
+                ->each(function ($t) use ($slaPolicy, &$slaCounts) {
+                    [$status] = $slaPolicy->slaStatus(
+                        $t->severity,
+                        \Carbon\Carbon::parse($t->first_seen_at),
+                        $t->tracking_status === 'Resolved',
+                        $t->resolved_at ? \Carbon\Carbon::parse($t->resolved_at) : null
+                    );
+                    if (isset($slaCounts[$status])) {
+                        $slaCounts[$status]++;
+                    }
+                });
         }
 
         return view('vuln_assessments.findings', compact(

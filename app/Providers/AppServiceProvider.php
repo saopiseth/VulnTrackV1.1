@@ -12,7 +12,9 @@ use App\Policies\VulnAssessmentPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -28,6 +30,23 @@ class AppServiceProvider extends ServiceProvider
         // Blade directive shorthand: nonce="{{ csp_nonce() }}" in templates.
         // csp_nonce() is declared globally in bootstrap/helpers.php.
         Blade::directive('cspnonce', fn() => '<?php echo e(csp_nonce()); ?>');
+
+        // ── Slow query logging (dev only) ─────────────────────────────────
+        // Logs any query taking >= 500 ms to the daily log channel.
+        // Only active when APP_DEBUG=true to avoid overhead in production.
+        if (config('app.debug')) {
+            DB::listen(function ($query) {
+                if ($query->time >= 500) {
+                    Log::channel('daily')->warning('[SLOW QUERY] ' . round($query->time) . 'ms', [
+                        'sql'      => $query->sql,
+                        'bindings' => $query->bindings,
+                        'time_ms'  => $query->time,
+                        'url'      => request()?->fullUrl(),
+                        'route'    => request()?->route()?->getName(),
+                    ]);
+                }
+            });
+        }
 
         // ── Authorization policies ────────────────────────────
         Gate::policy(User::class,             UserPolicy::class);
