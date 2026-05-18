@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules\Password;
 
@@ -55,7 +56,12 @@ class AuthController extends Controller
             'mfa.remember' => $remember,
         ]);
 
-        $this->issueOtp($request, $user);
+        if (!$this->issueOtp($request, $user)) {
+            $request->session()->forget(['mfa.user_id', 'mfa.remember']);
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->withErrors(['email' => 'Could not send verification email. Please contact the administrator.']);
+        }
 
         return redirect()->route('mfa.verify');
     }
@@ -124,7 +130,9 @@ class AuthController extends Controller
 
         $user = User::findOrFail($request->session()->get('mfa.user_id'));
 
-        $this->issueOtp($request, $user);
+        if (!$this->issueOtp($request, $user)) {
+            return back()->withErrors(['otp' => 'Could not send verification email. Please contact the administrator.']);
+        }
 
         return back()->with('success', 'A new verification code has been sent to your email.');
     }
@@ -166,14 +174,25 @@ class AuthController extends Controller
 
     // ─── Helpers ─────────────────────────────────────────────
 
-    private function issueOtp(Request $request, User $user): void
+    private function issueOtp(Request $request, User $user): bool
     {
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $request->session()->put([
             'mfa.otp'        => Hash::make($otp),
             'mfa.expires_at' => now()->addMinutes(10)->timestamp,
         ]);
-        Mail::to($user->email)->send(new MfaOtpMail($otp, $user->name));
+
+        try {
+            Mail::to($user->email)->send(new MfaOtpMail($otp, $user->name));
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('MFA OTP mail failed', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
     // ─── Logout ──────────────────────────────────────────────
