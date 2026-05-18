@@ -437,8 +437,8 @@ document.getElementById('exportBtn').addEventListener('click', function () {
 document.getElementById('downloadTemplateBtn').addEventListener('click', function () {
     const samples = [
         ['web-server-01','192.168.1.10','PCI','Core Banking System','PROD','IT Department','Priority Level 1'],
-        ['db-server-02','10.0.0.25','Internal','Customer Database','PROD','DBA Team','Priority Level 2'],
-        ['app-server-03','172.16.5.50','DMZ','API Gateway','UAT','Dev Team','Priority Level 3'],
+        ['db-server-02','10.0.0.25','Swift','Customer Database','PROD','DBA Team','Priority Level 2'],
+        ['app-server-03','172.16.5.50','Non-Bank','API Gateway','UAT','Dev Team','Priority Level 3'],
     ];
     const ws = XLSX.utils.aoa_to_sheet([FIELDS, ...samples]);
     ws['!cols'] = [{wch:20},{wch:16},{wch:14},{wch:28},{wch:12},{wch:20},{wch:16}];
@@ -489,15 +489,22 @@ dropzone.addEventListener('drop', function (e) {
 fileInput.addEventListener('change', function (e) { if (e.target.files[0]) readFile(e.target.files[0]); });
 
 function readFile(file) {
-    if (file.size > 5 * 1024 * 1024) { alert('File too large'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert('File too large (max 5 MB).'); return; }
+    if (typeof XLSX === 'undefined') { alert('Spreadsheet library not loaded. Please refresh the page and try again.'); return; }
     const reader = new FileReader();
+    reader.onerror = function () { alert('Failed to read file. Please try a different file.'); };
     reader.onload = function (e) {
-        const wb  = XLSX.read(e.target.result, { type: 'array' });
-        const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
-        if (raw.length < 2) { alert('File appears empty.'); return; }
-        fileHeaders = raw[0].map(function (h) { return String(h).trim(); });
-        parsedRows  = raw.slice(1).filter(function (r) { return r.some(function (c) { return c !== ''; }); });
-        renderStep2(file.name);
+        try {
+            const wb  = XLSX.read(e.target.result, { type: 'array' });
+            const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+            if (raw.length < 2) { alert('File appears empty or has no data rows.'); return; }
+            fileHeaders = raw[0].map(function (h) { return String(h).trim(); });
+            parsedRows  = raw.slice(1).filter(function (r) { return r.some(function (c) { return c !== ''; }); });
+            if (!parsedRows.length) { alert('No data rows found after the header row.'); return; }
+            renderStep2(file.name);
+        } catch (err) {
+            alert('Could not parse file: ' + err.message + '\n\nPlease check that the file is a valid .xlsx, .xls, or .csv file.');
+        }
     };
     reader.readAsArrayBuffer(file);
 }
@@ -656,15 +663,35 @@ document.getElementById('importBtn').addEventListener('click', function () {
     lbl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Importing ' + rows.length + ' rows…';
     document.getElementById('importBtn').disabled = true;
 
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfMeta) { showImportError('CSRF token missing — please refresh the page.'); document.getElementById('importBtn').disabled = false; lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + rows.length + ' rows'; return; }
+
     fetch(IMPORT_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'X-CSRF-TOKEN': csrfMeta.content,
             'Accept': 'application/json',
         },
         body: JSON.stringify({ rows }),
-    }).then(function (r) { return r.json(); }).then(function (data) {
+    }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+    }).then(function (res) {
+        const data = res.data;
+        if (!res.ok) {
+            // Server returned 4xx/5xx — extract a readable message
+            var msg = '';
+            if (data.message) msg = data.message;
+            if (data.errors) {
+                var errs = Object.values(data.errors).flat();
+                if (errs.length) msg = errs.join(' | ');
+            }
+            if (!msg) msg = 'Server error ' + res.status;
+            showImportError(msg);
+            document.getElementById('importBtn').disabled = false;
+            lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + rows.length + ' rows';
+            return;
+        }
         if (data.total !== undefined) {
             // Show summary panel (step 4)
             document.getElementById('import-step3').style.display = 'none';
@@ -686,12 +713,12 @@ document.getElementById('importBtn').addEventListener('click', function () {
                 warnEl.style.display = 'none';
             }
         } else {
-            showImportError(data.error || JSON.stringify(data));
+            showImportError(data.error || data.message || 'Unexpected server response.');
             document.getElementById('importBtn').disabled = false;
             lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + rows.length + ' rows';
         }
     }).catch(function (err) {
-        showImportError('Import failed: ' + err.message);
+        showImportError('Import failed: ' + err.message + '. Check your network connection and try again.');
         document.getElementById('importBtn').disabled = false;
         lbl.innerHTML = '<i class="bi bi-upload me-1"></i> Import ' + rows.length + ' rows';
     });

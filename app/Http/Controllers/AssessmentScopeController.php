@@ -360,7 +360,15 @@ class AssessmentScopeController extends Controller
             }
         }
 
-        AssetInventory::syncFromScopes();
+        try {
+            AssetInventory::syncFromScopes();
+        } catch (\Exception $e) {
+            Log::error('Assessment scope import: asset inventory sync failed', [
+                'group_id' => $assessmentScopeGroup->id,
+                'error'    => $e->getMessage(),
+            ]);
+            $warnings[] = 'Asset inventory sync encountered an issue; imported data was saved but inventory may need a manual refresh.';
+        }
 
         return response()->json([
             'total'    => $insertedCount + $updatedCount + $failedCount,
@@ -368,7 +376,7 @@ class AssessmentScopeController extends Controller
             'updated'  => $updatedCount,
             'failed'   => $failedCount,
             'skipped'  => $skipped,
-            'warnings' => array_slice($warnings, 0, 20), // cap to avoid huge payloads
+            'warnings' => array_slice($warnings, 0, 20),
         ]);
     }
 
