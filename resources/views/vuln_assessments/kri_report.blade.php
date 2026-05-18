@@ -283,7 +283,7 @@
                 <tr>
                     <th class="ps-3">IP Address</th>
                     <th>Hostname</th>
-                    <th>Criticality</th>
+                    <th>Identify Scope</th>
                     <th class="text-center">Critical</th>
                     <th class="text-center">High</th>
                     <th class="text-center">Active</th>
@@ -297,9 +297,16 @@
                     <td class="ps-3" style="font-family:monospace;font-weight:700">{{ $ip->ip_address }}</td>
                     <td>{{ $ip->hostname ?: '-' }}</td>
                     <td>
-                        @php $cm = \App\Models\AssessmentScope::criticalityLevels()[$ip->system_criticality] ?? null; @endphp
-                        @if($cm)
-                            <span style="display:inline-block;background:{{ $cm['bg'] }};color:{{ $cm['color'] }};border-radius:6px;padding:.1rem .45rem;font-size:.7rem;font-weight:700">{{ $cm['label'] }}</span>
+                        @php
+                            $scopeColors = ['PCI'=>['#fef2f2','#991b1b'],'Swift'=>['#ecfeff','#0e7490'],'Non-Bank'=>['#f0fdf4','#166534'],'Public'=>['#fef3c7','#b45309'],'Critical'=>['#fff1f2','#be123c'],'Less Critical'=>['#faf5ff','#6d28d9']];
+                            $sc = isset($ip->identified_scope) ? ($scopeColors[$ip->identified_scope] ?? null) : null;
+                        @endphp
+                        @if($ip->identified_scope ?? null)
+                            @if($sc)
+                                <span style="display:inline-block;background:{{ $sc[0] }};color:{{ $sc[1] }};border-radius:6px;padding:.1rem .45rem;font-size:.7rem;font-weight:700;white-space:nowrap">{{ $ip->identified_scope }}</span>
+                            @else
+                                <span style="display:inline-block;background:#f1f5f9;color:#475569;border-radius:6px;padding:.1rem .45rem;font-size:.7rem;font-weight:700;white-space:nowrap">{{ $ip->identified_scope }}</span>
+                            @endif
                         @else
                             <span style="color:#94a3b8">-</span>
                         @endif
