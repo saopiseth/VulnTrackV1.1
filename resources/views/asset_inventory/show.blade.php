@@ -15,10 +15,10 @@
     .vuln-big .v-lbl  { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-top:.2rem; }
     .badge-scope { padding:.2rem .6rem; border-radius:20px; font-size:.68rem; font-weight:700; display:inline-block; }
     .sev-badge { padding:.18rem .55rem; border-radius:20px; font-size:.72rem; font-weight:700; display:inline-block; }
-    .sev-Critical { background:#fee2e2; color:#991b1b; }
-    .sev-High     { background:#fef3c7; color:#92400e; }
-    .sev-Medium   { background:#e0f2fe; color:#0c4a6e; }
-    .sev-Low      { background:#f0fdf4; color:#166534; }
+    .sev-Critical { background:#fce4e4; color:#851209; }
+    .sev-High     { background:#ffe5e5; color:#f21807; }
+    .sev-Medium   { background:#fff0e0; color:#f27107; }
+    .sev-Low      { background:#edfde5; color:#4df207; }
     .sev-Info     { background:#f1f5f9; color:#475569; }
     .tbl th { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
               color:#64748b; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
@@ -48,10 +48,10 @@
 {{-- Vuln Summary Strip --}}
 <div class="row g-3 mb-3">
     @foreach([
-        ['Critical', $assetInventory->vuln_critical, '#fee2e2','#991b1b'],
-        ['High',     $assetInventory->vuln_high,     '#fef3c7','#92400e'],
-        ['Medium',   $assetInventory->vuln_medium,   '#e0f2fe','#0c4a6e'],
-        ['Low',      $assetInventory->vuln_low,      '#f0fdf4','#166534'],
+        ['Critical', $assetInventory->vuln_critical, '#fce4e4','#851209'],
+        ['High',     $assetInventory->vuln_high,     '#ffe5e5','#f21807'],
+        ['Medium',   $assetInventory->vuln_medium,   '#fff0e0','#f27107'],
+        ['Low',      $assetInventory->vuln_low,      '#edfde5','#4df207'],
     ] as [$sev, $cnt, $bg, $col])
     <div class="col-6 col-md-3">
         <div class="vuln-big" style="background:{{ $bg }}">

@@ -311,8 +311,8 @@
                             <span style="color:#94a3b8">-</span>
                         @endif
                     </td>
-                    <td class="text-center" style="font-weight:800;color:#780000">{{ number_format($ip->critical) }}</td>
-                    <td class="text-center" style="font-weight:800;color:#dc0000">{{ number_format($ip->high) }}</td>
+                    <td class="text-center" style="font-weight:800;color:#851209">{{ number_format($ip->critical) }}</td>
+                    <td class="text-center" style="font-weight:800;color:#f21807">{{ number_format($ip->high) }}</td>
                     <td class="text-center" style="font-weight:800;color:#059669">{{ number_format($ip->active_count) }}</td>
                     <td style="max-width:220px">
                         @if(!empty($ip->vuln_age_quarters))

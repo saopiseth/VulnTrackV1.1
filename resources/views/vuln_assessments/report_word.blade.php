@@ -26,10 +26,10 @@
     tr:nth-child(even) td { background: #f8fafc; }
 
     /* ── Severity colours ── */
-    .sev-c  { color: #991b1b; font-weight: bold; }
-    .sev-h  { color: #c2410c; font-weight: bold; }
-    .sev-m  { color: #854d0e; font-weight: bold; }
-    .sev-l  { color: #475569; }
+    .sev-c  { color: #851209; font-weight: bold; }
+    .sev-h  { color: #f21807; font-weight: bold; }
+    .sev-m  { color: #f27107; font-weight: bold; }
+    .sev-l  { color: #4df207; }
 
     /* ── Status ── */
     .open   { color: #dc2626; font-weight: bold; }

@@ -109,10 +109,10 @@
 
                 @php
                     $severities = [
-                        'critical' => ['label'=>'Critical', 'bg'=>'#fee2e2', 'color'=>'#991b1b', 'icon'=>'bi-exclamation-octagon-fill', 'default'=>7],
-                        'high'     => ['label'=>'High',     'bg'=>'#ffedd5', 'color'=>'#9a3412', 'icon'=>'bi-exclamation-triangle-fill','default'=>30],
-                        'medium'   => ['label'=>'Medium',   'bg'=>'#fef9c3', 'color'=>'#854d0e', 'icon'=>'bi-dash-circle-fill',         'default'=>90],
-                        'low'      => ['label'=>'Low',      'bg'=>'#f1f5f9', 'color'=>'#475569', 'icon'=>'bi-info-circle-fill',         'default'=>180],
+                        'critical' => ['label'=>'Critical', 'bg'=>'#fce4e4', 'color'=>'#851209', 'icon'=>'bi-exclamation-octagon-fill', 'default'=>7],
+                        'high'     => ['label'=>'High',     'bg'=>'#ffe5e5', 'color'=>'#f21807', 'icon'=>'bi-exclamation-triangle-fill','default'=>30],
+                        'medium'   => ['label'=>'Medium',   'bg'=>'#fff0e0', 'color'=>'#f27107', 'icon'=>'bi-dash-circle-fill',         'default'=>90],
+                        'low'      => ['label'=>'Low',      'bg'=>'#edfde5', 'color'=>'#4df207', 'icon'=>'bi-info-circle-fill',         'default'=>180],
                     ];
                 @endphp
 

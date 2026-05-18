@@ -20,10 +20,10 @@
         color:var(--lime-dark); padding-bottom:.4rem; border-bottom:2px solid var(--lime);
         display:flex; align-items:center; gap:.4rem; margin-bottom:1rem;
     }
-    .sev-c { background:#fee2e2; color:#991b1b; }
-    .sev-h { background:#ffedd5; color:#9a3412; }
-    .sev-m { background:#fef9c3; color:#854d0e; }
-    .sev-l { background:#f1f5f9; color:#475569; }
+    .sev-c { background:#fce4e4; color:#851209; }
+    .sev-h { background:#ffe5e5; color:#f21807; }
+    .sev-m { background:#fff0e0; color:#f27107; }
+    .sev-l { background:#edfde5; color:#4df207; }
     .sev-badge { padding:.18rem .6rem; border-radius:20px; font-size:.68rem; font-weight:700; display:inline-block; white-space:nowrap; }
 
     .assess-row { display:flex; align-items:center; gap:.75rem; padding:.6rem .85rem;

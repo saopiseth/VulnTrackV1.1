@@ -9,10 +9,10 @@
     .vm-card h6 { font-size:.8rem; font-weight:700; color:var(--lime-dark); text-transform:uppercase; letter-spacing:.8px; margin-bottom:1rem; padding-bottom:.5rem; border-bottom:2px solid var(--lime); }
     .stat-box { border-radius:12px; padding:1rem 1.2rem; }
     .badge-sev { padding:.28rem .7rem; border-radius:20px; font-size:.72rem; font-weight:700; display:inline-block; white-space:nowrap; }
-    .sev-critical { background:#fee2e2; color:#991b1b; }
-    .sev-high     { background:#ffedd5; color:#9a3412; }
-    .sev-medium   { background:#fef9c3; color:#854d0e; }
-    .sev-low      { background:#f1f5f9; color:#475569; }
+    .sev-critical { background:#fce4e4; color:#851209; }
+    .sev-high     { background:#ffe5e5; color:#f21807; }
+    .sev-medium   { background:#fff0e0; color:#f27107; }
+    .sev-low      { background:#edfde5; color:#4df207; }
     .status-open        { background:#fee2e2; color:#991b1b; }
     .status-in-progress { background:#fef9c3; color:#854d0e; }
     .status-resolved    { background:#d1fae5; color:#065f46; }
@@ -48,21 +48,21 @@
         </div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="stat-box" style="background:#fee2e2;border:1px solid #fca5a5">
-            <div style="font-size:.72rem;color:#991b1b;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Critical</div>
-            <div style="font-size:1.6rem;font-weight:800;color:#991b1b">{{ $stats->critical ?? 0 }}</div>
+        <div class="stat-box" style="background:#fce4e4;border:1px solid #fca5a5">
+            <div style="font-size:.72rem;color:#851209;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Critical</div>
+            <div style="font-size:1.6rem;font-weight:800;color:#851209">{{ $stats->critical ?? 0 }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="stat-box" style="background:#ffedd5;border:1px solid #fdba74">
-            <div style="font-size:.72rem;color:#9a3412;font-weight:600;text-transform:uppercase;letter-spacing:.5px">High</div>
-            <div style="font-size:1.6rem;font-weight:800;color:#9a3412">{{ $stats->high ?? 0 }}</div>
+        <div class="stat-box" style="background:#ffe5e5;border:1px solid #fdba74">
+            <div style="font-size:.72rem;color:#f21807;font-weight:600;text-transform:uppercase;letter-spacing:.5px">High</div>
+            <div style="font-size:1.6rem;font-weight:800;color:#f21807">{{ $stats->high ?? 0 }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3 col-xl">
-        <div class="stat-box" style="background:#fef9c3;border:1px solid #fde047">
-            <div style="font-size:.72rem;color:#854d0e;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Medium</div>
-            <div style="font-size:1.6rem;font-weight:800;color:#854d0e">{{ $stats->medium ?? 0 }}</div>
+        <div class="stat-box" style="background:#fff0e0;border:1px solid #fde047">
+            <div style="font-size:.72rem;color:#f27107;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Medium</div>
+            <div style="font-size:1.6rem;font-weight:800;color:#f27107">{{ $stats->medium ?? 0 }}</div>
         </div>
     </div>
     <div class="col-6 col-md-3 col-xl">

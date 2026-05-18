@@ -77,19 +77,19 @@ tr:last-child td { border-bottom: none; }
 .toc-2 { font-size: 8.5pt; color: #475569; padding: 3px 0 3px 16px; border-bottom: 1px dotted #f1f5f9; }
 
 /* ── Severity colours ── */
-.sev-c { color: #991b1b; font-weight: bold; }
-.sev-h { color: #c2410c; font-weight: bold; }
-.sev-m { color: #854d0e; font-weight: bold; }
-.sev-l { color: #475569; }
+.sev-c { color: #851209; font-weight: bold; }
+.sev-h { color: #f21807; font-weight: bold; }
+.sev-m { color: #f27107; font-weight: bold; }
+.sev-l { color: #4df207; }
 .open   { color: #dc2626; font-weight: bold; }
 .closed { color: #16a34a; font-weight: bold; }
 
 /* ── Pills ── */
 .pill { display: inline-block; padding: 1px 6px; border-radius: 20px; font-size: 7pt; font-weight: bold; }
-.pill-c { background: #fee2e2; color: #991b1b; }
-.pill-h { background: #ffedd5; color: #c2410c; }
-.pill-m { background: #fef9c3; color: #854d0e; }
-.pill-l { background: #f1f5f9; color: #475569; }
+.pill-c { background: #fce4e4; color: #851209; }
+.pill-h { background: #ffe5e5; color: #f21807; }
+.pill-m { background: #fff0e0; color: #f27107; }
+.pill-l { background: #edfde5; color: #4df207; }
 
 /* ── Finding heading ── */
 .finding-title {

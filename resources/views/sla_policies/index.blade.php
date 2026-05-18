@@ -81,19 +81,19 @@
             @endif
             {{-- SLA days breakdown --}}
             <div class="d-flex flex-wrap gap-2 ms-1" style="margin-left:2.75rem">
-                <span class="sev-pill" style="background:#fee2e2;color:#991b1b">
+                <span class="sev-pill" style="background:#fce4e4;color:#851209">
                     <i class="bi bi-exclamation-octagon-fill" style="font-size:.65rem"></i>
                     Critical: {{ $p->critical_days }}d
                 </span>
-                <span class="sev-pill" style="background:#ffedd5;color:#9a3412">
+                <span class="sev-pill" style="background:#ffe5e5;color:#f21807">
                     <i class="bi bi-exclamation-triangle-fill" style="font-size:.65rem"></i>
                     High: {{ $p->high_days }}d
                 </span>
-                <span class="sev-pill" style="background:#fef9c3;color:#854d0e">
+                <span class="sev-pill" style="background:#fff0e0;color:#f27107">
                     <i class="bi bi-dash-circle-fill" style="font-size:.65rem"></i>
                     Medium: {{ $p->medium_days }}d
                 </span>
-                <span class="sev-pill" style="background:#f1f5f9;color:#475569">
+                <span class="sev-pill" style="background:#edfde5;color:#4df207">
                     <i class="bi bi-info-circle-fill" style="font-size:.65rem"></i>
                     Low: {{ $p->low_days }}d
                 </span>
