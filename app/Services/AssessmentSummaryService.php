@@ -57,7 +57,7 @@ class AssessmentSummaryService
         // Scope metadata (system_name, criticality, etc.) is embedded in the
         // JSON so show() doesn't need a second scope query on every page load.
         if ($scopeGroupId) {
-            $scopeColumns = "
+            $scopeColumns = ",
                 MAX(sc.id)                  as scope_id,
                 MIN(sc.hostname)            as scope_hostname,
                 MIN(sc.system_name)         as system_name,
@@ -67,7 +67,7 @@ class AssessmentSummaryService
                 MIN(sc.environment)         as environment,
                 MIN(sc.remediation_sla)     as remediation_sla";
         } else {
-            $scopeColumns = "
+            $scopeColumns = ",
                 NULL as scope_id,
                 NULL as scope_hostname,
                 NULL as system_name,
