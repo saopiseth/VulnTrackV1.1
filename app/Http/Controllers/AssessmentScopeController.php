@@ -169,25 +169,11 @@ class AssessmentScopeController extends Controller
             'rows' => ['required', 'array', 'min:1', 'max:2000'],
         ]);
 
-        // Enum lookup maps: case-insensitive key → canonical value
-        $scopeLookup = collect(AssessmentScope::scopeOptions())
-            ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
+        // Enum lookup maps for environment and SLA only (identified_scope is free-text)
         $envLookup   = collect(AssessmentScope::environmentOptions())
             ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
         $slaLookup   = collect(AssessmentScope::remediationSlaOptions())
             ->mapWithKeys(fn ($v) => [strtolower($v) => $v])->all();
-
-        // Alias map: long/alternate Excel labels → canonical lookup key (lowercase)
-        $scopeAliases = [
-            'pci scope'            => 'pci',
-            'swift scope'          => 'swift',
-            'swift asset scope'    => 'swift',
-            'public scope'         => 'public',
-            'non-bank scope'       => 'non-bank',
-            'critical scope'       => 'critical',
-            'critical asset scope' => 'critical',
-            'less critical scope'  => 'less critical',
-        ];
 
         $now    = now();
         $userId = Auth::id();
@@ -197,18 +183,17 @@ class AssessmentScopeController extends Controller
             ? mb_substr(trim((string) $v), 0, 255) : null;
 
         // Safe enum resolver: returns canonical value or null; logs unrecognised values
-        $enum = function (string $field, $v, array $lookup, array $aliases = []) use ($assessmentScopeGroup): ?string {
+        $enum = function (string $field, $v, array $lookup) use ($assessmentScopeGroup): ?string {
             if ($v === null || $v === '') return null;
             $key = strtolower(trim((string) $v));
             if ($key === '') return null;
-            if (isset($aliases[$key])) $key = $aliases[$key];
             if (isset($lookup[$key])) return $lookup[$key];
             Log::warning("Assessment scope import: unrecognised {$field} value", [
                 'group_id' => $assessmentScopeGroup->id,
                 'value'    => $v,
                 'accepted' => implode(', ', array_values($lookup)),
             ]);
-            return null; // reject invalid enum; caller may count as warning
+            return null;
         };
 
         // Deduplicate within file: last-wins keyed by ip_address, then hostname
@@ -224,20 +209,18 @@ class AssessmentScopeController extends Controller
             $sysName  = $str($row['system_name']  ?? null);
             $owner    = $str($row['system_owner'] ?? null);
 
-            // Enum fields — track when a value was provided but not recognised
-            $rawScope = $row['identified_scope'] ?? null;
-            $rawEnv   = $row['environment']      ?? null;
-            $rawSla   = $row['remediation_sla']  ?? null;
+            // identified_scope: accept any value as-is (no validation)
+            $scope = $str($row['identified_scope'] ?? null);
 
-            $scope = $enum('identified_scope', $rawScope, $scopeLookup, $scopeAliases);
-            $env   = $enum('environment',      $rawEnv,   $envLookup);
-            $sla   = $enum('remediation_sla',  $rawSla,   $slaLookup);
+            // environment and SLA: map to canonical values; warn if unrecognised
+            $rawEnv = $row['environment']     ?? null;
+            $rawSla = $row['remediation_sla'] ?? null;
 
-            // Collect user-facing warnings for values that were provided but rejected
+            $env = $enum('environment',     $rawEnv, $envLookup);
+            $sla = $enum('remediation_sla', $rawSla, $slaLookup);
+
+            // Collect user-facing warnings for environment/SLA values that were rejected
             $lineNum = $rowNum + 2; // +2: 1-based + header row
-            if ($rawScope !== null && $rawScope !== '' && $scope === null) {
-                $warnings[] = "Row {$lineNum}: identified_scope \"{$rawScope}\" not recognised (accepted: PCI, Swift, Non-Bank, Public, Critical, Less Critical).";
-            }
             if ($rawEnv !== null && $rawEnv !== '' && $env === null) {
                 $warnings[] = "Row {$lineNum}: environment \"{$rawEnv}\" not recognised (accepted: PROD, UAT, STAGE, DR, DEV, Non-Prod, DEV-QA).";
             }
