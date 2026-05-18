@@ -164,25 +164,25 @@
                 {
                     label: 'Critical',
                     data: {!! json_encode(array_values($severityTrend['Critical'])) !!},
-                    borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,.1)',
+                    borderColor: '#851209', backgroundColor: 'rgba(133,18,9,.1)',
                     borderWidth: 2.5, pointRadius: 4, tension: .35, fill: false
                 },
                 {
                     label: 'High',
                     data: {!! json_encode(array_values($severityTrend['High'])) !!},
-                    borderColor: '#ea580c', backgroundColor: 'rgba(234,88,12,.1)',
+                    borderColor: '#f21807', backgroundColor: 'rgba(242,24,7,.1)',
                     borderWidth: 2.5, pointRadius: 4, tension: .35, fill: false
                 },
                 {
                     label: 'Medium',
                     data: {!! json_encode(array_values($severityTrend['Medium'])) !!},
-                    borderColor: '#ca8a04', backgroundColor: 'rgba(202,138,4,.1)',
+                    borderColor: '#f27107', backgroundColor: 'rgba(242,113,7,.1)',
                     borderWidth: 2.5, pointRadius: 4, tension: .35, fill: false
                 },
                 {
                     label: 'Low',
                     data: {!! json_encode(array_values($severityTrend['Low'])) !!},
-                    borderColor: '#64748b', backgroundColor: 'rgba(100,116,139,.08)',
+                    borderColor: '#4df207', backgroundColor: 'rgba(77,242,7,.1)',
                     borderWidth: 2, pointRadius: 4, tension: .35, fill: false
                 }
             ]
@@ -222,7 +222,7 @@
     // ── 4. Current Severity Breakdown Bar ───────────────────────────
     var sevLabels = ['Critical','High','Medium','Low'];
     var sevData   = {!! json_encode(collect(['Critical','High','Medium','Low'])->map(fn($s) => (int)($currentSevCounts[$s] ?? 0))->values()) !!};
-    var sevColors = ['#dc2626','#ea580c','#ca8a04','#64748b'];
+    var sevColors = ['#851209','#f21807','#f27107','#4df207'];
     new Chart(document.getElementById('sevBreakChart'), {
         type: 'bar',
         data: {

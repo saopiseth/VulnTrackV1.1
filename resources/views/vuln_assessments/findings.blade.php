@@ -6,10 +6,10 @@
     :root { --lime: var(--primary); --lime-dark: var(--primary-dark); --lime-light: rgb(240,248,210); --lime-muted: rgb(232,244,195); }
     .va-card { background:#fff; border:1px solid #e8f5c2; border-radius:14px; padding:1.5rem; margin-bottom:1.25rem; }
     .badge-sev { padding:.22rem .65rem; border-radius:20px; font-size:.7rem; font-weight:700; display:inline-block; white-space:nowrap; }
-    .sev-critical { background:#fee2e2; color:#991b1b; }
-    .sev-high     { background:#ffedd5; color:#9a3412; }
-    .sev-medium   { background:#fef9c3; color:#854d0e; }
-    .sev-low      { background:#f1f5f9; color:#475569; }
+    .sev-critical { background:#fce4e4; color:#851209; }
+    .sev-high     { background:#ffe5e5; color:#f21807; }
+    .sev-medium   { background:#fff0e0; color:#f27107; }
+    .sev-low      { background:#edfde5; color:#4df207; }
     .rem-open        { background:#fee2e2; color:#991b1b; }
     .rem-in-progress { background:#fef9c3; color:#854d0e; }
     .rem-resolved    { background:#d1fae5; color:#065f46; }
@@ -436,8 +436,8 @@
                                 {{-- Severity Banner --}}
                                 @php
                                     $bannerClass = 'sev-banner sev-banner-' . strtolower($f->severity);
-                                    $bannerIconColors = ['Critical'=>'#991b1b','High'=>'#9a3412','Medium'=>'#854d0e','Low'=>'#475569'];
-                                    $bannerBg = ['Critical'=>'#fee2e2','High'=>'#ffedd5','Medium'=>'#fef9c3','Low'=>'#f1f5f9'];
+                                    $bannerIconColors = ['Critical'=>'#851209','High'=>'#f21807','Medium'=>'#f27107','Low'=>'#4df207'];
+                                    $bannerBg = ['Critical'=>'#fce4e4','High'=>'#ffe5e5','Medium'=>'#fff0e0','Low'=>'#edfde5'];
                                     $bannerIcon = ['Critical'=>'bi-exclamation-octagon-fill','High'=>'bi-exclamation-triangle-fill','Medium'=>'bi-exclamation-circle-fill','Low'=>'bi-info-circle-fill'];
                                     $bColor = $bannerIconColors[$f->severity] ?? '#475569';
                                     $bBg    = $bannerBg[$f->severity]        ?? '#f1f5f9';

@@ -35,10 +35,10 @@
         padding: .18rem .55rem; border-radius: 20px;
         font-size: .68rem; font-weight: 700;
     }
-    .sev-c { background:#fee2e2; color:#991b1b; }
-    .sev-h { background:#ffedd5; color:#9a3412; }
-    .sev-m { background:#fef9c3; color:#854d0e; }
-    .sev-l { background:#f1f5f9; color:#475569; }
+    .sev-c { background:#fce4e4; color:#851209; }
+    .sev-h { background:#ffe5e5; color:#f21807; }
+    .sev-m { background:#fff0e0; color:#f27107; }
+    .sev-l { background:#edfde5; color:#4df207; }
 
     .badge-env { padding:.18rem .6rem; border-radius:20px; font-size:.66rem; font-weight:700; }
     .env-production  { background:#fee2e2; color:#991b1b; }
@@ -154,10 +154,10 @@
 
         $uniqueHosts   = (int) ($hostCounts->get($a->id)?->unique_hosts ?? 0);
 
-        $accentColor = ($row->c ?? 0) > 0 ? '#dc2626'
-            : (($row->h ?? 0) > 0 ? '#ea580c'
-            : (($row->m ?? 0) > 0 ? '#d97706'
-            : (($row->l ?? 0) > 0 ? '#64748b' : 'var(--lime)')));
+        $accentColor = ($row->c ?? 0) > 0 ? '#851209'
+            : (($row->h ?? 0) > 0 ? '#f21807'
+            : (($row->m ?? 0) > 0 ? '#f27107'
+            : (($row->l ?? 0) > 0 ? '#4df207' : 'var(--lime)')));
 
         $chartId = 'donut-' . $a->id;
     @endphp

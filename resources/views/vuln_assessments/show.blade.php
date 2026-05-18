@@ -188,20 +188,20 @@
     </div>
     <div class="col-4 col-md-2">
         <div class="stat-strip" style="border-color:#fca5a5;background:#fff8f8">
-            <div class="lbl" style="color:#991b1b">Critical</div>
-            <div class="val" style="color:#dc2626">{{ $stats->critical }}</div>
+            <div class="lbl" style="color:#851209">Critical</div>
+            <div class="val" style="color:#851209">{{ $stats->critical }}</div>
         </div>
     </div>
     <div class="col-4 col-md-2">
         <div class="stat-strip" style="border-color:#fdba74;background:#fffbf7">
-            <div class="lbl" style="color:#9a3412">High</div>
-            <div class="val" style="color:#ea580c">{{ $stats->high }}</div>
+            <div class="lbl" style="color:#f21807">High</div>
+            <div class="val" style="color:#f21807">{{ $stats->high }}</div>
         </div>
     </div>
     <div class="col-4 col-md-2">
         <div class="stat-strip" style="border-color:#fde047;background:#fdfcf0">
-            <div class="lbl" style="color:#854d0e">Medium</div>
-            <div class="val" style="color:#d97706">{{ $stats->medium }}</div>
+            <div class="lbl" style="color:#f27107">Medium</div>
+            <div class="val" style="color:#f27107">{{ $stats->medium }}</div>
         </div>
     </div>
     <div class="col-4 col-md-2">
@@ -346,7 +346,7 @@
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap">IP Address</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Hostname</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">OS</th>
-                        <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#991b1b">Crit</th>
+                        <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#851209">Crit</th>
                         <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#c2410c">High</th>
                         <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b45309">Med</th>
                         <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#475569">Low</th>
@@ -414,10 +414,10 @@
                     </td>
 
                     @foreach([
-                        [$ip->critical,'#fee2e2','#991b1b'],
-                        [$ip->high,    '#ffedd5','#c2410c'],
-                        [$ip->medium,  '#fef9c3','#b45309'],
-                        [$ip->low,     '#f1f5f9','#475569'],
+                        [$ip->critical,'#fce4e4','#851209'],
+                        [$ip->high,    '#ffe5e5','#f21807'],
+                        [$ip->medium,  '#fff0e0','#f27107'],
+                        [$ip->low,     '#edfde5','#4df207'],
                     ] as [$cnt,$bg,$col])
                     <td style="padding:.5rem .3rem;text-align:center">
                         @if($cnt > 0)

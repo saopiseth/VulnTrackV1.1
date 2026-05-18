@@ -110,10 +110,10 @@
 @else
 @php
     $severityChart = [
-        ['Critical', (int) ($stats->critical ?? 0), '#780000'],
-        ['High', (int) ($stats->high ?? 0), '#dc0000'],
-        ['Medium', (int) ($stats->medium ?? 0), '#fd8c00'],
-        ['Low', (int) ($stats->low ?? 0), '#16a34a'],
+        ['Critical', (int) ($stats->critical ?? 0), '#851209'],
+        ['High', (int) ($stats->high ?? 0), '#f21807'],
+        ['Medium', (int) ($stats->medium ?? 0), '#f27107'],
+        ['Low', (int) ($stats->low ?? 0), '#4df207'],
     ];
     $workflowChart = [
         ['Open', $kri['open_remediation'], '#dc2626'],
@@ -233,7 +233,7 @@
             <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem">Latest 4 assessments · severity breakdown · click a bar to open the assessment</div>
         </div>
         <div style="display:flex;gap:1rem">
-            @foreach([['Critical','#780000'],['High','#dc0000'],['Medium','#fd8c00'],['Low','#16a34a']] as [$lbl,$clr])
+            @foreach([['Critical','#851209'],['High','#f21807'],['Medium','#f27107'],['Low','#4df207']] as [$lbl,$clr])
             <div style="display:flex;align-items:center;gap:.3rem;font-size:.7rem;color:#64748b;font-weight:600">
                 <div style="width:10px;height:10px;border-radius:2px;background:{{ $clr }};flex-shrink:0"></div>{{ $lbl }}
             </div>
@@ -380,10 +380,10 @@
                     yAxisID: 'y',
                     order: 0,
                 },
-                { type:'bar', label:'Critical', data: data.critical, backgroundColor:'#780000', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
-                { type:'bar', label:'High',     data: data.high,     backgroundColor:'#dc0000', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
-                { type:'bar', label:'Medium',   data: data.medium,   backgroundColor:'#fd8c00', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
-                { type:'bar', label:'Low',      data: data.low,      backgroundColor:'#16a34a', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+                { type:'bar', label:'Critical', data: data.critical, backgroundColor:'#851209', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+                { type:'bar', label:'High',     data: data.high,     backgroundColor:'#f21807', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+                { type:'bar', label:'Medium',   data: data.medium,   backgroundColor:'#f27107', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
+                { type:'bar', label:'Low',      data: data.low,      backgroundColor:'#4df207', stack:'s', order:1, borderColor: borderColors, borderWidth: { top:0, right:0, bottom:0, left:3 } },
             ],
         },
         options: {
