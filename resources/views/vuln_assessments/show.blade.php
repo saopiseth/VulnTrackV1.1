@@ -281,14 +281,18 @@
         <div class="d-flex align-items-center justify-content-between mb-2">
             <div class="section-label mb-0"><i class="bi bi-hdd-network"></i>Vulnerable Hosts</div>
             <span id="hf-count" style="font-size:.71rem;color:#94a3b8;font-weight:600">
-                {{ $topIps->count() }} host{{ $topIps->count() !== 1 ? 's' : '' }}
+                Top {{ $topIps->count() }} of {{ $activeHostCount }} host{{ $activeHostCount !== 1 ? 's' : '' }}
             </span>
         </div>
 
         {{-- Filter bar --}}
-        <div id="host-filter-bar" style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;
-                                          margin-bottom:.85rem;padding:.55rem .75rem;
-                                          background:#f8fafc;border-radius:9px;border:1px solid #e8f5c2">
+        <div id="host-filter-bar"
+             data-search-url="{{ route('vuln-assessments.hosts.search', $assessment) }}"
+             data-findings-url="{{ route('vuln-assessments.findings', $assessment) }}"
+             data-total-hosts="{{ $activeHostCount }}"
+             style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;
+                    margin-bottom:.85rem;padding:.55rem .75rem;
+                    background:#f8fafc;border-radius:9px;border:1px solid #e8f5c2">
             <input id='hf-search' type='text' placeholder='Search IP / hostname / system…'
                    style='border:1px solid #e2e8f0;border-radius:7px;padding:.28rem .6rem;
                           font-size:.79rem;min-width:180px;flex:1 1 180px;outline:none;
@@ -631,8 +635,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-// ── Host table filter ────────────────────────────────────────────────────────
+// ── Host table filter + AJAX search ─────────────────────────────────────────
+window.criticalityLevels = @json(\App\Models\AssessmentScope::criticalityLevels());
 (function () {
+    var bar     = document.getElementById('host-filter-bar');
     var search  = document.getElementById('hf-search');
     var sScope  = document.getElementById('hf-scope');
     var sEnv    = document.getElementById('hf-env');
@@ -643,57 +649,141 @@ document.addEventListener('DOMContentLoaded', function () {
     var tbl     = document.getElementById('host-table');
     if (!search || !tbl) return;
 
-    var rows  = Array.from(tbl.querySelectorAll('tbody tr'));
-    var total = rows.length;
+    var tbody        = tbl.querySelector('tbody');
+    var originalRows = Array.from(tbody.querySelectorAll('tr'));
+    var searchUrl    = bar ? bar.dataset.searchUrl : '';
+    var findingsUrl  = bar ? bar.dataset.findingsUrl : '';
+    var totalHosts   = parseInt(bar ? bar.dataset.totalHosts : 0);
+    var topCount     = originalRows.length;
+    var debounceTimer, inSearchMode = false;
 
-    function apply() {
-        var q     = search.value.toLowerCase().trim();
-        var scope = sScope.value;
-        var env   = sEnv.value;
-        var os    = sOs.value;
-        var sev   = sSev.value;
-        var vis   = 0;
+    // ── Helpers ───────────────────────────────────────────────────────────
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function fmtDate(s) {
+        if (!s) return '—';
+        var d = new Date(s); if (isNaN(d)) return '—';
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+    }
+    function osInfo(name) {
+        var s = (name || '').toLowerCase();
+        if (!s) return null;
+        if (s.indexOf('windows') !== -1)           return {icon:'bi-windows', bg:'#dbeafe', col:'#1e40af'};
+        if (/linux|ubuntu|centos|debian|redhat/.test(s)) return {icon:'bi-ubuntu',  bg:'#d1fae5', col:'#065f46'};
+        if (s.indexOf('cisco') !== -1)             return {icon:'bi-router',  bg:'#f1f5f9', col:'#475569'};
+        return {icon:'bi-cpu', bg:'#f1f5f9', col:'#475569'};
+    }
+    function sevBadge(n, bg, col) {
+        return n > 0
+            ? '<span style="display:inline-block;min-width:24px;background:'+bg+';color:'+col+';border-radius:6px;padding:.08rem .35rem;font-size:.73rem;font-weight:800">'+n+'</span>'
+            : '<span style="color:#e2e8f0;font-size:.71rem">—</span>';
+    }
+    function critBadge(level) {
+        var cm = (window.criticalityLevels || {})[level];
+        if (!cm) return '<span style="color:#cbd5e1;font-size:.75rem">—</span>';
+        return '<span style="display:inline-block;background:'+cm.bg+';color:'+cm.color+';border-radius:6px;padding:.1rem .45rem;font-size:.67rem;font-weight:700;white-space:nowrap">'+cm.label+'</span>';
+    }
 
-        rows.forEach(function (row) {
-            var show = true;
-            var d    = row.dataset;
+    // ── Build <tr> from JSON host object ──────────────────────────────────
+    function buildRow(host, idx) {
+        var ip  = host.ip_address || '';
+        var hn  = host.hostname   || '';
+        var os  = osInfo(host.os_name);
+        var osBadge = os
+            ? '<span style="display:inline-flex;align-items:center;gap:.28rem;background:'+os.bg+';color:'+os.col+';border-radius:6px;padding:.13rem .48rem;font-size:.67rem;font-weight:600"><i class="bi '+os.icon+'" style="font-size:.63rem"></i>'+(host.os_name||'').substring(0,20)+'</span>'
+            : '<span style="color:#cbd5e1;font-size:.75rem">—</span>';
+        var link = findingsUrl ? findingsUrl + '?ip=' + encodeURIComponent(ip) : '#';
+        var rowBg = (idx % 2 === 1) ? '#fafafa' : '';
+        var tr = document.createElement('tr');
+        tr.style.cssText = 'border-bottom:1px solid #f1f5f9;' + (rowBg ? 'background:'+rowBg : '');
+        tr.dataset.ip = ip; tr.dataset.hostname = host.scope_hostname || hn;
+        tr.dataset.system = host.system_name || ''; tr.dataset.criticality = host.system_criticality || '';
+        tr.dataset.owner  = host.system_owner || ''; tr.dataset.scope = host.identified_scope || '';
+        tr.dataset.env    = host.environment  || ''; tr.dataset.os   = host.os_family || '';
+        tr.dataset.crit   = host.critical || 0; tr.dataset.high = host.high   || 0;
+        tr.dataset.med    = host.medium   || 0; tr.dataset.low  = host.low    || 0;
+        tr.dataset.active = host.active_count || 0;
+        tr.addEventListener('mouseover', function() { this.style.background='#f8fce8'; });
+        tr.addEventListener('mouseout',  function() { this.style.background=rowBg; });
+        tr.innerHTML = [
+            '<td style="padding:.5rem .55rem;color:#cbd5e1;font-size:.71rem;font-weight:600">'+(idx+1)+'</td>',
+            '<td style="padding:.5rem .55rem;white-space:nowrap"><a href="'+link+'" style="font-family:monospace;font-weight:700;color:#0f172a;font-size:.82rem;text-decoration:none" onmouseover="this.style.color=\'var(--lime-dark)\'" onmouseout="this.style.color=\'#0f172a\'">'+ip+'</a></td>',
+            '<td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(hn||'—')+'</td>',
+            '<td style="padding:.5rem .55rem;white-space:nowrap">'+osBadge+'</td>',
+            '<td style="padding:.5rem .3rem;text-align:center">'+sevBadge(host.critical,'#fce4e4','#851209')+'</td>',
+            '<td style="padding:.5rem .3rem;text-align:center">'+sevBadge(host.high,   '#ffe5e5','#f21807')+'</td>',
+            '<td style="padding:.5rem .3rem;text-align:center">'+sevBadge(host.medium, '#fff0e0','#f27107')+'</td>',
+            '<td style="padding:.5rem .3rem;text-align:center">'+sevBadge(host.low,    '#edfde5','#4df207')+'</td>',
+            '<td style="padding:.5rem .3rem;text-align:center">'+(host.active_count>0?'<span style="font-weight:800;color:#059669;font-size:.8rem">'+host.active_count+'</span>':'<span style="color:#cbd5e1;font-size:.75rem">—</span>')+'</td>',
+            '<td style="padding:.5rem .3rem;text-align:center">'+(host.resolved_count>0?'<span style="font-weight:700;color:#64748b;font-size:.8rem">'+host.resolved_count+'</span>':'<span style="color:#e2e8f0;font-size:.71rem">—</span>')+'</td>',
+            '<td style="padding:.5rem .55rem;white-space:nowrap;color:#64748b;font-size:.74rem"><i class="bi bi-calendar3 me-1" style="color:#94a3b8;font-size:.67rem"></i>'+fmtDate(host.first_detected)+'</td>',
+            '<td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(host.system_name||'—')+'</td>',
+            '<td style="padding:.5rem .55rem;white-space:nowrap">'+critBadge(host.system_criticality)+'</td>',
+            '<td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(host.system_owner||'—')+'</td>',
+            '<td style="padding:.5rem .55rem;white-space:nowrap">'+(host.identified_scope?'<span style="display:inline-block;background:#f0fdf4;color:#166534;border-radius:6px;padding:.1rem .45rem;font-size:.67rem;font-weight:700">'+host.identified_scope+'</span>':'<span style="color:#cbd5e1;font-size:.75rem">—</span>')+'</td>',
+            '<td style="padding:.5rem .55rem;text-align:center"><span style="color:#cbd5e1;font-size:.71rem">—</span></td>',
+        ].join('');
+        return tr;
+    }
 
-            if (q) {
-                var ip   = (d.ip       || '').toLowerCase();
-                var host = (d.hostname || '').toLowerCase();
-                var sys  = (d.system   || '').toLowerCase();
-                if (ip.indexOf(q) === -1 && host.indexOf(q) === -1 && sys.indexOf(q) === -1) {
-                    show = false;
-                }
-            }
+    function restoreOriginal() {
+        tbody.innerHTML = '';
+        originalRows.forEach(function(r) { tbody.appendChild(r); });
+        inSearchMode = false;
+        if (counter) counter.textContent = 'Top '+topCount+' of '+totalHosts+' host'+(totalHosts!==1?'s':'');
+    }
+
+    function renderResults(hosts) {
+        tbody.innerHTML = '';
+        if (!hosts.length) {
+            var empty = document.createElement('tr');
+            empty.innerHTML = '<td colspan="16" style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem"><i class="bi bi-search me-2"></i>No hosts found</td>';
+            tbody.appendChild(empty);
+            if (counter) counter.textContent = '0 results';
+        } else {
+            hosts.forEach(function(h,i) { tbody.appendChild(buildRow(h,i)); });
+            if (counter) counter.textContent = hosts.length+' result'+(hosts.length!==1?'s':'');
+        }
+        inSearchMode = true;
+    }
+
+    function applyFilters() {
+        var scope = sScope.value, env = sEnv.value, os = sOs.value, sev = sSev.value, vis = 0;
+        originalRows.forEach(function(row) {
+            var show = true, d = row.dataset;
             if (show && scope && d.scope !== scope) show = false;
             if (show && env   && d.env   !== env)   show = false;
             if (show && os    && d.os    !== os)     show = false;
-
             if (show && sev) {
-                var crit   = parseInt(d.crit   || 0);
-                var high   = parseInt(d.high   || 0);
-                var med    = parseInt(d.med    || 0);
-                var low    = parseInt(d.low    || 0);
-                var active = parseInt(d.active || 0);
-                if      (sev === 'crit')  { if (crit < 1)   show = false; }
-                else if (sev === 'high')  { if (high < 1)   show = false; }
-                else if (sev === 'med')   { if (med  < 1)   show = false; }
-                else if (sev === 'low')   { if (low  < 1)   show = false; }
-                else if (sev === 'active'){ if (active < 1) show = false; }
-                else if (sev === 'clean') { if (active > 0) show = false; }
+                var c=parseInt(d.crit||0),h=parseInt(d.high||0),m=parseInt(d.med||0),l=parseInt(d.low||0),a=parseInt(d.active||0);
+                if      (sev==='crit')  { if(c<1) show=false; }
+                else if (sev==='high')  { if(h<1) show=false; }
+                else if (sev==='med')   { if(m<1) show=false; }
+                else if (sev==='low')   { if(l<1) show=false; }
+                else if (sev==='active'){ if(a<1) show=false; }
+                else if (sev==='clean') { if(a>0) show=false; }
             }
-
             row.style.display = show ? '' : 'none';
             if (show) vis++;
         });
+        if (counter) counter.textContent = vis===topCount ? 'Top '+topCount+' of '+totalHosts+' host'+(totalHosts!==1?'s':'') : vis+' of '+topCount+' shown';
+    }
 
-        if (counter) {
-            counter.textContent = vis === total
-                ? total + ' host' + (total !== 1 ? 's' : '')
-                : vis + ' of ' + total + ' hosts';
+    function apply() {
+        var q = search.value.trim();
+        var hasFilters = sScope.value||sEnv.value||sOs.value||sSev.value;
+        if (btnClr) btnClr.style.display = (q||hasFilters) ? '' : 'none';
+        if (q.length >= 2) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                fetch(searchUrl + '?q=' + encodeURIComponent(q), {headers:{'X-Requested-With':'XMLHttpRequest'}})
+                    .then(function(r){ return r.json(); })
+                    .then(renderResults)
+                    .catch(function(){ if(counter) counter.textContent='Search failed'; });
+            }, 300);
+        } else {
+            if (inSearchMode) restoreOriginal();
+            applyFilters();
         }
-        if (btnClr) btnClr.style.display = (q || scope || env || os || sev) ? '' : 'none';
     }
 
     search.addEventListener('input',  apply);
@@ -701,13 +791,11 @@ document.addEventListener('DOMContentLoaded', function () {
     sEnv.addEventListener('change',   apply);
     sOs.addEventListener('change',    apply);
     sSev.addEventListener('change',   apply);
-    if (btnClr) {
-        btnClr.addEventListener('click', function () {
-            search.value = ''; sScope.value = ''; sEnv.value = '';
-            sOs.value = ''; sSev.value = '';
-            apply();
-        });
-    }
+    if (btnClr) btnClr.addEventListener('click', function() {
+        search.value=''; sScope.value=''; sEnv.value=''; sOs.value=''; sSev.value='';
+        if (inSearchMode) restoreOriginal(); else applyFilters();
+        btnClr.style.display='none';
+    });
     apply();
 })();
 </script>

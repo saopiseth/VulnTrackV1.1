@@ -95,7 +95,7 @@ class AssessmentSummaryService
             ->orderByRaw("SUM(CASE WHEN vt.severity='Critical' AND vt.tracking_status IN (" . self::OPEN . ") THEN 1 ELSE 0 END) DESC")
             ->orderByRaw("SUM(CASE WHEN vt.severity='High'     AND vt.tracking_status IN (" . self::OPEN . ") THEN 1 ELSE 0 END) DESC")
             ->orderBy('vt.ip_address')
-            ->limit(20)
+            ->limit(10)
             ->selectRaw("
                 vt.ip_address,
                 MIN(vt.hostname)      as hostname,

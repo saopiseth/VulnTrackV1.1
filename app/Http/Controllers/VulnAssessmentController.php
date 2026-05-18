@@ -1786,6 +1786,84 @@ class VulnAssessmentController extends Controller
         return back()->with('success', 'Host removed from tracking.');
     }
 
+    public function hostSearch(Request $request, VulnAssessment $vulnAssessment)
+    {
+        $q = trim($request->input('q', ''));
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $assessment   = $vulnAssessment;
+        $scopeGroupId = $assessment->scope_group_id;
+
+        $scopeIps = null;
+        if ($scopeGroupId) {
+            $scopeIps = DB::table('assessment_scopes')
+                ->where('group_id', $scopeGroupId)
+                ->whereNotNull('ip_address')
+                ->pluck('ip_address')
+                ->all();
+        }
+
+        $open = "'New','Open','Reopened','Persistent'";
+
+        if ($scopeGroupId) {
+            $scopeColumns = ",
+                MAX(sc.id)                 as scope_id,
+                MIN(sc.hostname)           as scope_hostname,
+                MIN(sc.system_name)        as system_name,
+                MIN(sc.system_criticality) as system_criticality,
+                MIN(sc.system_owner)       as system_owner,
+                MIN(sc.identified_scope)   as identified_scope,
+                MIN(sc.environment)        as environment,
+                MIN(sc.remediation_sla)    as remediation_sla";
+        } else {
+            $scopeColumns = ",
+                NULL as scope_id, NULL as scope_hostname, NULL as system_name,
+                NULL as system_criticality, NULL as system_owner,
+                NULL as identified_scope, NULL as environment, NULL as remediation_sla";
+        }
+
+        $hostQuery = DB::table('vuln_tracked as vt')
+            ->where('vt.assessment_id', $assessment->id)
+            ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('vt.ip_address', $scopeIps))
+            ->where(function ($query) use ($q) {
+                $query->where('vt.ip_address', 'like', "%{$q}%")
+                      ->orWhere('vt.hostname',   'like', "%{$q}%");
+            });
+
+        if ($scopeGroupId) {
+            $hostQuery->leftJoin('assessment_scopes as sc', fn($j) =>
+                $j->on('sc.ip_address', '=', 'vt.ip_address')
+                  ->where('sc.group_id', '=', $scopeGroupId));
+        }
+
+        $hosts = $hostQuery
+            ->groupBy('vt.ip_address')
+            ->orderByRaw("SUM(CASE WHEN vt.tracking_status IN ($open) THEN 1 ELSE 0 END) DESC")
+            ->orderBy('vt.ip_address')
+            ->limit(25)
+            ->selectRaw("
+                vt.ip_address,
+                MIN(vt.hostname)      as hostname,
+                MIN(vt.os_name)       as os_name,
+                MIN(vt.os_family)     as os_family,
+                MIN(vt.first_seen_at) as first_detected,
+                COUNT(*)              as total,
+                SUM(CASE WHEN vt.tracking_status IN ($open) THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN vt.tracking_status = 'Resolved' THEN 1 ELSE 0 END) as resolved_count,
+                SUM(CASE WHEN vt.severity = 'Critical' AND vt.tracking_status IN ($open) THEN 1 ELSE 0 END) as critical,
+                SUM(CASE WHEN vt.severity = 'High'     AND vt.tracking_status IN ($open) THEN 1 ELSE 0 END) as high,
+                SUM(CASE WHEN vt.severity = 'Medium'   AND vt.tracking_status IN ($open) THEN 1 ELSE 0 END) as medium,
+                SUM(CASE WHEN vt.severity = 'Low'      AND vt.tracking_status IN ($open) THEN 1 ELSE 0 END) as low
+                {$scopeColumns}
+            ")
+            ->get();
+
+        return response()->json($hosts);
+    }
+
     // ─────────────────────────────────────────────────────────────
 
     public function destroyScan(VulnAssessment $vulnAssessment, VulnScan $scan)
