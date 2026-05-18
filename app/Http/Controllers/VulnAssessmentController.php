@@ -1179,6 +1179,7 @@ class VulnAssessmentController extends Controller
         $assessment = $vulnAssessment;
         $baseline   = $assessment->baselineScan();
         $latestScan = $assessment->latestScan() ?? $baseline;
+        $user       = Auth::user();
 
         // Abort only if zero scans have ever been uploaded
         abort_unless($assessment->scans()->exists(), 404);
@@ -1195,12 +1196,12 @@ class VulnAssessmentController extends Controller
                 ->pluck('ip_address')->all();
         }
 
-        // â"€â"€ Base query: vuln_tracked (ALL scans, cumulative) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // ── Base query: vuln_tracked (ALL scans, cumulative) ─────────────────
         $query = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
             ->select('vuln_tracked.*', 'vf.plugin_output')
-            ->visibleTo(Auth::user());
+            ->visibleTo($user);
 
         // Join latest finding to get plugin_output
         $query->leftJoin('vuln_findings as vf', function ($join) use ($assessment) {
@@ -1249,18 +1250,24 @@ class VulnAssessmentController extends Controller
             $query->whereIn('vuln_tracked.tracking_status', VulnTracked::openStatuses());
         }
 
-        // â"€â"€ Standard filters â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // ── Standard filters ──────────────────────────────────────────────────
         if ($request->filled('severity') && in_array($request->severity, $displaySeverities)) {
             $query->where('vuln_tracked.severity', $request->severity);
         }
         if ($request->filled('category') && in_array($request->category, VulnFinding::categories())) {
             $query->where('vuln_tracked.vuln_category', $request->category);
         }
-        if ($request->filled('os_family') && in_array($request->os_family, ['Windows', 'Linux', 'Unix', 'Other'])) {
+        if ($request->filled('os_family')) {
             $query->where('vuln_tracked.os_family', $request->os_family);
+        }
+        if ($request->filled('hostname')) {
+            $query->where('vuln_tracked.hostname', $request->hostname);
         }
         if ($request->filled('ip')) {
             $query->where('vuln_tracked.ip_address', $request->ip);
+        }
+        if ($request->filled('asset_owner')) {
+            $query->where('vuln_tracked.asset_owner', $request->asset_owner);
         }
         if ($request->filled('search')) {
             $s = $request->search;
@@ -1272,7 +1279,7 @@ class VulnAssessmentController extends Controller
             });
         }
 
-        // â"€â"€ Remediation status filter â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // ── Remediation status filter ──────────────────────────────────────────
         $remStatusFilter = $request->input('rem_status');
         if ($remStatusFilter === 'unresolved') {
             $query->where(function ($q) use ($unresolvedStatuses) {
@@ -1286,16 +1293,16 @@ class VulnAssessmentController extends Controller
         $findings = $query
             ->orderByRaw("CASE vuln_tracked.tracking_status WHEN 'Persistent' THEN 1 WHEN 'Reopened' THEN 2 WHEN 'New' THEN 3 WHEN 'Open' THEN 4 WHEN 'Resolved' THEN 5 ELSE 6 END")
             ->orderByRaw("CASE vuln_tracked.severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
-            ->paginate(30)
+            ->paginate($request->integer('per_page', 25))
             ->withQueryString();
 
-        // â"€â"€ Remediations keyed for display â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // ── Remediations keyed for display ────────────────────────────────────
         $remediations = VulnRemediation::where('assessment_id', $assessment->id)
             ->with('assignedGroup.members')
             ->get()
             ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
 
-        // â"€â"€ Remediation status counts (scoped) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // ── Remediation status counts (scoped) ────────────────────────────────
         $remStatusCounts = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
             ->whereIn('vuln_tracked.severity', $displaySeverities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('vuln_tracked.ip_address', $scopeIps))
@@ -1308,7 +1315,7 @@ class VulnAssessmentController extends Controller
             ->groupBy(DB::raw("COALESCE(vuln_remediations.status, 'Open')"))
             ->pluck('cnt', 'rem_status');
 
-        // â"€â"€ Tracking status counts (scoped; drives filter-tab badges) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // ── Tracking status counts (scoped; drives filter-tab badges) ──────────
         $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
             ->whereIn('severity', $displaySeverities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
@@ -1320,7 +1327,7 @@ class VulnAssessmentController extends Controller
         $slaPolicy  = $assessment->slaPolicy
                    ?? SlaPolicy::where('is_default', true)->first();
 
-        // â"€â"€ SLA status counts (scoped) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // ── SLA status counts (scoped) ─────────────────────────────────────────
         $slaCounts = null;
         if ($slaPolicy) {
             $slaCounts = ['on-track' => 0, 'approaching' => 0, 'breached' => 0, 'met' => 0];
@@ -1342,10 +1349,22 @@ class VulnAssessmentController extends Controller
                 });
         }
 
+        // ── Filter dropdown data (scoped to assessment + RBAC) ─────────────────
+        $filterBase = VulnTracked::where('assessment_id', $assessment->id)
+            ->whereIn('severity', $displaySeverities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
+            ->visibleTo($user);
+
+        $hosts      = (clone $filterBase)->whereNotNull('hostname')->distinct()->orderBy('hostname')->pluck('hostname');
+        $ips        = (clone $filterBase)->whereNotNull('ip_address')->distinct()->orderBy('ip_address')->pluck('ip_address');
+        $osFamilies = (clone $filterBase)->whereNotNull('os_family')->distinct()->orderBy('os_family')->pluck('os_family');
+        $owners     = (clone $filterBase)->whereNotNull('asset_owner')->distinct()->orderBy('asset_owner')->pluck('asset_owner');
+
         return view('vuln_assessments.findings', compact(
             'assessment', 'baseline', 'latestScan', 'findings', 'remediations',
             'trackingFilter', 'trackingCounts',
-            'remStatusCounts', 'remStatusFilter', 'userGroups', 'slaPolicy', 'slaCounts'
+            'remStatusCounts', 'remStatusFilter', 'userGroups', 'slaPolicy', 'slaCounts',
+            'hosts', 'ips', 'osFamilies', 'owners'
         ));
     }
 

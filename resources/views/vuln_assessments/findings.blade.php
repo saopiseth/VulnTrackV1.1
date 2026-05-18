@@ -102,11 +102,14 @@
     ];
     $unresolvedTotal = ($remStatusCounts['Open'] ?? 0) + ($remStatusCounts['In Progress'] ?? 0);
 @endphp
+@php
+    $filterParams = request()->only(['tracking','search','ip','hostname','os_family','asset_owner','category','severity','per_page']);
+@endphp
 <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
     <span style="font-size:.75rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Status:</span>
 
     {{-- All --}}
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], request()->only(['tracking','search','ip']))) }}"
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], $filterParams)) }}"
        class="btn btn-sm" style="border-radius:8px;font-weight:600;font-size:.78rem;
         background:{{ !$remStatusFilter ? '#0f172a' : '#fff' }};
         color:{{ !$remStatusFilter ? '#fff' : '#64748b' }};
@@ -116,7 +119,7 @@
 
     {{-- Per-status tabs --}}
     @foreach($remStatusStyles as $st => $style)
-    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], request()->only(['tracking','search','ip']), ['rem_status'=>$st])) }}"
+    <a href="{{ route('vuln-assessments.findings', array_merge([$assessment], $filterParams, ['rem_status'=>$st])) }}"
        class="btn btn-sm" style="border-radius:8px;font-weight:700;font-size:.78rem;
         background:{{ $remStatusFilter===$st ? $style['color'] : $style['bg'] }};
         color:{{ $remStatusFilter===$st ? '#fff' : $style['color'] }};
@@ -128,48 +131,92 @@
 </div>
 
 
-{{-- Search + IP + Category filter --}}
+{{-- Filters --}}
 <div class="va-card" style="padding:.85rem 1.25rem;margin-bottom:1.25rem">
     <form method="GET" class="row g-2 align-items-end">
         @if(request('rem_status'))<input type="hidden" name="rem_status" value="{{ request('rem_status') }}">@endif
         @if(request('tracking'))<input type="hidden" name="tracking" value="{{ request('tracking') }}">@endif
 
-        {{-- Keyword search --}}
-        <div class="col-12 col-md-4">
+        {{-- Row 1: Search | Hostname | IP | OS Family | Asset Owner --}}
+        <div class="col-12 col-md-3">
             <div class="input-group input-group-sm">
                 <span class="input-group-text" style="border-radius:8px 0 0 8px;background:#f8fafc"><i class="bi bi-search"></i></span>
-                <input type="text" name="search" class="form-control" placeholder="Search vulnerability name, IP, plugin ID, CVE…"
+                <input type="text" name="search" class="form-control" placeholder="Vulnerability name, plugin ID, CVE…"
                     value="{{ request('search') }}" style="border-radius:0 8px 8px 0">
             </div>
         </div>
 
-        {{-- IP filter --}}
         <div class="col-6 col-md-2">
-            <input type="text" name="ip" class="form-control form-control-sm" placeholder="Filter by IP"
-                value="{{ request('ip') }}" style="border-radius:8px;font-family:monospace">
+            <select name="hostname" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem">
+                <option value="">All Hostnames</option>
+                @foreach($hosts as $h)
+                <option value="{{ $h }}" {{ request('hostname') === $h ? 'selected' : '' }}>{{ $h }}</option>
+                @endforeach
+            </select>
         </div>
 
-        {{-- Category filter --}}
+        <div class="col-6 col-md-2">
+            <select name="ip" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem;font-family:monospace">
+                <option value="">All IPs</option>
+                @foreach($ips as $ip)
+                <option value="{{ $ip }}" {{ request('ip') === $ip ? 'selected' : '' }}>{{ $ip }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <select name="os_family" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem">
+                <option value="">All OS</option>
+                @foreach($osFamilies as $os)
+                <option value="{{ $os }}" {{ request('os_family') === $os ? 'selected' : '' }}>{{ $os }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <select name="asset_owner" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem">
+                <option value="">All Owners</option>
+                @foreach($owners as $owner)
+                <option value="{{ $owner }}" {{ request('asset_owner') === $owner ? 'selected' : '' }}>{{ $owner }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- Row 2: Category | Severity | Per Page | Buttons --}}
         <div class="col-6 col-md-3">
             <select name="category" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem">
                 <option value="">All Categories</option>
                 @foreach(\App\Models\VulnFinding::categories() as $cat)
-                @php [$cBg, $cCol] = \App\Models\VulnFinding::categoryStyle($cat); @endphp
-                <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>
-                    {{ $cat }}
-                </option>
+                <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <select name="severity" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem">
+                <option value="">All Severities</option>
+                @foreach(['Critical','High','Medium','Low'] as $sev)
+                <option value="{{ $sev }}" {{ request('severity') === $sev ? 'selected' : '' }}>{{ $sev }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <select name="per_page" class="form-select form-select-sm" style="border-radius:8px;font-size:.8rem">
+                @foreach([25, 50, 100] as $pp)
+                <option value="{{ $pp }}" {{ request()->integer('per_page', 25) == $pp ? 'selected' : '' }}>{{ $pp }} / page</option>
                 @endforeach
             </select>
         </div>
 
         <div class="col-auto d-flex gap-2">
             <button type="submit" class="btn btn-sm" style="background:var(--primary);color:#fff;border-radius:8px;border:none;font-weight:600">
-                <i class="bi bi-funnel me-1"></i>Filter
+                <i class="bi bi-funnel me-1"></i>Apply
             </button>
-            @if(request()->hasAny(['search','ip','rem_status','category']))
+            @if(request()->hasAny(['search','ip','hostname','os_family','asset_owner','severity','category','rem_status','per_page']))
             <a href="{{ route('vuln-assessments.findings', array_filter([$assessment, 'tracking' => request('tracking')])) }}"
                class="btn btn-sm" style="border:1.5px solid #cbd5e1;border-radius:8px;color:#64748b;background:#fff;font-weight:500">
-               <i class="bi bi-x me-1"></i>Clear
+               <i class="bi bi-x me-1"></i>Reset
             </a>
             @endif
         </div>

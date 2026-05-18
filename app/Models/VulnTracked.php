@@ -20,7 +20,7 @@ class VulnTracked extends Model
         'vuln_name', 'description', 'remediation_text',
         'severity', 'port', 'protocol',
         'vuln_category', 'affected_component',
-        'os_detected', 'os_name', 'os_family',
+        'os_detected', 'os_name', 'os_family', 'asset_owner',
         'plugin_output',
         'tracking_status',
         'first_seen_at', 'last_seen_at', 'resolved_at',
