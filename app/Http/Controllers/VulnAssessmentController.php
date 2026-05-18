@@ -75,8 +75,12 @@ class VulnAssessmentController extends Controller
     public function show(VulnAssessment $vulnAssessment)
     {
         $assessment  = $vulnAssessment->load('scans.creator');
-        $baseline    = $assessment->baselineScan();
-        $latestScan  = $assessment->latestScan();
+
+        // Filter the already-loaded collection — avoids 2 extra DB round trips
+        $baseline   = $assessment->scans->where('is_baseline', true)->sortBy('id')->first();
+        $latestScan = $assessment->scans->where('is_baseline', false)
+                                        ->where('finding_count', '>', 0)
+                                        ->sortByDesc('id')->first();
 
         $activeScan = $latestScan ?? $baseline;
 
@@ -119,7 +123,9 @@ class VulnAssessmentController extends Controller
                 ->selectRaw('vuln_key, MAX(scan_id) as rep_scan_id')
                 ->groupBy('vuln_key');
 
-            $baseQ = DB::table('vuln_findings as vf')
+            // Single query: per-IP breakdown. Stats aggregated from this result in PHP,
+            // avoiding a second execution of the same expensive dedup subquery+join.
+            $topIps = DB::table('vuln_findings as vf')
                 ->joinSub($dedupSub, 'd', fn($j) =>
                     $j->on('vf.vuln_key', '=', 'd.vuln_key')
                       ->on('vf.scan_id',  '=', 'd.rep_scan_id')
@@ -127,19 +133,7 @@ class VulnAssessmentController extends Controller
                 ->leftJoin('vuln_tracked as vt', fn($j) =>
                     $j->on('vt.vuln_key', '=', 'vf.vuln_key')
                       ->where('vt.assessment_id', '=', $assessment->id)
-                );
-
-            $stats = (clone $baseQ)
-                ->selectRaw("
-                    SUM(CASE WHEN COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as total,
-                    SUM(CASE WHEN vf.severity='Critical' AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as critical,
-                    SUM(CASE WHEN vf.severity='High'     AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as high,
-                    SUM(CASE WHEN vf.severity='Medium'   AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as medium,
-                    SUM(CASE WHEN vf.severity='Low'      AND COALESCE(vt.tracking_status,'Open') IN ('$openIn') THEN 1 ELSE 0 END) as low
-                ")
-                ->first();
-
-            $topIps = (clone $baseQ)
+                )
                 ->selectRaw("
                     vf.ip_address,
                     MIN(vf.hostname)   as hostname,
@@ -157,6 +151,17 @@ class VulnAssessmentController extends Controller
                 ->groupBy('vf.ip_address')
                 ->orderByRaw("active_count DESC, critical DESC, high DESC, vf.ip_address ASC")
                 ->get();
+
+            // Derive totals from the per-IP result — no second DB query needed
+            if ($topIps->isNotEmpty()) {
+                $stats = (object) [
+                    'total'    => $topIps->sum('active_count'),
+                    'critical' => $topIps->sum('critical'),
+                    'high'     => $topIps->sum('high'),
+                    'medium'   => $topIps->sum('medium'),
+                    'low'      => $topIps->sum('low'),
+                ];
+            }
 
             $topIps = $topIps->map(function ($row) use ($scopeByIp) {
                 $scope = $scopeByIp->get($row->ip_address);
@@ -185,34 +190,51 @@ class VulnAssessmentController extends Controller
         //   Resolved   = Resolved           (was present, now gone)
         $hostComparison = null;
         if ($latestScan) {
-            $base = VulnTracked::where('assessment_id', $assessment->id)
-                        ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
-                        ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps));
+            // Single CASE WHEN query instead of 4 separate COUNTs
+            $compRow = VulnTracked::where('assessment_id', $assessment->id)
+                ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
+                ->selectRaw("
+                    SUM(CASE WHEN tracking_status IN ('Open','Persistent') THEN 1 ELSE 0 END) as open_count,
+                    SUM(CASE WHEN tracking_status = 'Reopened'             THEN 1 ELSE 0 END) as reopened,
+                    SUM(CASE WHEN tracking_status = 'New'                  THEN 1 ELSE 0 END) as new_count,
+                    SUM(CASE WHEN tracking_status = 'Resolved'             THEN 1 ELSE 0 END) as resolved_count
+                ")
+                ->first();
 
             $comparison = [
-                'open'     => (clone $base)->whereIn('tracking_status', ['Open', 'Persistent'])->count(),
-                'reopened' => (clone $base)->where('tracking_status', 'Reopened')->count(),
-                'new'      => (clone $base)->where('tracking_status', 'New')->count(),
-                'resolved' => (clone $base)->where('tracking_status', 'Resolved')->count(),
+                'open'     => (int) ($compRow->open_count    ?? 0),
+                'reopened' => (int) ($compRow->reopened       ?? 0),
+                'new'      => (int) ($compRow->new_count      ?? 0),
+                'resolved' => (int) ($compRow->resolved_count ?? 0),
             ];
         }
 
-        // Host-level comparison (baseline vs latest)
+        // Host-level comparison (baseline vs latest) — single query; no PHP set ops
         if ($baseline && $latestScan) {
-            $baselineIps = $baseline->hostSet();
-            $latestIps   = $latestScan->hostSet();
-            if ($scopeIps !== null) {
-                $baselineIps = $baselineIps->intersect($scopeIps);
-                $latestIps   = $latestIps->intersect($scopeIps);
-            }
+            $ipMatrix = DB::table('vuln_findings')
+                ->whereIn('scan_id', [$baseline->id, $latestScan->id])
+                ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
+                ->selectRaw('ip_address,
+                    MAX(CASE WHEN scan_id = ? THEN 1 ELSE 0 END) as in_baseline,
+                    MAX(CASE WHEN scan_id = ? THEN 1 ELSE 0 END) as in_latest',
+                    [$baseline->id, $latestScan->id])
+                ->groupBy('ip_address')
+                ->get();
+
+            $newIps     = $ipMatrix->where('in_latest', 1)->where('in_baseline', 0)
+                                   ->pluck('ip_address')->sort()->values();
+            $removedIps = $ipMatrix->where('in_baseline', 1)->where('in_latest', 0)
+                                   ->pluck('ip_address')->sort()->values();
+
             $hostComparison = [
-                'baseline_count' => $baselineIps->count(),
-                'latest_count'   => $latestIps->count(),
-                'new'            => $latestIps->diff($baselineIps)->count(),
-                'removed'        => $baselineIps->diff($latestIps)->count(),
-                'persistent'     => $baselineIps->intersect($latestIps)->count(),
-                'new_ips'        => $latestIps->diff($baselineIps)->sort()->values(),
-                'removed_ips'    => $baselineIps->diff($latestIps)->sort()->values(),
+                'baseline_count' => $ipMatrix->where('in_baseline', 1)->count(),
+                'latest_count'   => $ipMatrix->where('in_latest', 1)->count(),
+                'new'            => $newIps->count(),
+                'removed'        => $removedIps->count(),
+                'persistent'     => $ipMatrix->where('in_baseline', 1)->where('in_latest', 1)->count(),
+                'new_ips'        => $newIps,
+                'removed_ips'    => $removedIps,
             ];
         }
 
@@ -245,7 +267,7 @@ class VulnAssessmentController extends Controller
                 ->first();
         }
 
-        // OS distribution from vuln_host_os
+        // OS distribution + total host count in one query
         $osDistribution = VulnHostOs::where('assessment_id', $assessment->id)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw("COALESCE(os_override_family, os_family) as family, COUNT(*) as cnt")
@@ -253,9 +275,7 @@ class VulnAssessmentController extends Controller
             ->orderByDesc('cnt')
             ->get();
 
-        $osHostCount = VulnHostOs::where('assessment_id', $assessment->id)
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->count();
+        $osHostCount = $osDistribution->sum('cnt');
 
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
