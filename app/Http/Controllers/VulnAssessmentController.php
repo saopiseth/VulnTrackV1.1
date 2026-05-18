@@ -51,8 +51,46 @@ class VulnAssessmentController extends Controller
             ]);
         }
 
-        // Scope subquery: distinct (assessment_id, ip_address) pairs for scoped assessments.
-        // Reused as a LEFT JOIN in every batch query below; NULL sc.ip_address means unscoped.
+        // ── Per-card severity + host stats from assessment_summaries cache ─────
+        // Avoids 3 separate vuln_tracked + scope-subquery scans on every page load.
+        // Summaries are rebuilt after scan upload/delete and scope group change.
+        $summaries = \App\Models\AssessmentSummary::whereIn('assessment_id', $ids)
+            ->get()
+            ->keyBy('assessment_id');
+
+        // Build missing summaries inline (e.g. first load after deploy).
+        $missingIds = array_diff($ids, $summaries->keys()->all());
+        if (!empty($missingIds)) {
+            $service = new AssessmentSummaryService();
+            foreach (VulnAssessment::whereIn('id', $missingIds)->get() as $va) {
+                $summaries[$va->id] = $service->rebuild($va);
+            }
+        }
+
+        // Map to the field names the blade expects (c/h/m/l/unique_hosts).
+        $mainStats = $summaries->map(fn ($s) => (object) [
+            'assessment_id' => (int) $s->assessment_id,
+            'c'             => (int) $s->critical,
+            'h'             => (int) $s->high,
+            'm'             => (int) $s->medium,
+            'l'             => (int) $s->low,
+            'active'        => (int) $s->active_total,
+            'resolved'      => (int) $s->resolved_total,
+            'unique_hosts'  => (int) $s->host_count,
+        ]);
+
+        $trackedStats = $mainStats;
+        $hostCounts   = $mainStats;
+
+        $gStats = (object) [
+            'active_total'   => (int) $summaries->sum('active_total'),
+            'resolved_total' => (int) $summaries->sum('resolved_total'),
+        ];
+        $gHosts = (int) $summaries->sum('host_count');
+
+        // ── Per-card: remediation breakdown (live — not in summary cache) ─────
+        // vuln_remediations has a unique key on (assessment_id, plugin_id, ip_address)
+        // which MySQL uses for the LEFT JOIN, keeping this query fast.
         $scopeSub = DB::table('assessment_scopes as sc')
             ->join('vuln_assessments as va', 'va.scope_group_id', '=', 'sc.group_id')
             ->whereIn('va.id', $ids)
@@ -60,30 +98,9 @@ class VulnAssessmentController extends Controller
             ->selectRaw('va.id as assessment_id, sc.ip_address')
             ->distinct();
 
-        // Shared scope filter closure
         $scopeWhere = fn ($q) => $q->whereNull('va.scope_group_id')
                                    ->orWhereNotNull('sc.ip_address');
 
-        // ── Per-card: severity stats ──────────────────────────────────────
-        $trackedStats = DB::table('vuln_tracked as vt')
-            ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
-            ->leftJoinSub($scopeSub, 'sc', fn ($j) =>
-                $j->on('sc.assessment_id', '=', 'vt.assessment_id')
-                  ->on('sc.ip_address',    '=', 'vt.ip_address'))
-            ->whereIn('vt.assessment_id', $ids)
-            ->whereIn('vt.severity', ['Critical', 'High', 'Medium', 'Low'])
-            ->where($scopeWhere)
-            ->groupBy('vt.assessment_id')
-            ->selectRaw("vt.assessment_id,
-                SUM(CASE WHEN vt.tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as active,
-                SUM(CASE WHEN vt.tracking_status = 'Resolved'                              THEN 1 ELSE 0 END) as resolved,
-                SUM(CASE WHEN vt.severity='Critical' AND vt.tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as c,
-                SUM(CASE WHEN vt.severity='High'     AND vt.tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as h,
-                SUM(CASE WHEN vt.severity='Medium'   AND vt.tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as m,
-                SUM(CASE WHEN vt.severity='Low'      AND vt.tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as l")
-            ->get()->keyBy(fn ($r) => (int) $r->assessment_id);
-
-        // ── Per-card: remediation breakdown ──────────────────────────────
         $remStats = DB::table('vuln_tracked as vt')
             ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
             ->leftJoinSub($scopeSub, 'sc', fn ($j) =>
@@ -103,39 +120,6 @@ class VulnAssessmentController extends Controller
                 SUM(CASE WHEN vr.status = 'Resolved'               THEN 1 ELSE 0 END) as rem_resolved,
                 SUM(CASE WHEN vr.status = 'Accepted Risk'          THEN 1 ELSE 0 END) as rem_accepted")
             ->get()->keyBy(fn ($r) => (int) $r->assessment_id);
-
-        // ── Per-card: unique hosts at risk (no severity filter) ───────────
-        $hostCounts = DB::table('vuln_tracked as vt')
-            ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
-            ->leftJoinSub($scopeSub, 'sc', fn ($j) =>
-                $j->on('sc.assessment_id', '=', 'vt.assessment_id')
-                  ->on('sc.ip_address',    '=', 'vt.ip_address'))
-            ->whereIn('vt.assessment_id', $ids)
-            ->whereIn('vt.tracking_status', VulnTracked::openStatuses())
-            ->where($scopeWhere)
-            ->groupBy('vt.assessment_id')
-            ->selectRaw('vt.assessment_id, COUNT(DISTINCT vt.ip_address) as unique_hosts')
-            ->get()->keyBy(fn ($r) => (int) $r->assessment_id);
-
-        // ── Global glance stats (no severity filter; deduplicates IPs globally) ──
-        $gBatch = DB::table('vuln_tracked as vt')
-            ->join('vuln_assessments as va', 'va.id', '=', 'vt.assessment_id')
-            ->leftJoinSub($scopeSub, 'sc', fn ($j) =>
-                $j->on('sc.assessment_id', '=', 'vt.assessment_id')
-                  ->on('sc.ip_address',    '=', 'vt.ip_address'))
-            ->whereIn('vt.assessment_id', $ids)
-            ->where($scopeWhere)
-            ->selectRaw("
-                SUM(CASE WHEN vt.tracking_status IN ('New','Open','Reopened','Persistent') THEN 1 ELSE 0 END) as active_total,
-                SUM(CASE WHEN vt.tracking_status = 'Resolved'                              THEN 1 ELSE 0 END) as resolved_total,
-                COUNT(DISTINCT CASE WHEN vt.tracking_status IN ('New','Open','Reopened','Persistent') THEN vt.ip_address END) as hosts_at_risk")
-            ->first();
-
-        $gStats = (object) [
-            'active_total'   => (int) ($gBatch->active_total   ?? 0),
-            'resolved_total' => (int) ($gBatch->resolved_total ?? 0),
-        ];
-        $gHosts = (int) ($gBatch->hosts_at_risk ?? 0);
 
         return view('vuln_assessments.index', compact(
             'assessments', 'trackedStats', 'remStats', 'hostCounts', 'gStats', 'gHosts'
