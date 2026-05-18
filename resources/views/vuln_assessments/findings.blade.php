@@ -237,10 +237,11 @@
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Plugin / CVE</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Vulnerability Name</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Host</th>
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">System Name</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">System</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Owner</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Category</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Remediation</th>
-                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Assigned To</th>
+                    <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">SLA</th>
                     <th style="padding:.65rem .85rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center">Actions</th>
                 </tr>
             </thead>
@@ -299,6 +300,15 @@
                             <span style="color:#cbd5e1;font-size:.75rem">—</span>
                         @endif
                     </td>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;max-width:130px">
+                        @if($f->asset_owner)
+                            <div style="font-size:.78rem;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->asset_owner }}">
+                                <i class="bi bi-person" style="color:#94a3b8;font-size:.72rem;margin-right:.2rem"></i>{{ $f->asset_owner }}
+                            </div>
+                        @else
+                            <span style="color:#cbd5e1;font-size:.75rem">—</span>
+                        @endif
+                    </td>
                     {{-- ── Category column ── --}}
                     @php
                         $cat = $f->vuln_category ?? 'Other';
@@ -324,8 +334,10 @@
 
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $remClass }}" style="font-size:.68rem">{{ $remStatus }}</span>
-                        @if($rem?->assigned_to)
-                        <div style="font-size:.7rem;color:#94a3b8;margin-top:.2rem"><i class="bi bi-person"></i> {{ $rem->assigned_to }}</div>
+                        @if($rem?->assignedGroup)
+                        <div style="font-size:.7rem;color:#94a3b8;margin-top:.2rem">
+                            <i class="bi bi-people-fill" style="font-size:.65rem"></i> {{ $rem->assignedGroup->name }}
+                        </div>
                         @endif
                         @if($rem?->due_date)
                         <div style="font-size:.7rem;color:{{ $rem->due_date->isPast() && $remStatus !== 'Resolved' ? '#dc2626' : '#94a3b8' }};margin-top:.1rem">
@@ -333,36 +345,19 @@
                         </div>
                         @endif
                     </td>
-                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
-                        @if($rem?->assignedGroup)
-                            @php
-                                $memberHtml = '<div style="min-width:140px">';
-                                foreach ($rem->assignedGroup->members as $m) {
-                                    $memberHtml .= '<div style="font-size:.8rem;color:#0f172a;padding:.18rem 0">' . e($m->name) . '</div>';
-                                }
-                                if ($rem->assignedGroup->members->isEmpty()) {
-                                    $memberHtml .= '<div style="font-size:.78rem;color:#94a3b8">No members yet</div>';
-                                }
-                                $memberHtml .= '</div>';
-                            @endphp
-                            <span class="group-badge-hover" tabindex="0"
-                                data-bs-toggle="popover"
-                                data-bs-trigger="hover focus"
-                                data-bs-placement="left"
-                                data-bs-html="true"
-                                data-bs-title="{!! htmlspecialchars('<i class=\"bi bi-people-fill me-1\" style=\"color:var(--primary)\"></i>' . $rem->assignedGroup->name, ENT_QUOTES) !!}"
-                                data-bs-content="{!! htmlspecialchars($memberHtml, ENT_QUOTES) !!}"
-                                style="display:inline-flex;align-items:center;gap:.3rem;background:rgb(232,244,195);color:var(--primary-dark);font-size:.7rem;font-weight:700;padding:.22rem .65rem;border-radius:20px;cursor:pointer;border:1px solid var(--primary-light)">
-                                <i class="bi bi-people-fill" style="font-size:.65rem"></i>
-                                {{ $rem->assignedGroup->name }}
-                                @if($rem->assignedGroup->members->isNotEmpty())
-                                <span style="background:var(--primary);color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800">
-                                    {{ $rem->assignedGroup->members->count() }}
-                                </span>
-                                @endif
-                            </span>
+                    <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;white-space:nowrap">
+                        @if($slaPolicy)
+                        @php
+                            [$slaStatus, $slaLabel, $slaBg, $slaColor] = $slaPolicy->slaStatus(
+                                $f->severity,
+                                \Carbon\Carbon::parse($f->first_seen_at),
+                                $f->tracking_status === 'Resolved',
+                                $f->resolved_at ? \Carbon\Carbon::parse($f->resolved_at) : null
+                            );
+                        @endphp
+                        <span style="display:inline-block;background:{{ $slaBg }};color:{{ $slaColor }};border-radius:6px;padding:.1rem .45rem;font-size:.68rem;font-weight:700">{{ $slaLabel }}</span>
                         @else
-                            <span style="color:#cbd5e1;font-size:.75rem">—</span>
+                        <span style="color:#cbd5e1;font-size:.75rem">—</span>
                         @endif
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;text-align:center">
@@ -612,10 +607,6 @@
                                         <div class="detail-meta-item">
                                             <div class="label">Status</div>
                                             <div class="value"><span class="badge-sev {{ $remClass }}">{{ $remStatus }}</span></div>
-                                        </div>
-                                        <div class="detail-meta-item">
-                                            <div class="label">Assigned To</div>
-                                            <div class="value">{{ $rem?->assigned_to ?: '—' }}</div>
                                         </div>
                                         <div class="detail-meta-item">
                                             <div class="label">Due Date</div>
