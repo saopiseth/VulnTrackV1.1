@@ -78,7 +78,7 @@
                 <span><i class="bi bi-calendar3 me-1"></i>{{ $assessment->period_start?->format('d M Y') ?? '—' }} – {{ $assessment->period_end?->format('d M Y') ?? '—' }}</span>
                 @endif
                 <span><i class="bi bi-person me-1"></i>{{ $assessment->creator?->name ?? '—' }}</span>
-                <span><i class="bi bi-cloud-upload me-1"></i>{{ $assessment->scans->count() }} scan{{ $assessment->scans->count() !== 1 ? 's' : '' }}</span>
+                <span><i class="bi bi-cloud-upload me-1"></i>{{ $assessment->scans_count }} scan{{ $assessment->scans_count !== 1 ? 's' : '' }}</span>
             </div>
             @if($assessment->description)
             <div style="margin-top:.55rem;font-size:.8rem;color:#475569;line-height:1.55;max-width:560px">

@@ -10,6 +10,7 @@ use App\Models\VulnRemediation;
 use App\Models\VulnScan;
 use App\Services\OsDetector;
 use App\Services\VulnClassifier;
+use App\Services\AssessmentSummaryService;
 use App\Services\VulnTrackingService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -191,6 +192,9 @@ class ProcessScanUpload implements ShouldQueue
             });
 
             $scan->update(['upload_status' => 'completed']);
+
+            // Rebuild the cached summary now that tracking data is fresh.
+            (new AssessmentSummaryService())->rebuild($assessment);
 
         } catch (\Throwable $e) {
             $scan->update([
