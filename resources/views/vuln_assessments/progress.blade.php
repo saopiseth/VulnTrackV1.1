@@ -142,30 +142,6 @@
         </div>
     </div>
 
-    {{-- ── Scan History ─────────────────────────────────────────────── --}}
-    <div class="col-12">
-        <div class="va-card" style="padding:1.25rem">
-            <div style="font-size:.82rem;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem">
-                Scan History
-            </div>
-            @foreach($scans as $scan)
-            <div class="scan-row">
-                @if($scan->is_baseline)
-                <span class="scan-badge" style="background:#dbeafe;color:#1e40af">Baseline</span>
-                @else
-                <span class="scan-badge" style="background:var(--lime-muted);color:var(--lime-dark)">Scan #{{ $loop->iteration }}</span>
-                @endif
-                <span style="color:#94a3b8;font-size:.73rem">{{ $scan->created_at->format('d M Y, H:i') }}</span>
-                <span style="font-size:.75rem;color:#475569">{{ $scan->filename }}</span>
-                <div class="ms-auto d-flex gap-2">
-                    <span style="font-size:.72rem;color:#64748b"><i class="bi bi-bug-fill" style="color:#dc2626"></i> {{ $scan->finding_count }} findings</span>
-                    <span style="font-size:.72rem;color:#64748b"><i class="bi bi-hdd-network" style="color:#3b82f6"></i> {{ $scan->host_count }} hosts</span>
-                </div>
-            </div>
-            @endforeach
-        </div>
-    </div>
-
 </div>
 @endsection
 
