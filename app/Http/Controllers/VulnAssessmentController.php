@@ -2228,7 +2228,13 @@ class VulnAssessmentController extends Controller
     public function progress(VulnAssessment $vulnAssessment)
     {
         $assessment = $vulnAssessment;
-        $scans      = $assessment->scans()->orderBy('id')->get();
+
+        // Load only the columns the view actually needs — avoids pulling large text columns.
+        $scans = $assessment->scans()
+            ->orderBy('id')
+            ->select(['id', 'assessment_id', 'is_baseline', 'created_at',
+                      'filename', 'finding_count', 'host_count', 'upload_status'])
+            ->get();
 
         abort_unless($scans->isNotEmpty(), 404);
 
@@ -2243,79 +2249,80 @@ class VulnAssessmentController extends Controller
                 ->pluck('ip_address')->all();
         }
 
-        // Per-scan severity counts — single batched query instead of N+1
         $scanIds = $scans->pluck('id');
 
-        $rawSevCounts = VulnFinding::whereIn('scan_id', $scanIds)
-            ->whereIn('severity', $severities)
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->selectRaw('scan_id, severity, COUNT(*) as cnt')
-            ->groupBy('scan_id', 'severity')
+        // ── Single vuln_findings scan → severity trend + remediation trend ──
+        // Groups by (scan_id, severity, rem_status) so both charts can be derived
+        // in PHP without a second trip to vuln_findings.
+        $rawFindings = DB::table('vuln_findings as vf')
+            ->whereIn('vf.scan_id', $scanIds)
+            ->whereIn('vf.severity', $severities)
+            ->when($scopeIps !== null, fn($q) => $q->whereIn('vf.ip_address', $scopeIps))
+            ->leftJoin('vuln_remediations as vr', fn($j) =>
+                $j->on('vr.plugin_id',  '=', 'vf.plugin_id')
+                  ->on('vr.ip_address', '=', 'vf.ip_address')
+                  ->where('vr.assessment_id', '=', $assessment->id)
+            )
+            ->selectRaw("vf.scan_id, vf.severity, COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt")
+            ->groupBy('vf.scan_id', 'vf.severity', DB::raw("COALESCE(vr.status, 'Open')"))
             ->get()
             ->groupBy('scan_id');
 
+        // Derive per-scan severity counts (for severity trend chart)
+        $rawSevCounts = $rawFindings->map(fn($rows) =>
+            $rows->groupBy('severity')
+                 ->map(fn($r) => (object)['severity' => $r->first()->severity, 'cnt' => $r->sum('cnt')])
+        );
+
+        // Derive per-scan remediation status counts (for remediation trend chart)
+        $rawRemCounts = $rawFindings->map(fn($rows) =>
+            $rows->groupBy('rem_status')
+                 ->map(fn($r) => (object)['rem_status' => $r->first()->rem_status, 'cnt' => $r->sum('cnt')])
+        );
+
         $scanLabels    = [];
         $severityTrend = array_fill_keys($severities, []);
+        $remStatuses   = ['Open', 'In Progress', 'Resolved', 'Accepted Risk'];
+        $scanRemTrend  = array_fill_keys($remStatuses, []);
 
         foreach ($scans as $scan) {
             $prefix = $scan->is_baseline ? 'Baseline' : 'Scan #' . $scan->id;
             $scanLabels[] = $prefix . ' (' . $scan->created_at->format('d M Y') . ')';
 
-            $counts = ($rawSevCounts->get($scan->id) ?? collect())->pluck('cnt', 'severity');
+            $sevCounts = ($rawSevCounts->get($scan->id) ?? collect())->pluck('cnt', 'severity');
             foreach ($severities as $sev) {
-                $severityTrend[$sev][] = (int) ($counts[$sev] ?? 0);
+                $severityTrend[$sev][] = (int) ($sevCounts[$sev] ?? 0);
+            }
+
+            $remCnts = ($rawRemCounts->get($scan->id) ?? collect())->pluck('cnt', 'rem_status');
+            foreach ($remStatuses as $status) {
+                $scanRemTrend[$status][] = (int) ($remCnts[$status] ?? 0);
             }
         }
 
-        // Current tracking status distribution (scoped)
-        $trackingCounts = VulnTracked::where('assessment_id', $assessment->id)
+        // ── Single vuln_tracked scan → tracking status + severity breakdown ──
+        // Both charts share the same WHERE clause; grouping by both columns lets
+        // PHP derive each rollup without a second DB round-trip.
+        $vtMatrix = DB::table('vuln_tracked')
+            ->where('assessment_id', $assessment->id)
             ->whereIn('severity', $severities)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->selectRaw('tracking_status, COUNT(*) as cnt')
-            ->groupBy('tracking_status')
-            ->pluck('cnt', 'tracking_status');
+            ->selectRaw('tracking_status, severity, COUNT(*) as cnt')
+            ->groupBy('tracking_status', 'severity')
+            ->get();
 
-        // Remediation status distribution (scoped)
+        $trackingCounts   = $vtMatrix->groupBy('tracking_status')
+                                     ->map(fn($rows) => $rows->sum('cnt'));
+
+        $currentSevCounts = $vtMatrix->groupBy('severity')
+                                     ->map(fn($rows) => $rows->sum('cnt'));
+
+        // Remediation status distribution (scoped) — vuln_remediations is tiny; fast.
         $remCounts = VulnRemediation::where('assessment_id', $assessment->id)
             ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
             ->selectRaw('status, COUNT(*) as cnt')
             ->groupBy('status')
             ->pluck('cnt', 'status');
-
-        // Severity distribution — current state from vuln_tracked (scoped)
-        $currentSevCounts = VulnTracked::where('assessment_id', $assessment->id)
-            ->whereIn('severity', $severities)
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('ip_address', $scopeIps))
-            ->selectRaw('severity, COUNT(*) as cnt')
-            ->groupBy('severity')
-            ->pluck('cnt', 'severity');
-
-        // Per-scan × remediation status trend (scoped)
-        $remStatuses = ['Open', 'In Progress', 'Resolved', 'Accepted Risk'];
-
-        // Per-scan remediation trend — single batched query instead of N+1
-        $rawRemCounts = DB::table('vuln_findings as vf')
-            ->whereIn('vf.scan_id', $scanIds)
-            ->whereIn('vf.severity', $severities)
-            ->when($scopeIps !== null, fn($q) => $q->whereIn('vf.ip_address', $scopeIps))
-            ->leftJoin('vuln_remediations as vr', function ($join) use ($assessment) {
-                $join->on('vr.plugin_id',  '=', 'vf.plugin_id')
-                     ->on('vr.ip_address', '=', 'vf.ip_address')
-                     ->where('vr.assessment_id', '=', $assessment->id);
-            })
-            ->selectRaw("vf.scan_id, COALESCE(vr.status, 'Open') as rem_status, COUNT(*) as cnt")
-            ->groupBy('vf.scan_id', DB::raw("COALESCE(vr.status, 'Open')"))
-            ->get()
-            ->groupBy('scan_id');
-
-        $scanRemTrend = array_fill_keys($remStatuses, []);
-
-        foreach ($scans as $scan) {
-            $counts = ($rawRemCounts->get($scan->id) ?? collect())->pluck('cnt', 'rem_status');
-            foreach ($remStatuses as $status) {
-                $scanRemTrend[$status][] = (int) ($counts[$status] ?? 0);
-            }
-        }
 
         // Vulnerability status by system owner (scoped)
         $groupStatusRaw = DB::table('vuln_tracked as vt')
