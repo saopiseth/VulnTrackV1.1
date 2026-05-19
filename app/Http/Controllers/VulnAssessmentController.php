@@ -223,14 +223,20 @@ class VulnAssessmentController extends Controller
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
         // ── Nessus file availability — one Storage check per type, never per row ─
+        $initialFileScan     = VulnScan::where('assessment_id', $assessment->id)
+            ->where('is_verification', false)
+            ->whereNotNull('file_path')
+            ->oldest('id')
+            ->first(['file_path']);
+
         $verificationScan    = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', true)
             ->whereNotNull('file_path')
             ->latest('id')
             ->first(['file_path']);
 
-        $hasInitialFile      = $baseline && $baseline->file_path
-            && Storage::disk('local')->exists($baseline->file_path);
+        $hasInitialFile      = $initialFileScan
+            && Storage::disk('local')->exists($initialFileScan->file_path);
         $hasVerificationFile = $verificationScan
             && Storage::disk('local')->exists($verificationScan->file_path);
 
@@ -1414,14 +1420,20 @@ class VulnAssessmentController extends Controller
         $owners     = $filterRows->pluck('asset_owner')->filter()->unique()->sort()->values();
 
         // ── Nessus file availability — one Storage check per type, never per row ─
+        $initialFileScan     = VulnScan::where('assessment_id', $assessment->id)
+            ->where('is_verification', false)
+            ->whereNotNull('file_path')
+            ->oldest('id')
+            ->first(['file_path']);
+
         $verificationScan    = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', true)
             ->whereNotNull('file_path')
             ->latest('id')
             ->first(['file_path']);
 
-        $hasInitialFile      = $baseline && $baseline->file_path
-            && Storage::disk('local')->exists($baseline->file_path);
+        $hasInitialFile      = $initialFileScan
+            && Storage::disk('local')->exists($initialFileScan->file_path);
         $hasVerificationFile = $verificationScan
             && Storage::disk('local')->exists($verificationScan->file_path);
 

@@ -202,8 +202,6 @@ class ProcessScanUpload implements ShouldQueue
                 'upload_error'  => mb_substr($e->getMessage(), 0, 500),
             ]);
             throw $e;
-        } finally {
-            Storage::disk('local')->delete($this->filePath);
         }
     }
 
