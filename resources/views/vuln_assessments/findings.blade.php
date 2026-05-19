@@ -16,9 +16,9 @@
     .rem-accepted    { background:#f1f5f9; color:#475569; }
     thead.lime-head th { background:var(--lime-muted) !important; color:var(--lime-dark) !important; }
 
-    /* Summary pills */
-    .sum-pill { display:inline-flex;align-items:baseline;gap:.4rem;padding:.45rem 1rem;border-radius:9px;text-decoration:none;transition:transform .12s,box-shadow .15s; }
-    .sum-pill:hover { transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.13) !important; }
+    /* Summary stat cards */
+    .sum-stat-card { display:flex;flex-direction:column;align-items:flex-start;padding:.65rem 1.1rem;border-radius:11px;text-decoration:none;transition:transform .12s,box-shadow .15s;min-width:80px; }
+    .sum-stat-card:hover { transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.13) !important; }
 
     /* Category badge */
     .cat-badge { display:inline-flex; align-items:center; gap:.28rem; font-size:.68rem; font-weight:700;
@@ -151,10 +151,10 @@
                 <div style="display:flex;flex-wrap:wrap;gap:.45rem">
                     @foreach($tStats as $s)
                     @php $act = $s['key'] === $activeT; @endphp
-                    <a href="{{ $baseUrl }}?tracking={{ $s['key'] }}" class="sum-pill"
+                    <a href="{{ $baseUrl }}?tracking={{ $s['key'] }}" class="sum-stat-card"
                        style="background:{{ $s['bg'] }};border:1.5px solid {{ $s['color'] }}{{ $act ? '' : '44' }};{{ $act ? 'box-shadow:0 0 0 3px '.$s['color'].'28' : '' }}">
-                        <span style="font-size:1.2rem;font-weight:800;color:{{ $s['color'] }};line-height:1">{{ number_format($s['val']) }}</span>
-                        <span style="font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:{{ $s['color'] }};opacity:.8">{{ $s['label'] }}</span>
+                        <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:{{ $s['color'] }};opacity:.75;margin-bottom:.18rem">{{ $s['label'] }}</span>
+                        <span style="font-size:1.55rem;font-weight:900;color:{{ $s['color'] }};line-height:1.05">{{ number_format($s['val']) }}</span>
                     </a>
                     @endforeach
                 </div>
@@ -166,10 +166,10 @@
                 <div style="display:flex;flex-wrap:wrap;gap:.45rem">
                     @foreach($sevStats as $s)
                     @php $act = $activeSev === $s['key']; @endphp
-                    <a href="{{ $baseUrl }}?severity={{ $s['key'] }}" class="sum-pill"
+                    <a href="{{ $baseUrl }}?severity={{ $s['key'] }}" class="sum-stat-card"
                        style="background:{{ $s['bg'] }};border:1.5px solid {{ $s['color'] }}{{ $act ? '' : '44' }};{{ $act ? 'box-shadow:0 0 0 3px '.$s['color'].'28' : '' }}">
-                        <span style="font-size:1.2rem;font-weight:800;color:{{ $s['color'] }};line-height:1">{{ number_format($s['val']) }}</span>
-                        <span style="font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:{{ $s['color'] }};opacity:.8">{{ $s['label'] }}</span>
+                        <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:{{ $s['color'] }};opacity:.75;margin-bottom:.18rem">{{ $s['label'] }}</span>
+                        <span style="font-size:1.55rem;font-weight:900;color:{{ $s['color'] }};line-height:1.05">{{ number_format($s['val']) }}</span>
                     </a>
                     @endforeach
                 </div>
