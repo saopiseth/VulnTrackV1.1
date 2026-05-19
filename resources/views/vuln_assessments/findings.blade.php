@@ -16,20 +16,9 @@
     .rem-accepted    { background:#f1f5f9; color:#475569; }
     thead.lime-head th { background:var(--lime-muted) !important; color:var(--lime-dark) !important; }
 
-    /* Summary cards */
-    .sum-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:.65rem; margin-bottom:1.25rem; }
-    .sum-card {
-        background:#fff; border:1.5px solid #e8f5c2; border-radius:12px;
-        padding:.75rem .9rem; text-align:center; text-decoration:none;
-        transition:border-color .15s, box-shadow .15s, transform .1s;
-        cursor:pointer; display:block;
-    }
-    .sum-card:hover { border-color:var(--lime); box-shadow:0 2px 10px rgba(0,0,0,.07); transform:translateY(-1px); }
-    .sum-card.active { border-color:var(--lime-dark); box-shadow:0 0 0 2px var(--lime); }
-    .sum-card .sc-val { font-size:1.65rem; font-weight:800; line-height:1.1; margin-bottom:.15rem; }
-    .sum-card .sc-lbl { font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#94a3b8; }
-    .sum-card-total   { cursor:default; }
-    .sum-card-total:hover { transform:none; box-shadow:none; }
+    /* Summary pills */
+    .sum-pill { display:inline-flex;align-items:baseline;gap:.4rem;padding:.45rem 1rem;border-radius:9px;text-decoration:none;transition:transform .12s,box-shadow .15s; }
+    .sum-pill:hover { transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.13) !important; }
 
     /* Category badge */
     .cat-badge { display:inline-flex; align-items:center; gap:.28rem; font-size:.68rem; font-weight:700;
@@ -100,48 +89,94 @@
 </div>
 @endif
 
-{{-- ── Summary cards ──────────────────────────────────────────────────────── --}}
+{{-- ── Summary overview ───────────────────────────────────────────────────── --}}
 @php
     $baseUrl  = route('vuln-assessments.findings', $assessment);
     $activeT  = request('tracking');
     $activeSev= request('severity');
 
-    $cards = [
-        ['key'=>'total',     'val'=>$summary['total'],     'label'=>'Total',          'url'=>null,                                             'color'=>'#0f172a'],
-        ['key'=>'open',      'val'=>$summary['open'],      'label'=>'Open',           'url'=>$baseUrl.'?tracking=open',                        'color'=>'#854d0e'],
-        ['key'=>'resolved',  'val'=>$summary['resolved'],  'label'=>'Resolved',       'url'=>$baseUrl.'?tracking=resolved',                    'color'=>'#065f46'],
-        ['key'=>'new',       'val'=>$summary['new'],       'label'=>'New',            'url'=>$baseUrl.'?tracking=new',                         'color'=>'#1d4ed8'],
-        ['key'=>'persistent','val'=>$summary['persistent'],'label'=>'Persistent',     'url'=>$baseUrl.'?tracking=persistent',                  'color'=>'#c2410c'],
-        ['key'=>'critical',  'val'=>$summary['critical'],  'label'=>'Critical',       'url'=>$baseUrl.'?severity=Critical',                    'color'=>'#851209'],
-        ['key'=>'high',      'val'=>$summary['high'],      'label'=>'High',           'url'=>$baseUrl.'?severity=High',                        'color'=>'#f21807'],
-        ['key'=>'medium',    'val'=>$summary['medium'],    'label'=>'Medium',         'url'=>$baseUrl.'?severity=Medium',                      'color'=>'#f27107'],
-        ['key'=>'low',       'val'=>$summary['low'],       'label'=>'Low',            'url'=>$baseUrl.'?severity=Low',                         'color'=>'#4caf50'],
+    $tStats = [
+        ['key'=>'open',       'val'=>$summary['open'],       'label'=>'Open',       'color'=>'#854d0e','bg'=>'#fef9c3'],
+        ['key'=>'new',        'val'=>$summary['new'],        'label'=>'New',        'color'=>'#1d4ed8','bg'=>'#dbeafe'],
+        ['key'=>'persistent', 'val'=>$summary['persistent'], 'label'=>'Persistent', 'color'=>'#c2410c','bg'=>'#ffedd5'],
+        ['key'=>'resolved',   'val'=>$summary['resolved'],   'label'=>'Resolved',   'color'=>'#065f46','bg'=>'#d1fae5'],
+    ];
+    $sevStats = [
+        ['key'=>'Critical','val'=>$summary['critical'],'label'=>'Critical','color'=>'#851209','bg'=>'#fce4e4'],
+        ['key'=>'High',    'val'=>$summary['high'],    'label'=>'High',    'color'=>'#c0392b','bg'=>'#ffe5e5'],
+        ['key'=>'Medium',  'val'=>$summary['medium'],  'label'=>'Medium',  'color'=>'#d97706','bg'=>'#fff0e0'],
+        ['key'=>'Low',     'val'=>$summary['low'],     'label'=>'Low',     'color'=>'#4caf50','bg'=>'#f0fdf4'],
+    ];
+    $sevBar = [
+        ['v'=>$summary['critical'],'c'=>'#851209'],
+        ['v'=>$summary['high'],    'c'=>'#c0392b'],
+        ['v'=>$summary['medium'],  'c'=>'#d97706'],
+        ['v'=>$summary['low'],     'c'=>'#4caf50'],
     ];
 @endphp
-<div class="sum-cards">
-@foreach($cards as $card)
-@php
-    $isActive = ($card['key'] === 'open'       && $activeT  === 'open')
-             || ($card['key'] === 'resolved'   && $activeT  === 'resolved')
-             || ($card['key'] === 'new'        && $activeT  === 'new')
-             || ($card['key'] === 'persistent' && $activeT  === 'persistent')
-             || ($card['key'] === 'critical'   && $activeSev === 'Critical')
-             || ($card['key'] === 'high'       && $activeSev === 'High')
-             || ($card['key'] === 'medium'     && $activeSev === 'Medium')
-             || ($card['key'] === 'low'        && $activeSev === 'Low');
-@endphp
-@if($card['url'])
-<a href="{{ $card['url'] }}" class="sum-card{{ $isActive ? ' active' : '' }}">
-    <div class="sc-val" style="color:{{ $card['color'] }}">{{ number_format($card['val']) }}</div>
-    <div class="sc-lbl">{{ $card['label'] }}</div>
-</a>
-@else
-<div class="sum-card sum-card-total" title="Click a card or use filters below to load findings">
-    <div class="sc-val" style="color:{{ $card['color'] }}">{{ number_format($card['val']) }}</div>
-    <div class="sc-lbl">{{ $card['label'] }}</div>
-</div>
-@endif
-@endforeach
+<div class="va-card" style="padding:1.25rem 1.5rem;margin-bottom:1.25rem">
+    <div style="display:flex;align-items:stretch;gap:2rem;flex-wrap:wrap">
+
+        {{-- Total + severity bar --}}
+        <div style="display:flex;flex-direction:column;justify-content:center;flex-shrink:0;
+                    padding-right:2rem;border-right:2px solid #f1f5f9;min-width:130px">
+            <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:.3rem">Total Findings</div>
+            <div style="font-size:2.6rem;font-weight:900;color:#0f172a;line-height:1.05">{{ number_format($summary['total']) }}</div>
+            @if($summary['total'] > 0)
+            <div style="display:flex;border-radius:6px;overflow:hidden;height:7px;margin-top:.7rem;gap:1px">
+                @foreach($sevBar as $i => $b)
+                    @if($b['v'] > 0)
+                    <div style="flex:{{ $b['v'] }};background:{{ $b['c'] }};
+                         {{ $i===0 ? 'border-radius:4px 0 0 4px' : '' }}{{ $i===3 ? 'border-radius:0 4px 4px 0' : '' }}"
+                         title="{{ ['Critical','High','Medium','Low'][$i] }}: {{ number_format($b['v']) }}"></div>
+                    @endif
+                @endforeach
+            </div>
+            <div style="font-size:.62rem;color:#94a3b8;margin-top:.35rem;display:flex;gap:.6rem;flex-wrap:wrap">
+                @foreach($sevStats as $s)
+                    @if($s['val'] > 0)
+                    <span style="color:{{ $s['color'] }};font-weight:600">{{ round($s['val']/$summary['total']*100) }}%&nbsp;{{ $s['label'] }}</span>
+                    @endif
+                @endforeach
+            </div>
+            @endif
+        </div>
+
+        {{-- Tracking + Severity pill rows --}}
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1rem;justify-content:center">
+
+            {{-- Tracking status --}}
+            <div>
+                <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:.5rem">Tracking Status</div>
+                <div style="display:flex;flex-wrap:wrap;gap:.45rem">
+                    @foreach($tStats as $s)
+                    @php $act = $s['key'] === $activeT; @endphp
+                    <a href="{{ $baseUrl }}?tracking={{ $s['key'] }}" class="sum-pill"
+                       style="background:{{ $s['bg'] }};border:1.5px solid {{ $s['color'] }}{{ $act ? '' : '44' }};{{ $act ? 'box-shadow:0 0 0 3px '.$s['color'].'28' : '' }}">
+                        <span style="font-size:1.2rem;font-weight:800;color:{{ $s['color'] }};line-height:1">{{ number_format($s['val']) }}</span>
+                        <span style="font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:{{ $s['color'] }};opacity:.8">{{ $s['label'] }}</span>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- Severity --}}
+            <div>
+                <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:.5rem">By Severity</div>
+                <div style="display:flex;flex-wrap:wrap;gap:.45rem">
+                    @foreach($sevStats as $s)
+                    @php $act = $activeSev === $s['key']; @endphp
+                    <a href="{{ $baseUrl }}?severity={{ $s['key'] }}" class="sum-pill"
+                       style="background:{{ $s['bg'] }};border:1.5px solid {{ $s['color'] }}{{ $act ? '' : '44' }};{{ $act ? 'box-shadow:0 0 0 3px '.$s['color'].'28' : '' }}">
+                        <span style="font-size:1.2rem;font-weight:800;color:{{ $s['color'] }};line-height:1">{{ number_format($s['val']) }}</span>
+                        <span style="font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:{{ $s['color'] }};opacity:.8">{{ $s['label'] }}</span>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+
+        </div>
+    </div>
 </div>
 
 {{-- ── Filter form ────────────────────────────────────────────────────────── --}}
