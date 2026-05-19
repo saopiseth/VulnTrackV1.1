@@ -471,32 +471,30 @@
                         @if($initialScan)
                             @if($initialScan->file_path)
                             <a href="{{ route('vuln-assessments.download-initial-file', $assessment) }}"
-                               title="Download: {{ $initialScan->filename }}"
-                               style="display:flex;align-items:center;gap:.25rem;color:#1d4ed8;text-decoration:none;font-size:.72rem;font-weight:500;margin-bottom:.1rem;max-width:160px"
+                               style="display:flex;align-items:center;gap:.25rem;color:#1d4ed8;text-decoration:none;font-size:.72rem;font-weight:500;margin-bottom:.1rem;white-space:nowrap"
                                onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                                 <i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:#3b82f6"></i>
-                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ Str::limit($initialScan->filename, 28) }}</span>
+                                {{ $initialScan->filename }}
                             </a>
                             @else
-                            <div style="display:flex;align-items:center;gap:.25rem;font-size:.72rem;color:#64748b;max-width:160px;margin-bottom:.1rem" title="{{ $initialScan->filename }}">
+                            <div style="display:flex;align-items:center;gap:.25rem;font-size:.72rem;color:#64748b;margin-bottom:.1rem;white-space:nowrap">
                                 <i class="bi bi-file-earmark-zip" style="font-size:.75rem;flex-shrink:0;color:#94a3b8"></i>
-                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ Str::limit($initialScan->filename, 28) }}</span>
+                                {{ $initialScan->filename }}
                             </div>
                             @endif
                         @endif
                         @if($verificationScan)
                             @if($verificationScan->file_path)
                             <a href="{{ route('vuln-assessments.download-verification-file', $assessment) }}"
-                               title="Download: {{ $verificationScan->filename }}"
-                               style="display:flex;align-items:center;gap:.25rem;color:#15803d;text-decoration:none;font-size:.72rem;font-weight:500;max-width:160px"
+                               style="display:flex;align-items:center;gap:.25rem;color:#15803d;text-decoration:none;font-size:.72rem;font-weight:500;white-space:nowrap"
                                onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                                 <i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:#22c55e"></i>
-                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ Str::limit($verificationScan->filename, 28) }}</span>
+                                {{ $verificationScan->filename }}
                             </a>
                             @else
-                            <div style="display:flex;align-items:center;gap:.25rem;font-size:.72rem;color:#64748b;max-width:160px" title="{{ $verificationScan->filename }}">
+                            <div style="display:flex;align-items:center;gap:.25rem;font-size:.72rem;color:#64748b;white-space:nowrap">
                                 <i class="bi bi-file-earmark-zip" style="font-size:.75rem;flex-shrink:0;color:#94a3b8"></i>
-                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ Str::limit($verificationScan->filename, 28) }}</span>
+                                {{ $verificationScan->filename }}
                             </div>
                             @endif
                         @endif
@@ -748,12 +746,11 @@ window.nessusFiles = {
                 function nfRow(entry, linkColor, iconColor, mb) {
                     if (!entry) return '';
                     var name = entry.filename || '';
-                    var short = name.length > 28 ? name.substring(0, 28) + '…' : name;
-                    var style = 'display:flex;align-items:center;gap:.25rem;font-size:.72rem;font-weight:500;max-width:160px;' + (mb ? 'margin-bottom:.1rem;' : '');
+                    var style = 'display:flex;align-items:center;gap:.25rem;font-size:.72rem;font-weight:500;white-space:nowrap;' + (mb ? 'margin-bottom:.1rem;' : '');
                     if (entry.url) {
-                        return '<a href="'+entry.url+'" title="Download: '+name+'" style="'+style+'color:'+linkColor+';text-decoration:none"><i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:'+iconColor+'"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+short+'</span></a>';
+                        return '<a href="'+entry.url+'" style="'+style+'color:'+linkColor+';text-decoration:none"><i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:'+iconColor+'"></i>'+name+'</a>';
                     }
-                    return '<div title="'+name+'" style="'+style+'color:#64748b"><i class="bi bi-file-earmark-zip" style="font-size:.75rem;flex-shrink:0;color:#94a3b8"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+short+'</span></div>';
+                    return '<div style="'+style+'color:#64748b"><i class="bi bi-file-earmark-zip" style="font-size:.75rem;flex-shrink:0;color:#94a3b8"></i>'+name+'</div>';
                 }
                 html += nfRow(nf.initial,      '#1d4ed8', '#3b82f6', true);
                 html += nfRow(nf.verification, '#15803d', '#22c55e', false);
