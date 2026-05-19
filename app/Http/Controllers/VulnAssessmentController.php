@@ -1906,14 +1906,11 @@ class VulnAssessmentController extends Controller
             ->where('is_verification', false)
             ->whereNotNull('file_path')
             ->oldest('id')
-            ->first(['file_path', 'filename']);
+            ->first(['id', 'file_path', 'filename']);
 
-        abort_if(
-            !$scan || !Storage::disk('local')->exists($scan->file_path),
-            404, 'Initial Nessus file not available.'
-        );
+        abort_if(!$scan, 404, 'Initial Nessus file not available.');
 
-        return Storage::disk('local')->download($scan->file_path, $scan->filename);
+        return $this->streamScanFile($scan, 'Initial Nessus file not available.');
     }
 
     public function downloadVerificationFile(VulnAssessment $vulnAssessment)
@@ -1924,25 +1921,31 @@ class VulnAssessmentController extends Controller
             ->where('is_verification', true)
             ->whereNotNull('file_path')
             ->latest('id')
-            ->first(['file_path', 'filename']);
+            ->first(['id', 'file_path', 'filename']);
 
-        abort_if(
-            !$scan || !Storage::disk('local')->exists($scan->file_path),
-            404, 'Verification Nessus file not available.'
-        );
+        abort_if(!$scan, 404, 'Verification Nessus file not available.');
 
-        return Storage::disk('local')->download($scan->file_path, $scan->filename);
+        return $this->streamScanFile($scan, 'Verification Nessus file not available.');
     }
 
     public function downloadScan(VulnAssessment $vulnAssessment, VulnScan $scan)
     {
         abort_if($scan->assessment_id !== $vulnAssessment->id, 404);
-        abort_if(
-            !$scan->file_path || !Storage::disk('local')->exists($scan->file_path),
-            404, 'Scan file not found.'
-        );
+        abort_if(!$scan->file_path, 404, 'Scan file not found.');
 
-        return Storage::disk('local')->download($scan->file_path, $scan->filename);
+        return $this->streamScanFile($scan, 'Scan file not found.');
+    }
+
+    private function streamScanFile(VulnScan $scan, string $notFoundMessage): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        try {
+            return Storage::disk('local')->download($scan->file_path, $scan->filename);
+        } catch (\Exception $e) {
+            // File was deleted from disk (e.g. by old job cleanup). Clear the stale path
+            // so the download button no longer appears on future page loads.
+            $scan->update(['file_path' => null]);
+            abort(404, $notFoundMessage);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
