@@ -358,7 +358,6 @@
                         <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b">Resolved</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap">First Detected</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">System</th>
-                        <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap">Criticality</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Owner</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Scope</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap">Nessus File</th>
@@ -453,18 +452,6 @@
 
                     <td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                         {{ $ip->system_name ?: '—' }}
-                    </td>
-
-                    <td style="padding:.5rem .55rem;white-space:nowrap">
-                        @php
-                            $cm = \App\Models\AssessmentScope::criticalityLevels()[$ip->system_criticality] ?? null;
-                        @endphp
-                        @if($cm)
-                        <span style="display:inline-block;background:{{ $cm['bg'] }};color:{{ $cm['color'] }};
-                                     border-radius:6px;padding:.1rem .45rem;font-size:.67rem;font-weight:700;white-space:nowrap">
-                            {{ $cm['label'] }}
-                        </span>
-                        @else<span style="color:#cbd5e1;font-size:.75rem">—</span>@endif
                     </td>
 
                     <td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -675,7 +662,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ── Host table filter + AJAX search ─────────────────────────────────────────
-window.criticalityLevels = @json(\App\Models\AssessmentScope::criticalityLevels());
 window.nessusFiles = {
     initial:      @json($initialScan      ? ['filename' => $initialScan->filename,      'url' => $initialScan->file_path      ? route('vuln-assessments.download-initial-file', $assessment)      : null] : null),
     verification: @json($verificationScan ? ['filename' => $verificationScan->filename, 'url' => $verificationScan->file_path ? route('vuln-assessments.download-verification-file', $assessment) : null] : null),
@@ -720,12 +706,6 @@ window.nessusFiles = {
             ? '<span style="display:inline-block;min-width:24px;background:'+bg+';color:'+col+';border-radius:6px;padding:.08rem .35rem;font-size:.73rem;font-weight:800">'+n+'</span>'
             : '<span style="color:#e2e8f0;font-size:.71rem">—</span>';
     }
-    function critBadge(level) {
-        var cm = (window.criticalityLevels || {})[level];
-        if (!cm) return '<span style="color:#cbd5e1;font-size:.75rem">—</span>';
-        return '<span style="display:inline-block;background:'+cm.bg+';color:'+cm.color+';border-radius:6px;padding:.1rem .45rem;font-size:.67rem;font-weight:700;white-space:nowrap">'+cm.label+'</span>';
-    }
-
     // ── Build <tr> from JSON host object ──────────────────────────────────
     function buildRow(host, idx) {
         var ip  = host.ip_address || '';
@@ -760,7 +740,6 @@ window.nessusFiles = {
             '<td style="padding:.5rem .3rem;text-align:center">'+(host.resolved_count>0?'<span style="font-weight:700;color:#64748b;font-size:.8rem">'+host.resolved_count+'</span>':'<span style="color:#e2e8f0;font-size:.71rem">—</span>')+'</td>',
             '<td style="padding:.5rem .55rem;white-space:nowrap;color:#64748b;font-size:.74rem"><i class="bi bi-calendar3 me-1" style="color:#94a3b8;font-size:.67rem"></i>'+fmtDate(host.first_detected)+'</td>',
             '<td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(host.system_name||'—')+'</td>',
-            '<td style="padding:.5rem .55rem;white-space:nowrap">'+critBadge(host.system_criticality)+'</td>',
             '<td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(host.system_owner||'—')+'</td>',
             '<td style="padding:.5rem .55rem;white-space:nowrap">'+(host.identified_scope?'<span style="display:inline-block;background:#f0fdf4;color:#166534;border-radius:6px;padding:.1rem .45rem;font-size:.67rem;font-weight:700">'+host.identified_scope+'</span>':'<span style="color:#cbd5e1;font-size:.75rem">—</span>')+'</td>',
             (function() {
@@ -796,7 +775,7 @@ window.nessusFiles = {
         tbody.innerHTML = '';
         if (!hosts.length) {
             var empty = document.createElement('tr');
-            empty.innerHTML = '<td colspan="17" style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem"><i class="bi bi-search me-2"></i>No hosts found</td>';
+            empty.innerHTML = '<td colspan="16" style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem"><i class="bi bi-search me-2"></i>No hosts found</td>';
             tbody.appendChild(empty);
             if (counter) counter.textContent = '0 results';
         } else {
