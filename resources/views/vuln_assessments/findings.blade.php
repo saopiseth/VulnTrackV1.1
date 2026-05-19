@@ -381,11 +381,6 @@
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;color:#94a3b8;font-size:.75rem">{{ $rowNum++ }}</td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9">
                         <span class="badge-sev {{ $sevClass }}">{{ $f->severity }}</span>
-                        <div style="margin-top:.22rem">
-                            <span style="display:inline-block;background:{{ $tsBg }};color:{{ $tsColor }};border-radius:5px;padding:.08rem .38rem;font-size:.63rem;font-weight:700">
-                                {{ $f->tracking_status }}
-                            </span>
-                        </div>
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;font-family:monospace;font-size:.76rem;color:#374151">
                         <div style="font-weight:600">{{ $f->plugin_id }}</div>
