@@ -96,10 +96,9 @@
     $activeSev= request('severity');
 
     $tStats = [
-        ['key'=>'open',       'val'=>$summary['open'],       'label'=>'Open',       'color'=>'#854d0e','bg'=>'#fef9c3'],
-        ['key'=>'new',        'val'=>$summary['new'],        'label'=>'New',        'color'=>'#1d4ed8','bg'=>'#dbeafe'],
-        ['key'=>'persistent', 'val'=>$summary['persistent'], 'label'=>'Persistent', 'color'=>'#c2410c','bg'=>'#ffedd5'],
-        ['key'=>'resolved',   'val'=>$summary['resolved'],   'label'=>'Resolved',   'color'=>'#065f46','bg'=>'#d1fae5'],
+        ['key'=>'open',       'val'=>$summary['open'] + $summary['new'], 'label'=>'Open',       'color'=>'#854d0e','bg'=>'#fef9c3'],
+        ['key'=>'persistent', 'val'=>$summary['persistent'],              'label'=>'Persistent', 'color'=>'#c2410c','bg'=>'#ffedd5'],
+        ['key'=>'resolved',   'val'=>$summary['resolved'],                'label'=>'Resolved',   'color'=>'#065f46','bg'=>'#d1fae5'],
     ];
     $sevStats = [
         ['key'=>'Critical','val'=>$summary['critical'],'label'=>'Critical','color'=>'#851209','bg'=>'#fce4e4'],
@@ -261,8 +260,12 @@
 
             <div class="col-6 col-md-2">
                 <label style="font-size:.72rem;font-weight:600;color:#64748b;display:block;margin-bottom:.2rem">Asset Owner</label>
-                <input type="text" name="asset_owner" class="form-control form-control-sm" style="border-radius:8px"
-                    placeholder="Owner name" value="{{ request('asset_owner') }}">
+                <select name="asset_owner" class="form-select form-select-sm" style="border-radius:8px">
+                    <option value="">All Owners</option>
+                    @foreach($owners as $owner)
+                    <option value="{{ $owner }}" {{ request('asset_owner') === $owner ? 'selected' : '' }}>{{ $owner }}</option>
+                    @endforeach
+                </select>
             </div>
 
             <div class="col-4 col-md-1">

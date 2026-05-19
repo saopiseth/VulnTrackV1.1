@@ -1237,6 +1237,20 @@ class VulnAssessmentController extends Controller
         $userGroups      = UserGroup::orderBy('name')->get();
         $slaPolicy       = $assessment->slaPolicy ?? SlaPolicy::where('is_default', true)->first();
 
+        // Distinct owners from scope for dropdown (lightweight, always runs)
+        if ($assessment->scope_group_id) {
+            $owners = DB::table('assessment_scopes')
+                ->where('group_id', $assessment->scope_group_id)
+                ->whereNotNull('system_owner')->where('system_owner', '!=', '')
+                ->distinct()->orderBy('system_owner')->pluck('system_owner');
+        } else {
+            $owners = DB::table('assessment_scopes as s')
+                ->join('vuln_assessment_scope as vas', 'vas.assessment_scope_id', '=', 's.id')
+                ->where('vas.vuln_assessment_id', $assessment->id)
+                ->whereNotNull('s.system_owner')->where('s.system_owner', '!=', '')
+                ->distinct()->orderBy('s.system_owner')->pluck('s.system_owner');
+        }
+
         if ($hasFilter) {
             $query = VulnTracked::where('vuln_tracked.assessment_id', $assessment->id)
                 ->whereIn('vuln_tracked.severity', $displaySeverities)
@@ -1273,10 +1287,8 @@ class VulnAssessmentController extends Controller
 
             if ($trackingFilter === 'resolved') {
                 $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_RESOLVED);
-            } elseif ($trackingFilter === 'new') {
-                $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_NEW);
             } elseif ($trackingFilter === 'open') {
-                $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_OPEN);
+                $query->whereIn('vuln_tracked.tracking_status', [VulnTracked::STATUS_OPEN, VulnTracked::STATUS_NEW]);
             } elseif ($trackingFilter === 'reopened') {
                 $query->where('vuln_tracked.tracking_status', VulnTracked::STATUS_REOPENED);
             } elseif ($trackingFilter === 'persistent') {
@@ -1296,7 +1308,7 @@ class VulnAssessmentController extends Controller
                 $query->where('vuln_tracked.os_family', 'like', '%' . $request->os_family . '%');
             }
             if ($request->filled('asset_owner')) {
-                $query->where('vuln_tracked.asset_owner', 'like', '%' . $request->asset_owner . '%');
+                $query->where('scope_ip.system_owner', $request->asset_owner);
             }
             if ($request->filled('port')) {
                 $query->where('vuln_tracked.port', $request->port);
@@ -1369,7 +1381,8 @@ class VulnAssessmentController extends Controller
             'findings', 'remediations',
             'trackingFilter', 'remStatusFilter',
             'userGroups', 'slaPolicy',
-            'initialScan', 'verificationScan'
+            'initialScan', 'verificationScan',
+            'owners'
         ));
     }
     public function vulnUpload(VulnAssessment $vulnAssessment)
