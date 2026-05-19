@@ -69,6 +69,24 @@
             <li class="breadcrumb-item active" style="color:#64748b">Findings</li>
         </ol></nav>
         <h5 style="margin:0;font-weight:700;color:#0f172a">{{ $assessment->name }}</h5>
+        @if($slaPolicy)
+        <div style="display:inline-flex;align-items:center;gap:.35rem;margin-top:.35rem;
+                    background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;
+                    padding:.2rem .65rem;font-size:.72rem;color:#065f46">
+            <i class="bi bi-clock-history" style="font-size:.7rem"></i>
+            <span>SLA Policy: <strong>{{ $slaPolicy->name }}</strong></span>
+            @if($slaPolicy->is_default)
+            <span style="background:#d1fae5;color:#065f46;border-radius:4px;padding:.05rem .35rem;font-size:.63rem;font-weight:700;letter-spacing:.3px">DEFAULT</span>
+            @endif
+        </div>
+        @else
+        <div style="display:inline-flex;align-items:center;gap:.35rem;margin-top:.35rem;
+                    background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:.2rem .65rem;font-size:.72rem;color:#991b1b">
+            <i class="bi bi-clock" style="font-size:.7rem"></i>
+            <span>No SLA policy assigned</span>
+        </div>
+        @endif
     </div>
     <div class="d-flex gap-2">
         <a href="{{ route('vuln-assessments.progress', $assessment) }}" class="btn btn-sm"
@@ -430,14 +448,31 @@
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;white-space:nowrap">
                         @if($slaPolicy)
                         @php
-                            [$slaStatus, $slaLabel, $slaBg, $slaColor] = $slaPolicy->slaStatus(
-                                $f->severity,
-                                \Carbon\Carbon::parse($f->first_seen_at),
-                                $f->tracking_status === 'Resolved',
-                                $f->resolved_at ? \Carbon\Carbon::parse($f->resolved_at) : null
-                            );
+                            $fSeen      = \Carbon\Carbon::parse($f->first_seen_at);
+                            $isResolved = $f->tracking_status === 'Resolved';
+                            $resolvedAt = $f->resolved_at ? \Carbon\Carbon::parse($f->resolved_at) : null;
+                            [$slaStatus, $slaLabel, $slaBg, $slaColor] = $slaPolicy->slaStatus($f->severity, $fSeen, $isResolved, $resolvedAt);
+                            $slaDays  = $slaPolicy->daysForSeverity($f->severity);
+                            $daysLeft = $slaDays !== null
+                                ? (int) round(($fSeen->copy()->addDays($slaDays)->timestamp - now()->timestamp) / 86400)
+                                : null;
                         @endphp
                         <span style="display:inline-block;background:{{ $slaBg }};color:{{ $slaColor }};border-radius:6px;padding:.1rem .45rem;font-size:.68rem;font-weight:700">{{ $slaLabel }}</span>
+                        @if($daysLeft !== null && !$isResolved)
+                            @if($daysLeft > 0)
+                            <div style="font-size:.67rem;color:#065f46;margin-top:.18rem">
+                                <i class="bi bi-hourglass-split" style="font-size:.6rem"></i> {{ $daysLeft }}d left
+                            </div>
+                            @elseif($daysLeft === 0)
+                            <div style="font-size:.67rem;color:#854d0e;margin-top:.18rem">
+                                <i class="bi bi-hourglass-bottom" style="font-size:.6rem"></i> Due today
+                            </div>
+                            @else
+                            <div style="font-size:.67rem;color:#991b1b;margin-top:.18rem">
+                                <i class="bi bi-hourglass" style="font-size:.6rem"></i> {{ abs($daysLeft) }}d overdue
+                            </div>
+                            @endif
+                        @endif
                         @else<span style="color:#cbd5e1;font-size:.75rem">—</span>@endif
                     </td>
                     {{-- Nessus File --}}
