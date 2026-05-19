@@ -309,16 +309,26 @@
                     @endif
                 </td>
                 <td style="padding:.45rem 0;vertical-align:middle;text-align:right">
-                    <form method="POST"
-                          action="{{ route('vuln-assessments.scans.destroy', [$assessment, $scan]) }}"
-                          onsubmit="return confirm('Delete this scan?\n\nThis removes all {{ number_format($scan->finding_count) }} findings and cannot be undone.')">
-                        @csrf @method('DELETE')
-                        <button type="submit"
-                                style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;color:#dc2626;
-                                       padding:.18rem .42rem;font-size:.72rem;cursor:pointer">
-                            <i class="bi bi-trash3"></i>
-                        </button>
-                    </form>
+                    <div style="display:inline-flex;gap:.3rem;align-items:center">
+                        @if($scan->file_path)
+                        <a href="{{ route('vuln-assessments.scans.download', [$assessment, $scan]) }}"
+                           style="display:inline-flex;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;
+                                  border-radius:7px;color:#1d4ed8;padding:.18rem .42rem;font-size:.72rem;text-decoration:none"
+                           title="Download {{ $scan->filename }}">
+                            <i class="bi bi-download"></i>
+                        </a>
+                        @endif
+                        <form method="POST"
+                              action="{{ route('vuln-assessments.scans.destroy', [$assessment, $scan]) }}"
+                              onsubmit="return confirm('Delete this scan?\n\nThis removes all {{ number_format($scan->finding_count) }} findings and cannot be undone.')">
+                            @csrf @method('DELETE')
+                            <button type="submit"
+                                    style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;color:#dc2626;
+                                           padding:.18rem .42rem;font-size:.72rem;cursor:pointer">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             @endforeach
@@ -514,16 +524,26 @@
                     @endif
                 </td>
                 <td style="padding:.45rem 0;vertical-align:middle;text-align:right">
-                    <form method="POST"
-                          action="{{ route('vuln-assessments.scans.destroy', [$assessment, $scan]) }}"
-                          onsubmit="return confirm('Delete this verification scan?\n\nThis removes all {{ number_format($scan->finding_count) }} findings and cannot be undone.')">
-                        @csrf @method('DELETE')
-                        <button type="submit"
-                                style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;color:#dc2626;
-                                       padding:.18rem .42rem;font-size:.72rem;cursor:pointer">
-                            <i class="bi bi-trash3"></i>
-                        </button>
-                    </form>
+                    <div style="display:inline-flex;gap:.3rem;align-items:center">
+                        @if($scan->file_path)
+                        <a href="{{ route('vuln-assessments.scans.download', [$assessment, $scan]) }}"
+                           style="display:inline-flex;align-items:center;background:#eff6ff;border:1px solid #bfdbfe;
+                                  border-radius:7px;color:#1d4ed8;padding:.18rem .42rem;font-size:.72rem;text-decoration:none"
+                           title="Download {{ $scan->filename }}">
+                            <i class="bi bi-download"></i>
+                        </a>
+                        @endif
+                        <form method="POST"
+                              action="{{ route('vuln-assessments.scans.destroy', [$assessment, $scan]) }}"
+                              onsubmit="return confirm('Delete this verification scan?\n\nThis removes all {{ number_format($scan->finding_count) }} findings and cannot be undone.')">
+                            @csrf @method('DELETE')
+                            <button type="submit"
+                                    style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;color:#dc2626;
+                                           padding:.18rem .42rem;font-size:.72rem;cursor:pointer">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             @endforeach

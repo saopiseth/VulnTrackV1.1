@@ -1872,6 +1872,17 @@ class VulnAssessmentController extends Controller
         return response()->json($hosts);
     }
 
+    public function downloadScan(VulnAssessment $vulnAssessment, VulnScan $scan)
+    {
+        abort_if($scan->assessment_id !== $vulnAssessment->id, 404);
+        abort_if(
+            !$scan->file_path || !Storage::disk('local')->exists($scan->file_path),
+            404, 'Scan file not found.'
+        );
+
+        return Storage::disk('local')->download($scan->file_path, $scan->filename);
+    }
+
     // ─────────────────────────────────────────────────────────────
 
     public function destroyScan(VulnAssessment $vulnAssessment, VulnScan $scan)
