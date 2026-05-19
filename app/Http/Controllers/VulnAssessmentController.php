@@ -222,23 +222,24 @@ class VulnAssessmentController extends Controller
 
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
-        // ── Nessus file availability — one Storage check per type, never per row ─
         // Check DB only — no filesystem I/O. Download controller handles missing files.
-        $hasInitialFile      = VulnScan::where('assessment_id', $assessment->id)
+        $initialScan = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', false)
             ->whereNotNull('file_path')
-            ->exists();
+            ->oldest('id')
+            ->first(['id', 'file_path', 'filename']);
 
-        $hasVerificationFile = VulnScan::where('assessment_id', $assessment->id)
+        $verificationScan = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', true)
             ->whereNotNull('file_path')
-            ->exists();
+            ->latest('id')
+            ->first(['id', 'file_path', 'filename']);
 
         return view('vuln_assessments.show', compact(
             'assessment', 'baseline', 'latestScan', 'activeScan',
             'stats', 'topIps', 'activeHostCount',
             'osDistribution', 'osHostCount', 'scopeGroups',
-            'hasInitialFile', 'hasVerificationFile'
+            'initialScan', 'verificationScan'
         ));
     }
 

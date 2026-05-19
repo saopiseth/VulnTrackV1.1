@@ -480,22 +480,26 @@
                         @else<span style="color:#cbd5e1;font-size:.75rem">—</span>@endif
                     </td>
 
-                    <td style="padding:.5rem .55rem;white-space:nowrap">
-                        @if($hasInitialFile)
+                    <td style="padding:.5rem .55rem">
+                        @if($initialScan)
                         <a href="{{ route('vuln-assessments.download-initial-file', $assessment) }}"
-                           style="display:inline-flex;align-items:center;gap:.2rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#1d4ed8;padding:.15rem .45rem;font-size:.67rem;font-weight:600;text-decoration:none;margin-bottom:.15rem"
-                           title="Download initial scan">
-                            <i class="bi bi-download" style="font-size:.63rem"></i>Initial
+                           title="{{ $initialScan->filename }}"
+                           style="display:flex;align-items:center;gap:.25rem;color:#1d4ed8;text-decoration:none;font-size:.72rem;font-weight:500;margin-bottom:.1rem;max-width:160px"
+                           onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                            <i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:#3b82f6"></i>
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ Str::limit($initialScan->filename, 28) }}</span>
                         </a>
                         @endif
-                        @if($hasVerificationFile)
+                        @if($verificationScan)
                         <a href="{{ route('vuln-assessments.download-verification-file', $assessment) }}"
-                           style="display:inline-flex;align-items:center;gap:.2rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;color:#15803d;padding:.15rem .45rem;font-size:.67rem;font-weight:600;text-decoration:none"
-                           title="Download verification scan">
-                            <i class="bi bi-download" style="font-size:.63rem"></i>Verif.
+                           title="{{ $verificationScan->filename }}"
+                           style="display:flex;align-items:center;gap:.25rem;color:#15803d;text-decoration:none;font-size:.72rem;font-weight:500;max-width:160px"
+                           onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                            <i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:#22c55e"></i>
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ Str::limit($verificationScan->filename, 28) }}</span>
                         </a>
                         @endif
-                        @if(!$hasInitialFile && !$hasVerificationFile)
+                        @if(!$initialScan && !$verificationScan)
                         <span style="color:#cbd5e1;font-size:.75rem">—</span>
                         @endif
                     </td>
@@ -658,6 +662,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── Host table filter + AJAX search ─────────────────────────────────────────
 window.criticalityLevels = @json(\App\Models\AssessmentScope::criticalityLevels());
+window.nessusFiles = {
+    initial:      @json($initialScan ? ['filename' => $initialScan->filename, 'url' => route('vuln-assessments.download-initial-file', $assessment)] : null),
+    verification: @json($verificationScan ? ['filename' => $verificationScan->filename, 'url' => route('vuln-assessments.download-verification-file', $assessment)] : null),
+};
 (function () {
     var bar     = document.getElementById('host-filter-bar');
     var search  = document.getElementById('hf-search');
@@ -741,7 +749,14 @@ window.criticalityLevels = @json(\App\Models\AssessmentScope::criticalityLevels(
             '<td style="padding:.5rem .55rem;white-space:nowrap">'+critBadge(host.system_criticality)+'</td>',
             '<td style="padding:.5rem .55rem;color:#475569;font-size:.78rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(host.system_owner||'—')+'</td>',
             '<td style="padding:.5rem .55rem;white-space:nowrap">'+(host.identified_scope?'<span style="display:inline-block;background:#f0fdf4;color:#166534;border-radius:6px;padding:.1rem .45rem;font-size:.67rem;font-weight:700">'+host.identified_scope+'</span>':'<span style="color:#cbd5e1;font-size:.75rem">—</span>')+'</td>',
-            '<td style="padding:.5rem .55rem;text-align:center"><span style="color:#cbd5e1;font-size:.71rem">—</span></td>',
+            (function() {
+                var nf = window.nessusFiles || {};
+                var html = '';
+                if (nf.initial) html += '<a href="'+nf.initial.url+'" title="'+nf.initial.filename+'" style="display:flex;align-items:center;gap:.25rem;color:#1d4ed8;text-decoration:none;font-size:.72rem;font-weight:500;margin-bottom:.1rem;max-width:160px"><i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:#3b82f6"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nf.initial.filename.substring(0,28)+(nf.initial.filename.length>28?'…':'')+'</span></a>';
+                if (nf.verification) html += '<a href="'+nf.verification.url+'" title="'+nf.verification.filename+'" style="display:flex;align-items:center;gap:.25rem;color:#15803d;text-decoration:none;font-size:.72rem;font-weight:500;max-width:160px"><i class="bi bi-file-earmark-zip-fill" style="font-size:.75rem;flex-shrink:0;color:#22c55e"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nf.verification.filename.substring(0,28)+(nf.verification.filename.length>28?'…':'')+'</span></a>';
+                if (!html) html = '<span style="color:#cbd5e1;font-size:.71rem">—</span>';
+                return '<td style="padding:.5rem .55rem">'+html+'</td>';
+            })(),
         ].join('');
         return tr;
     }
