@@ -222,16 +222,15 @@ class VulnAssessmentController extends Controller
 
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
-        // Check DB only — no filesystem I/O. Download controller handles missing files.
+        // Fetch scan records for filename display — no file_path filter so the
+        // filename shows even when the file was cleaned up from disk.
         $initialScan = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', false)
-            ->whereNotNull('file_path')
             ->oldest('id')
             ->first(['id', 'file_path', 'filename']);
 
         $verificationScan = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', true)
-            ->whereNotNull('file_path')
             ->latest('id')
             ->first(['id', 'file_path', 'filename']);
 
@@ -1939,14 +1938,17 @@ class VulnAssessmentController extends Controller
 
     private function streamScanFile(VulnScan $scan, string $notFoundMessage): \Symfony\Component\HttpFoundation\StreamedResponse
     {
-        try {
-            return Storage::disk('local')->download($scan->file_path, $scan->filename);
-        } catch (\Exception $e) {
-            // File was deleted from disk (e.g. by old job cleanup). Clear the stale path
-            // so the download button no longer appears on future page loads.
-            $scan->update(['file_path' => null]);
+        // StreamedResponse is lazy — check existence before building it.
+        // Storage::exists() returns bool regardless of the disk's throw setting.
+        if (!$scan->file_path || !Storage::disk('local')->exists($scan->file_path)) {
+            // Clear stale path so the download icon disappears on next page load.
+            if ($scan->file_path) {
+                $scan->update(['file_path' => null]);
+            }
             abort(404, $notFoundMessage);
         }
+
+        return Storage::disk('local')->download($scan->file_path, $scan->filename);
     }
 
     // ─────────────────────────────────────────────────────────────
