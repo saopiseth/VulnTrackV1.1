@@ -222,10 +222,23 @@ class VulnAssessmentController extends Controller
 
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
+        // ── Nessus file availability — one Storage check per type, never per row ─
+        $verificationScan    = VulnScan::where('assessment_id', $assessment->id)
+            ->where('is_verification', true)
+            ->whereNotNull('file_path')
+            ->latest('id')
+            ->first(['file_path']);
+
+        $hasInitialFile      = $baseline && $baseline->file_path
+            && Storage::disk('local')->exists($baseline->file_path);
+        $hasVerificationFile = $verificationScan
+            && Storage::disk('local')->exists($verificationScan->file_path);
+
         return view('vuln_assessments.show', compact(
             'assessment', 'baseline', 'latestScan', 'activeScan',
             'stats', 'topIps', 'activeHostCount',
-            'osDistribution', 'osHostCount', 'scopeGroups'
+            'osDistribution', 'osHostCount', 'scopeGroups',
+            'hasInitialFile', 'hasVerificationFile'
         ));
     }
 
@@ -1400,11 +1413,24 @@ class VulnAssessmentController extends Controller
         $osFamilies = $filterRows->pluck('os_family')->filter()->unique()->sort()->values();
         $owners     = $filterRows->pluck('asset_owner')->filter()->unique()->sort()->values();
 
+        // ── Nessus file availability — one Storage check per type, never per row ─
+        $verificationScan    = VulnScan::where('assessment_id', $assessment->id)
+            ->where('is_verification', true)
+            ->whereNotNull('file_path')
+            ->latest('id')
+            ->first(['file_path']);
+
+        $hasInitialFile      = $baseline && $baseline->file_path
+            && Storage::disk('local')->exists($baseline->file_path);
+        $hasVerificationFile = $verificationScan
+            && Storage::disk('local')->exists($verificationScan->file_path);
+
         return view('vuln_assessments.findings', compact(
             'assessment', 'baseline', 'latestScan', 'findings', 'remediations',
             'trackingFilter', 'trackingCounts',
             'remStatusCounts', 'remStatusFilter', 'userGroups', 'slaPolicy', 'slaCounts',
-            'hosts', 'ips', 'osFamilies', 'owners'
+            'hosts', 'ips', 'osFamilies', 'owners',
+            'hasInitialFile', 'hasVerificationFile'
         ));
     }
 
@@ -1870,6 +1896,42 @@ class VulnAssessmentController extends Controller
             ->get();
 
         return response()->json($hosts);
+    }
+
+    public function downloadInitialFile(VulnAssessment $vulnAssessment)
+    {
+        $this->authorize('view', $vulnAssessment);
+
+        $scan = VulnScan::where('assessment_id', $vulnAssessment->id)
+            ->where('is_verification', false)
+            ->whereNotNull('file_path')
+            ->oldest('id')
+            ->first(['file_path', 'filename']);
+
+        abort_if(
+            !$scan || !Storage::disk('local')->exists($scan->file_path),
+            404, 'Initial Nessus file not available.'
+        );
+
+        return Storage::disk('local')->download($scan->file_path, $scan->filename);
+    }
+
+    public function downloadVerificationFile(VulnAssessment $vulnAssessment)
+    {
+        $this->authorize('view', $vulnAssessment);
+
+        $scan = VulnScan::where('assessment_id', $vulnAssessment->id)
+            ->where('is_verification', true)
+            ->whereNotNull('file_path')
+            ->latest('id')
+            ->first(['file_path', 'filename']);
+
+        abort_if(
+            !$scan || !Storage::disk('local')->exists($scan->file_path),
+            404, 'Verification Nessus file not available.'
+        );
+
+        return Storage::disk('local')->download($scan->file_path, $scan->filename);
     }
 
     public function downloadScan(VulnAssessment $vulnAssessment, VulnScan $scan)

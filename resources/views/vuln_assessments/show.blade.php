@@ -361,6 +361,7 @@
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap">Criticality</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Owner</th>
                         <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Scope</th>
+                        <th style="padding:.45rem .55rem;text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;white-space:nowrap">Nessus File</th>
                         <th style="padding:.45rem .55rem;text-align:center;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8">Actions</th>
                     </tr>
                 </thead>
@@ -477,6 +478,26 @@
                             {{ $ip->identified_scope }}
                         </span>
                         @else<span style="color:#cbd5e1;font-size:.75rem">—</span>@endif
+                    </td>
+
+                    <td style="padding:.5rem .55rem;white-space:nowrap">
+                        @if($hasInitialFile)
+                        <a href="{{ route('vuln-assessments.download-initial-file', $assessment) }}"
+                           style="display:inline-flex;align-items:center;gap:.2rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#1d4ed8;padding:.15rem .45rem;font-size:.67rem;font-weight:600;text-decoration:none;margin-bottom:.15rem"
+                           title="Download initial scan">
+                            <i class="bi bi-download" style="font-size:.63rem"></i>Initial
+                        </a>
+                        @endif
+                        @if($hasVerificationFile)
+                        <a href="{{ route('vuln-assessments.download-verification-file', $assessment) }}"
+                           style="display:inline-flex;align-items:center;gap:.2rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;color:#15803d;padding:.15rem .45rem;font-size:.67rem;font-weight:600;text-decoration:none"
+                           title="Download verification scan">
+                            <i class="bi bi-download" style="font-size:.63rem"></i>Verif.
+                        </a>
+                        @endif
+                        @if(!$hasInitialFile && !$hasVerificationFile)
+                        <span style="color:#cbd5e1;font-size:.75rem">—</span>
+                        @endif
                     </td>
 
                     <td style="padding:.5rem .55rem;text-align:center;white-space:nowrap">
@@ -736,7 +757,7 @@ window.criticalityLevels = @json(\App\Models\AssessmentScope::criticalityLevels(
         tbody.innerHTML = '';
         if (!hosts.length) {
             var empty = document.createElement('tr');
-            empty.innerHTML = '<td colspan="16" style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem"><i class="bi bi-search me-2"></i>No hosts found</td>';
+            empty.innerHTML = '<td colspan="17" style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem"><i class="bi bi-search me-2"></i>No hosts found</td>';
             tbody.appendChild(empty);
             if (counter) counter.textContent = '0 results';
         } else {
