@@ -223,22 +223,16 @@ class VulnAssessmentController extends Controller
         $scopeGroups = AssessmentScopeGroup::withCount('items')->orderBy('name')->get();
 
         // ── Nessus file availability — one Storage check per type, never per row ─
-        $initialFileScan     = VulnScan::where('assessment_id', $assessment->id)
+        // Check DB only — no filesystem I/O. Download controller handles missing files.
+        $hasInitialFile      = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', false)
             ->whereNotNull('file_path')
-            ->oldest('id')
-            ->first(['file_path']);
+            ->exists();
 
-        $verificationScan    = VulnScan::where('assessment_id', $assessment->id)
+        $hasVerificationFile = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', true)
             ->whereNotNull('file_path')
-            ->latest('id')
-            ->first(['file_path']);
-
-        $hasInitialFile      = $initialFileScan
-            && Storage::disk('local')->exists($initialFileScan->file_path);
-        $hasVerificationFile = $verificationScan
-            && Storage::disk('local')->exists($verificationScan->file_path);
+            ->exists();
 
         return view('vuln_assessments.show', compact(
             'assessment', 'baseline', 'latestScan', 'activeScan',
@@ -1420,22 +1414,16 @@ class VulnAssessmentController extends Controller
         $owners     = $filterRows->pluck('asset_owner')->filter()->unique()->sort()->values();
 
         // ── Nessus file availability — one Storage check per type, never per row ─
-        $initialFileScan     = VulnScan::where('assessment_id', $assessment->id)
+        // Check DB only — no filesystem I/O. Download controller handles missing files.
+        $hasInitialFile      = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', false)
             ->whereNotNull('file_path')
-            ->oldest('id')
-            ->first(['file_path']);
+            ->exists();
 
-        $verificationScan    = VulnScan::where('assessment_id', $assessment->id)
+        $hasVerificationFile = VulnScan::where('assessment_id', $assessment->id)
             ->where('is_verification', true)
             ->whereNotNull('file_path')
-            ->latest('id')
-            ->first(['file_path']);
-
-        $hasInitialFile      = $initialFileScan
-            && Storage::disk('local')->exists($initialFileScan->file_path);
-        $hasVerificationFile = $verificationScan
-            && Storage::disk('local')->exists($verificationScan->file_path);
+            ->exists();
 
         return view('vuln_assessments.findings', compact(
             'assessment', 'baseline', 'latestScan', 'findings', 'remediations',
