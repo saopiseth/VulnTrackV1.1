@@ -301,9 +301,9 @@
                         @endif
                     </td>
                     <td style="padding:.6rem .85rem;vertical-align:middle;border-color:#f1f5f9;max-width:130px">
-                        @if($f->asset_owner)
-                            <div style="font-size:.78rem;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->asset_owner }}">
-                                <i class="bi bi-person" style="color:#94a3b8;font-size:.72rem;margin-right:.2rem"></i>{{ $f->asset_owner }}
+                        @if($f->system_owner)
+                            <div style="font-size:.78rem;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $f->system_owner }}">
+                                <i class="bi bi-person" style="color:#94a3b8;font-size:.72rem;margin-right:.2rem"></i>{{ $f->system_owner }}
                             </div>
                         @else
                             <span style="color:#cbd5e1;font-size:.75rem">—</span>

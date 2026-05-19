@@ -1211,17 +1211,25 @@ class VulnAssessmentController extends Controller
                  ->where('vf.assessment_id', '=', $assessment->id);
         });
 
-        // Subquery join: get system_name from assessment_scopes for this assessment, by IP
-        $scopeSub = DB::table('assessment_scopes as s')
-            ->join('vuln_assessment_scope as vas', 'vas.assessment_scope_id', '=', 's.id')
-            ->where('vas.vuln_assessment_id', $assessment->id)
-            ->select('s.ip_address', 's.system_name');
+        // Subquery join: get scope metadata from assessment_scopes by IP.
+        // Use scope_group_id when set (same strategy as AssessmentSummaryService);
+        // fall back to the vuln_assessment_scope pivot for assessments without a group.
+        if ($assessment->scope_group_id) {
+            $scopeSub = DB::table('assessment_scopes as s')
+                ->where('s.group_id', $assessment->scope_group_id)
+                ->select('s.ip_address', 's.system_name', 's.system_owner');
+        } else {
+            $scopeSub = DB::table('assessment_scopes as s')
+                ->join('vuln_assessment_scope as vas', 'vas.assessment_scope_id', '=', 's.id')
+                ->where('vas.vuln_assessment_id', $assessment->id)
+                ->select('s.ip_address', 's.system_name', 's.system_owner');
+        }
 
         $query->leftJoinSub($scopeSub, 'scope_ip', function ($join) {
             $join->on('scope_ip.ip_address', '=', 'vuln_tracked.ip_address');
         });
 
-        $query->addSelect('scope_ip.system_name');
+        $query->addSelect('scope_ip.system_name', 'scope_ip.system_owner');
 
         // Join remediations for remediation-status filtering
         $query->leftJoin('vuln_remediations', function ($join) use ($assessment) {
