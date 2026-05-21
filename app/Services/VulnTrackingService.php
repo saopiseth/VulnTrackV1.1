@@ -103,9 +103,14 @@ class VulnTrackingService
                 $prevStatus   = $tracked->tracking_status;
                 $prevSeverity = $tracked->severity;
 
+                // Start from the full existing row so every NOT NULL column has a
+                // value for the INSERT part of the upsert (required by MySQL strict mode
+                // even when ON DUPLICATE KEY UPDATE fires instead of a real insert).
+                $baseRow = (array) $tracked;
+
                 if ($prevStatus === 'Resolved') {
                     // ── Reopen: was closed, now reappears ─────────────────────
-                    $trackedUpdateRows[] = array_merge(['id' => $tracked->id], $fields, [
+                    $trackedUpdateRows[] = array_merge($baseRow, $fields, [
                         'tracking_status'         => 'Reopened',
                         'resolved_at'             => null,
                         'reopen_count'            => ($tracked->reopen_count ?? 0) + 1,
@@ -133,7 +138,7 @@ class VulnTrackingService
                         && $newVerifCount >= self::PERSISTENT_THRESHOLD)
                         ? 'Persistent' : $prevStatus;
 
-                    $trackedUpdateRows[] = array_merge(['id' => $tracked->id], $fields, [
+                    $trackedUpdateRows[] = array_merge($baseRow, $fields, [
                         'tracking_status'         => $newStatus,
                         'resolved_at'             => null,
                         'reopen_count'            => $tracked->reopen_count ?? 0,
@@ -185,7 +190,9 @@ class VulnTrackingService
             'tracking_status', 'resolved_at', 'reopen_count', 'verification_seen_count',
             'updated_at',
         ];
-        foreach (array_chunk($trackedUpdateRows, 500) as $chunk) {
+        // Chunk size kept small (100) because rows include plugin_output which can
+        // be large — avoids exceeding MySQL's max_allowed_packet per statement.
+        foreach (array_chunk($trackedUpdateRows, 100) as $chunk) {
             DB::table('vuln_tracked')->upsert($chunk, ['id'], $updateCols);
         }
 
@@ -194,7 +201,7 @@ class VulnTrackingService
             $createKeyToStatus   = array_column($trackedCreateRows, 'tracking_status', 'vuln_key');
             $createKeyToSeverity = array_column($trackedCreateRows, 'severity', 'vuln_key');
 
-            foreach (array_chunk($trackedCreateRows, 500) as $chunk) {
+            foreach (array_chunk($trackedCreateRows, 100) as $chunk) {
                 DB::table('vuln_tracked')->insert($chunk);
             }
 

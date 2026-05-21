@@ -687,7 +687,7 @@
                 if (String(msg).includes('already been uploaded')) return { skipped: true };
                 throw (msg || 'Chunk ' + (i + 1) + '/' + total + ' rejected.');
             }
-            if (!resp.ok) throw (data.message || 'Chunk ' + (i + 1) + '/' + total + ' failed (HTTP ' + resp.status + ').');
+            if (!resp.ok) throw (data.message ? data.message : 'Chunk ' + (i + 1) + '/' + total + ' failed (HTTP ' + resp.status + ').');
             if (data.status === 'queued') return { scanId: data.scan_id };
         }
         throw 'All chunks sent but no confirmation received. Please retry.';
