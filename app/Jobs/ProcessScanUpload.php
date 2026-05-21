@@ -69,10 +69,15 @@ class ProcessScanUpload implements ShouldQueue
                 ]);
 
                 // ── Upsert vuln_host_os per IP ────────────────────────────────
+                // Load all existing records in one query to eliminate N+1 SELECTs.
+                $existingOsMap = VulnHostOs::where('assessment_id', $assessment->id)
+                    ->whereIn('ip_address', array_keys($hostOsMap))
+                    ->get()
+                    ->keyBy('ip_address');
+
+                $osToCreate = [];
                 foreach ($hostOsMap as $ip => $osData) {
-                    $existing = VulnHostOs::where('assessment_id', $assessment->id)
-                        ->where('ip_address', $ip)
-                        ->first();
+                    $existing = $existingOsMap->get($ip);
 
                     if ($existing) {
                         $history = $existing->os_history ?? [];
@@ -100,11 +105,24 @@ class ProcessScanUpload implements ShouldQueue
                             $existing->update(['scan_id' => $scan->id, 'os_history' => $history]);
                         }
                     } else {
-                        VulnHostOs::create(array_merge($osData, [
-                            'assessment_id' => $assessment->id,
-                            'scan_id'       => $scan->id,
-                        ]));
+                        $osToCreate[] = [
+                            'assessment_id'     => $assessment->id,
+                            'scan_id'           => $scan->id,
+                            'ip_address'        => $ip,
+                            'hostname'          => $osData['hostname'] ?? null,
+                            'os_name'           => $osData['os_name'],
+                            'os_family'         => $osData['os_family'],
+                            'os_confidence'     => $osData['os_confidence'],
+                            'os_kernel'         => $osData['os_kernel'] ?? null,
+                            'detection_sources' => json_encode($osData['detection_sources'] ?? []),
+                            'os_history'        => json_encode([]),
+                            'created_at'        => $now,
+                            'updated_at'        => $now,
+                        ];
                     }
+                }
+                if (!empty($osToCreate)) {
+                    DB::table('vuln_host_os')->insert($osToCreate);
                 }
 
                 // ── Sync asset_inventories (global cross-assessment view) ─────
@@ -128,24 +146,28 @@ class ProcessScanUpload implements ShouldQueue
                     ->groupBy('ip_address')
                     ->pluck('ports', 'ip_address');
 
+                $assetUpsertRows = [];
                 foreach ($hostOsMap as $ip => $osData) {
-                    $ipCounts = $allCounts->get($ip, collect());
+                    $ipCounts          = $allCounts->get($ip, collect());
+                    $assetUpsertRows[] = [
+                        'ip_address'      => $ip,
+                        'hostname'        => $osData['hostname'] ?? null,
+                        'os'              => $osData['os_name'],
+                        'os_family'       => $osData['os_family'],
+                        'os_kernel'       => $osData['os_kernel'],
+                        'open_ports'      => $allPorts[$ip] ?? null,
+                        'vuln_critical'   => $ipCounts->where('severity', 'Critical')->sum('cnt'),
+                        'vuln_high'       => $ipCounts->where('severity', 'High')->sum('cnt'),
+                        'vuln_medium'     => $ipCounts->where('severity', 'Medium')->sum('cnt'),
+                        'vuln_low'        => $ipCounts->where('severity', 'Low')->sum('cnt'),
+                        'last_scanned_at' => $now,
+                        'created_at'      => $now,
+                        'updated_at'      => $now,
+                    ];
+                }
+                foreach (array_chunk($assetUpsertRows, 500) as $chunk) {
                     DB::table('asset_inventories')->upsert(
-                        [[
-                            'ip_address'      => $ip,
-                            'hostname'        => $osData['hostname'] ?? null,
-                            'os'              => $osData['os_name'],
-                            'os_family'       => $osData['os_family'],
-                            'os_kernel'       => $osData['os_kernel'],
-                            'open_ports'      => $allPorts[$ip] ?? null,
-                            'vuln_critical'   => $ipCounts->where('severity', 'Critical')->sum('cnt'),
-                            'vuln_high'       => $ipCounts->where('severity', 'High')->sum('cnt'),
-                            'vuln_medium'     => $ipCounts->where('severity', 'Medium')->sum('cnt'),
-                            'vuln_low'        => $ipCounts->where('severity', 'Low')->sum('cnt'),
-                            'last_scanned_at' => $now,
-                            'created_at'      => $now,
-                            'updated_at'      => $now,
-                        ]],
+                        $chunk,
                         ['ip_address'],
                         ['hostname', 'os', 'os_family', 'os_kernel', 'open_ports',
                          'vuln_critical', 'vuln_high', 'vuln_medium', 'vuln_low',
@@ -276,7 +298,7 @@ class ProcessScanUpload implements ShouldQueue
         $rows      = [];
         $seen      = [];
         $hostOsMap = [];
-        $batchSize = 50;
+        $batchSize = 500;
         $scanName  = '';
         $minDate   = null;
 

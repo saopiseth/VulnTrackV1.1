@@ -3,10 +3,7 @@
 namespace App\Services;
 
 use App\Models\VulnAssessment;
-use App\Models\VulnFinding;
-use App\Models\VulnRemediation;
 use App\Models\VulnScan;
-use App\Models\VulnTracked;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -58,6 +55,7 @@ class VulnTrackingService
     public function track(VulnAssessment $assessment, VulnScan $scan, array $scannedHostIps = []): array
     {
         $scanTime = $scan->created_at ?? now();
+        $now      = now()->toDateTimeString();
 
         $stats = [
             'created'          => 0,
@@ -67,34 +65,37 @@ class VulnTrackingService
             'severity_changed' => 0,
         ];
 
-        // ── 1. Load this scan's findings (vuln_key → finding) ───────────────
-        // vuln_key = SHA1(plugin_id|ip|port|protocol), so the same plugin on
-        // different ports is treated as distinct vulnerabilities (Nessus convention).
-        $currentMap = VulnFinding::where('scan_id', $scan->id)
+        // ── 1. Load this scan's findings without full Eloquent hydration ──────
+        $currentMap = DB::table('vuln_findings')
+            ->where('scan_id', $scan->id)
             ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
             ->get()
-            ->keyBy(fn($f) => $f->vuln_key);
+            ->keyBy('vuln_key');
 
         // ── 2. Load all existing tracked items for this assessment ────────────
-        $existingTracked = VulnTracked::where('assessment_id', $assessment->id)
+        $existingTracked = DB::table('vuln_tracked')
+            ->where('assessment_id', $assessment->id)
             ->get()
-            ->keyBy(fn($t) => $t->vuln_key);
+            ->keyBy('vuln_key');
 
-        // First scan = no tracked rows exist yet → create everything as Open
         $isFirstScan = $existingTracked->isEmpty();
 
         // ── 3. Accepted-risk remediations (never auto-close these) ───────────
-        $acceptedRisks = VulnRemediation::where('assessment_id', $assessment->id)
+        $acceptedRisks = DB::table('vuln_remediations')
+            ->where('assessment_id', $assessment->id)
             ->where('status', 'Accepted Risk')
-            ->get()
+            ->get(['plugin_id', 'ip_address'])
             ->keyBy(fn($r) => $r->plugin_id . '|' . $r->ip_address);
 
-        $historyBatch = [];
+        $historyBatch      = [];
+        $trackedUpdateRows = [];  // existing tracked rows to batch-update
+        $trackedCreateRows = [];  // new tracked rows to batch-insert
+        $reopenedRemPairs  = [];  // (plugin_id, ip_address) pairs needing remediation reset
 
         // ── 4. Process every finding present in the current scan ─────────────
         foreach ($currentMap as $fp => $finding) {
 
-            $fields = $this->currentFields($finding, $scanTime, $scan->id);
+            $fields = $this->currentFieldsFromRow($finding, $scanTime, $scan->id, $now);
 
             if ($existingTracked->has($fp)) {
 
@@ -104,17 +105,16 @@ class VulnTrackingService
 
                 if ($prevStatus === 'Resolved') {
                     // ── Reopen: was closed, now reappears ─────────────────────
-                    $tracked->update(array_merge($fields, [
-                        'tracking_status' => 'Reopened',
-                        'resolved_at'     => null,
-                        'reopen_count'    => $tracked->reopen_count + 1,
-                    ]));
-                    // Reset remediation back to Open (unless Accepted Risk)
-                    VulnRemediation::where('assessment_id', $assessment->id)
-                        ->where('plugin_id',  $tracked->plugin_id)
-                        ->where('ip_address', $tracked->ip_address)
-                        ->where('status', '!=', 'Accepted Risk')
-                        ->update(['status' => 'Open', 'updated_at' => now()]);
+                    $trackedUpdateRows[] = array_merge(['id' => $tracked->id], $fields, [
+                        'tracking_status'         => 'Reopened',
+                        'resolved_at'             => null,
+                        'reopen_count'            => ($tracked->reopen_count ?? 0) + 1,
+                        'verification_seen_count' => $tracked->verification_seen_count ?? 0,
+                    ]);
+                    $reopenedRemPairs[] = [
+                        'plugin_id'  => $tracked->plugin_id,
+                        'ip_address' => $tracked->ip_address,
+                    ];
                     $historyBatch[] = $this->historyRow(
                         $tracked->id, $scan->id, $scanTime,
                         'reappeared', $prevStatus, 'Reopened'
@@ -123,27 +123,22 @@ class VulnTrackingService
 
                 } else {
                     // ── Confirm still present ─────────────────────────────────
-                    // On verification scans, increment the verification counter and
-                    // promote to Persistent once the threshold is reached.
-                    // On regular scans, status is unchanged (no demotion to Unresolved).
-                    $newVerifCount = $tracked->verification_seen_count;
+                    $newVerifCount = $tracked->verification_seen_count ?? 0;
                     if ($scan->is_verification) {
                         $newVerifCount++;
                     }
 
-                    if ($scan->is_verification
+                    $newStatus = ($scan->is_verification
                         && in_array($prevStatus, ['Open', 'Reopened'])
-                        && $newVerifCount >= self::PERSISTENT_THRESHOLD) {
-                        $newStatus = 'Persistent';
-                    } else {
-                        $newStatus = $prevStatus; // Open|Reopened|New|Persistent stays as-is
-                    }
+                        && $newVerifCount >= self::PERSISTENT_THRESHOLD)
+                        ? 'Persistent' : $prevStatus;
 
-                    $tracked->update(array_merge($fields, [
+                    $trackedUpdateRows[] = array_merge(['id' => $tracked->id], $fields, [
                         'tracking_status'         => $newStatus,
                         'resolved_at'             => null,
+                        'reopen_count'            => $tracked->reopen_count ?? 0,
                         'verification_seen_count' => $newVerifCount,
-                    ]));
+                    ]);
                     $eventType = $newStatus === $prevStatus ? 'still_present' : 'status_changed';
                     $historyBatch[] = $this->historyRow(
                         $tracked->id, $scan->id, $scanTime,
@@ -152,7 +147,6 @@ class VulnTrackingService
                     $stats['still_open']++;
                 }
 
-                // Severity change is orthogonal to status
                 if ($prevSeverity !== $finding->severity) {
                     $historyBatch[] = $this->historyRow(
                         $tracked->id, $scan->id, $scanTime,
@@ -163,68 +157,93 @@ class VulnTrackingService
 
             } else {
                 // ── New finding ───────────────────────────────────────────────
-                // First scan → Open immediately (baseline established).
-                // Subsequent scans → New (never seen before on this assessment).
-                $initStatus = $isFirstScan ? 'Open' : 'New';
-                $tracked = VulnTracked::create(array_merge($fields, [
-                    'assessment_id'   => $assessment->id,
-                    'ip_address'      => $finding->ip_address,
-                    'plugin_id'       => $finding->plugin_id,
-                    'vuln_key'        => $finding->vuln_key,
-                    'cve'             => $finding->cve,
-                    'tracking_status' => $initStatus,
-                    'first_seen_at'   => $scanTime,
-                    'first_scan_id'   => $scan->id,
-                ]));
-                $historyBatch[] = $this->historyRow(
-                    $tracked->id, $scan->id, $scanTime,
-                    'created', null, $initStatus, null, $finding->severity
-                );
+                $initStatus      = $isFirstScan ? 'Open' : 'New';
+                $trackedCreateRows[] = array_merge($fields, [
+                    'assessment_id'           => $assessment->id,
+                    'ip_address'              => $finding->ip_address,
+                    'plugin_id'               => $finding->plugin_id,
+                    'vuln_key'                => $finding->vuln_key,
+                    'cve'                     => $finding->cve,
+                    'tracking_status'         => $initStatus,
+                    'first_seen_at'           => $scanTime,
+                    'first_scan_id'           => $scan->id,
+                    'reopen_count'            => 0,
+                    'verification_seen_count' => 0,
+                    'resolved_at'             => null,
+                    'created_at'              => $now,
+                ]);
                 $stats['created']++;
             }
         }
 
-        // ── 5. Resolve: plugin absent from a verification scan ───────────────
-        //
-        // Auto-resolve is only triggered when the uploaded scan is explicitly
-        // flagged as a verification scan (is_verification = true). Regular scans
-        // may cover a different set of hosts or plugins and cannot safely conclude
-        // that an absent finding has been fixed.
+        // ── 5. Bulk-update existing tracked items (replaces N individual UPDATEs)
+        $updateCols = [
+            'hostname', 'vuln_name', 'description', 'remediation_text', 'severity',
+            'cvss_score', 'port', 'protocol', 'vuln_category', 'affected_component',
+            'os_detected', 'os_name', 'os_family', 'plugin_output',
+            'last_seen_at', 'last_scan_id',
+            'tracking_status', 'resolved_at', 'reopen_count', 'verification_seen_count',
+            'updated_at',
+        ];
+        foreach (array_chunk($trackedUpdateRows, 500) as $chunk) {
+            DB::table('vuln_tracked')->upsert($chunk, ['id'], $updateCols);
+        }
+
+        // ── 6. Bulk-insert new tracked items, then fetch IDs for history ──────
+        if (!empty($trackedCreateRows)) {
+            $createKeyToStatus   = array_column($trackedCreateRows, 'tracking_status', 'vuln_key');
+            $createKeyToSeverity = array_column($trackedCreateRows, 'severity', 'vuln_key');
+
+            foreach (array_chunk($trackedCreateRows, 500) as $chunk) {
+                DB::table('vuln_tracked')->insert($chunk);
+            }
+
+            $newTrackedIds = DB::table('vuln_tracked')
+                ->where('assessment_id', $assessment->id)
+                ->whereIn('vuln_key', array_keys($createKeyToStatus))
+                ->pluck('id', 'vuln_key');
+
+            foreach ($createKeyToStatus as $vk => $initStatus) {
+                $tid = $newTrackedIds[$vk] ?? null;
+                if ($tid) {
+                    $historyBatch[] = $this->historyRow(
+                        $tid, $scan->id, $scanTime,
+                        'created', null, $initStatus, null, $createKeyToSeverity[$vk] ?? null
+                    );
+                }
+            }
+        }
+
+        // ── 7. Reset reopened remediations ────────────────────────────────────
+        foreach ($reopenedRemPairs as $pair) {
+            DB::table('vuln_remediations')
+                ->where('assessment_id', $assessment->id)
+                ->where('plugin_id',  $pair['plugin_id'])
+                ->where('ip_address', $pair['ip_address'])
+                ->where('status', '!=', 'Accepted Risk')
+                ->update(['status' => 'Open', 'updated_at' => $now]);
+        }
+
+        // ── 8. Resolve: plugin absent from a verification scan ───────────────
         if (!$scan->is_verification) {
-            // Flush history and return without resolving anything.
             foreach (array_chunk($historyBatch, 500) as $chunk) {
                 DB::table('vuln_tracked_history')->insert($chunk);
             }
             return $stats;
         }
 
-        // Use the full host list when available (covers hosts with zero remaining
-        // findings after remediation).  Fall back to deriving from findings so that
-        // the CSV path and legacy calls without $scannedHostIps still work.
         if (!empty($scannedHostIps)) {
-            $scannedIps = collect(array_flip($scannedHostIps)); // O(1) lookup
+            $scannedIps = collect(array_flip($scannedHostIps));
         } else {
             $scannedIps = $currentMap->map(fn($f) => $f->ip_address)->flip();
         }
 
         $toResolve = $existingTracked->filter(
             function ($tracked) use ($currentMap, $acceptedRisks, $scannedIps) {
-                // Present in current scan → handled above
-                if ($currentMap->has($tracked->vuln_key)) {
-                    return false;
-                }
-                // Already resolved → nothing to do
-                if ($tracked->tracking_status === 'Resolved') {
-                    return false;
-                }
-                // Accepted risk → never auto-close
-                if ($acceptedRisks->has($tracked->plugin_id . '|' . $tracked->ip_address)) {
-                    return false;
-                }
-                // Host not present in this scan → scanner didn't visit it, cannot resolve
-                if (!$scannedIps->has($tracked->ip_address)) {
-                    return false;
-                }
+                if ($currentMap->has($tracked->vuln_key)) return false;
+                if ($tracked->tracking_status === 'Resolved') return false;
+                if ($acceptedRisks->has($tracked->plugin_id . '|' . $tracked->ip_address)) return false;
+                if (!$scannedIps->has($tracked->ip_address)) return false;
                 return true;
             }
         );
@@ -237,16 +256,16 @@ class VulnTrackingService
                     'resolved_at'     => $scanTime,
                     'last_scan_id'    => $scan->id,
                     'last_seen_at'    => $scanTime,
-                    'updated_at'      => now(),
+                    'updated_at'      => $now,
                 ]);
 
-            // Sync remediation status to Resolved (skip Accepted Risk)
             foreach ($toResolve as $tracked) {
-                VulnRemediation::where('assessment_id', $assessment->id)
+                DB::table('vuln_remediations')
+                    ->where('assessment_id', $assessment->id)
                     ->where('plugin_id',  $tracked->plugin_id)
                     ->where('ip_address', $tracked->ip_address)
                     ->where('status', '!=', 'Accepted Risk')
-                    ->update(['status' => 'Resolved', 'updated_at' => now()]);
+                    ->update(['status' => 'Resolved', 'updated_at' => $now]);
 
                 $historyBatch[] = $this->historyRow(
                     $tracked->id, $scan->id, $scanTime,
@@ -256,7 +275,7 @@ class VulnTrackingService
             $stats['resolved'] += $toResolve->count();
         }
 
-        // ── 6. Flush history batch ────────────────────────────────────────────
+        // ── 9. Flush history batch ────────────────────────────────────────────
         foreach (array_chunk($historyBatch, 500) as $chunk) {
             DB::table('vuln_tracked_history')->insert($chunk);
         }
@@ -266,7 +285,7 @@ class VulnTrackingService
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private function currentFields(VulnFinding $f, Carbon $scanTime, int $scanId): array
+    private function currentFieldsFromRow(object $f, Carbon $scanTime, int $scanId, string $now): array
     {
         return [
             'hostname'           => $f->hostname,
@@ -285,6 +304,7 @@ class VulnTrackingService
             'plugin_output'      => $f->plugin_output,
             'last_seen_at'       => $scanTime,
             'last_scan_id'       => $scanId,
+            'updated_at'         => $now,
         ];
     }
 
