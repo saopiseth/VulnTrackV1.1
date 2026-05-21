@@ -1,3 +1,13 @@
+# Allow large scan uploads to run without PHP time or memory limits.
+<IfModule mod_php.c>
+    php_value max_execution_time 0
+    php_value memory_limit -1
+</IfModule>
+<IfModule mod_php8.c>
+    php_value max_execution_time 0
+    php_value memory_limit -1
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

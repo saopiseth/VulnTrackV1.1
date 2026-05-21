@@ -65,16 +65,31 @@ class VulnTrackingService
             'severity_changed' => 0,
         ];
 
-        // ── 1. Load this scan's findings without full Eloquent hydration ──────
+        // ── 1. Load this scan's findings — exclude plugin_output (can be MBs per row)
+        // to avoid OOM when thousands of findings are loaded into PHP memory at once.
         $currentMap = DB::table('vuln_findings')
             ->where('scan_id', $scan->id)
             ->whereIn('severity', ['Critical', 'High', 'Medium', 'Low'])
+            ->select([
+                'vuln_key', 'ip_address', 'plugin_id', 'cve', 'hostname', 'vuln_name',
+                'description', 'remediation_text', 'severity', 'cvss_score',
+                'port', 'protocol', 'vuln_category', 'affected_component',
+                'os_detected', 'os_name', 'os_family',
+            ])
             ->get()
             ->keyBy('vuln_key');
 
-        // ── 2. Load all existing tracked items for this assessment ────────────
+        // ── 2. Load existing tracked items — only the columns we actually need ─
+        // Large text fields (description, remediation_text, plugin_output) are
+        // excluded; they come from the current finding and are not needed for
+        // decision-making on existing rows.
         $existingTracked = DB::table('vuln_tracked')
             ->where('assessment_id', $assessment->id)
+            ->select([
+                'id', 'assessment_id', 'ip_address', 'plugin_id', 'vuln_key', 'cve',
+                'tracking_status', 'severity', 'first_seen_at', 'first_scan_id',
+                'created_at', 'reopen_count', 'verification_seen_count',
+            ])
             ->get()
             ->keyBy('vuln_key');
 
@@ -185,7 +200,7 @@ class VulnTrackingService
         $updateCols = [
             'hostname', 'vuln_name', 'description', 'remediation_text', 'severity',
             'cvss_score', 'port', 'protocol', 'vuln_category', 'affected_component',
-            'os_detected', 'os_name', 'os_family', 'plugin_output',
+            'os_detected', 'os_name', 'os_family',
             'last_seen_at', 'last_scan_id',
             'tracking_status', 'resolved_at', 'reopen_count', 'verification_seen_count',
             'updated_at',
@@ -308,7 +323,9 @@ class VulnTrackingService
             'os_detected'        => $f->os_detected,
             'os_name'            => $f->os_name,
             'os_family'          => $f->os_family,
-            'plugin_output'      => $f->plugin_output,
+            // plugin_output is intentionally excluded: copying it into the tracking
+            // table for every finding loaded into PHP memory causes OOM on large scans.
+            // The output is always accessible via vuln_findings by vuln_key.
             'last_seen_at'       => $scanTime,
             'last_scan_id'       => $scanId,
             'updated_at'         => $now,

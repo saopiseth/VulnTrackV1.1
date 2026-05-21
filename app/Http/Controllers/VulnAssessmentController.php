@@ -1621,7 +1621,8 @@ class VulnAssessmentController extends Controller
         try {
             ProcessScanUpload::dispatchSync($scan->id, $finalPath, $ext);
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'Processing failed: ' . $e->getMessage()], 500);
+            $detail = $e->getMessage() ?: get_class($e);
+            return response()->json(['message' => 'Processing failed: ' . $detail], 500);
         }
 
         return response()->json(['status' => 'queued', 'scan_id' => $scan->id]);

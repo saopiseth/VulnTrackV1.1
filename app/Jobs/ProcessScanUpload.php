@@ -35,12 +35,50 @@ class ProcessScanUpload implements ShouldQueue
 
     public function handle(): void
     {
+        // Large Nessus files require sustained memory and long runtimes on Windows/XAMPP.
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', '0');
+        set_time_limit(0);
+        ignore_user_abort(true);
+
+        $scanId = $this->scanId;
+
+        // Register shutdown handler to catch PHP fatal errors (OOM, timeout, etc.)
+        // that bypass try/catch. Writes to the PHP error log for diagnostics.
+        register_shutdown_function(function () use ($scanId) {
+            $err = error_get_last();
+            if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+                $msg = "[VulnTrackV1 FATAL scan_id={$scanId}] {$err['message']} in {$err['file']} on line {$err['line']}";
+                error_log($msg);
+                file_put_contents(
+                    storage_path('logs/scan_fatal.log'),
+                    date('[Y-m-d H:i:s] ') . $msg . PHP_EOL,
+                    FILE_APPEND
+                );
+                try {
+                    \Illuminate\Support\Facades\DB::table('vuln_scans')
+                        ->where('id', $scanId)
+                        ->where('upload_status', 'processing')
+                        ->update([
+                            'upload_status' => 'failed',
+                            'upload_error'  => mb_substr($msg, 0, 500),
+                            'updated_at'    => now()->toDateTimeString(),
+                        ]);
+                } catch (\Throwable) {}
+            }
+        });
+
         $scan       = VulnScan::findOrFail($this->scanId);
         $assessment = $scan->assessment;
 
         $scan->update(['upload_status' => 'processing']);
 
         try {
+            // Raise the MySQL packet limit for this session so large plugin_output
+            // TEXT fields in batch INSERTs don't exceed the server's max_allowed_packet.
+            // Silently ignored on MySQL 8.0+ where this is a global-only variable.
+            try { DB::statement('SET SESSION max_allowed_packet = 67108864'); } catch (\Throwable) {}
+
             $fullPath = Storage::disk('local')->path($this->filePath);
 
             DB::transaction(function () use ($assessment, $scan, $fullPath) {
@@ -219,6 +257,15 @@ class ProcessScanUpload implements ShouldQueue
             (new AssessmentSummaryService())->rebuild($assessment);
 
         } catch (\Throwable $e) {
+            $msg = '[VulnTrackV1 EXCEPTION scan_id=' . $this->scanId . '] '
+                . get_class($e) . ': ' . $e->getMessage()
+                . ' in ' . $e->getFile() . ' on line ' . $e->getLine();
+            error_log($msg);
+            file_put_contents(
+                storage_path('logs/scan_fatal.log'),
+                date('[Y-m-d H:i:s] ') . $msg . PHP_EOL . $e->getTraceAsString() . PHP_EOL,
+                FILE_APPEND
+            );
             $scan->update([
                 'upload_status' => 'failed',
                 'upload_error'  => mb_substr($e->getMessage(), 0, 500),
@@ -253,7 +300,10 @@ class ProcessScanUpload implements ShouldQueue
         unset($row);
 
         $inserted = 0;
-        foreach (array_chunk($rows, 250) as $chunk) {
+        // Keep chunk size small (25 rows): plugin_output TEXT fields can be up to 64 KB
+        // each, so 250 rows × 64 KB = 16 MB which would exceed even a 16 MB max_allowed_packet.
+        // 25 rows × 64 KB = 1.6 MB, safe under the recommended 64 MB server limit.
+        foreach (array_chunk($rows, 25) as $chunk) {
             $inserted += DB::table('vuln_findings')->insertOrIgnore($chunk);
         }
 
@@ -298,7 +348,7 @@ class ProcessScanUpload implements ShouldQueue
         $rows      = [];
         $seen      = [];
         $hostOsMap = [];
-        $batchSize = 500;
+        $batchSize = 100;
         $scanName  = '';
         $minDate   = null;
 

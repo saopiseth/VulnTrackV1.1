@@ -14,7 +14,12 @@
       "Bash(gh auth:*)",
       "Bash(python -c ':*)",
       "Bash(php -l \"c:/xampp/htdocs/myproject/ProjectAss/app/Console/Commands/RebuildVulnTracking.php\")",
-      "Bash(grep -n '$baseline\\\\|$latestKeys\\\\|$baselineKeys\\\\|cmpLabel\\\\|cmpClass\\\\|scan_timestamp\\\\|cmp-new\\\\|cmp-resolved\\\\|cmp-persistent' c:/xampp/htdocs/myproject/ProjectAss/resources/views/vuln_assessments/findings.blade.php)"
+      "Bash(grep -n '$baseline\\\\|$latestKeys\\\\|$baselineKeys\\\\|cmpLabel\\\\|cmpClass\\\\|scan_timestamp\\\\|cmp-new\\\\|cmp-resolved\\\\|cmp-persistent' c:/xampp/htdocs/myproject/ProjectAss/resources/views/vuln_assessments/findings.blade.php)",
+      "Read(//c/xampp/apache/conf/**)",
+      "PowerShell($acl = Get-Acl \"c:\\\\xampp\\\\htdocs\\\\myproject\\\\VulnTrackV1.1\\\\storage\\\\logs\\\\laravel.log\"; $acl.Access | Format-Table IdentityReference, FileSystemRights, AccessControlType -AutoSize)"
+    ],
+    "additionalDirectories": [
+      "c:\\xampp\\htdocs\\myproject\\VulnTrackV1.1\\storage\\logs"
     ]
   }
 }
