@@ -1474,6 +1474,9 @@ class VulnAssessmentController extends Controller
             'file_path'       => $path,
         ]);
 
+        set_time_limit(0);
+        ignore_user_abort(true);
+
         try {
             ProcessScanUpload::dispatchSync($scan->id, $path, $ext);
         } catch (\Throwable $e) {
@@ -1530,6 +1533,15 @@ class VulnAssessmentController extends Controller
         // the remaining chunks rather than uploading the whole file for nothing.
         if ($chunkIndex === 0) {
             $dupError = '"' . $filename . '" has already been uploaded to this assessment.';
+
+            // A scan stuck in 'processing' for > 20 min means PHP timed out mid-job.
+            // Mark it failed so the user can retry without being blocked.
+            $vulnAssessment->scans()
+                ->where('filename', $filename)
+                ->where('upload_status', 'processing')
+                ->where('updated_at', '<', now()->subMinutes(20))
+                ->update(['upload_status' => 'failed', 'upload_error' => 'Processing timed out. Please retry.']);
+
             if ($vulnAssessment->scans()->where('filename', $filename)
                     ->whereIn('upload_status', ['pending', 'processing', 'completed'])->exists()) {
                 return response()->json(['message' => $dupError], 422);
@@ -1572,6 +1584,13 @@ class VulnAssessmentController extends Controller
         $assessment = $vulnAssessment;
         $dupError   = '"' . $filename . '" has already been uploaded to this assessment.';
 
+        // Recover any stuck scan (PHP timeout) before the final duplicate check.
+        $assessment->scans()
+            ->where('filename', $filename)
+            ->where('upload_status', 'processing')
+            ->where('updated_at', '<', now()->subMinutes(20))
+            ->update(['upload_status' => 'failed', 'upload_error' => 'Processing timed out. Please retry.']);
+
         if ($assessment->scans()->where('filename', $filename)
                 ->whereIn('upload_status', ['pending', 'processing', 'completed'])->exists()) {
             Storage::disk('local')->delete($finalPath);
@@ -1593,6 +1612,11 @@ class VulnAssessmentController extends Controller
             'upload_status'   => 'pending',
             'file_path'       => $finalPath,
         ]);
+
+        // Processing runs synchronously in this request — lift the PHP execution
+        // time limit so large files are never killed mid-job by max_execution_time.
+        set_time_limit(0);
+        ignore_user_abort(true);
 
         try {
             ProcessScanUpload::dispatchSync($scan->id, $finalPath, $ext);
