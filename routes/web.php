@@ -11,6 +11,9 @@ use App\Http\Controllers\SlaPolicyController;
 use App\Http\Controllers\UserGroupController;
 use App\Http\Controllers\VulnerabilityController;
 use App\Http\Controllers\VulnAssessmentController;
+use App\Http\Controllers\HardeningDashboardController;
+use App\Http\Controllers\HardeningAssessmentController;
+use App\Http\Controllers\HardeningVerificationController;
 
 // ─── Redirect root to login ───────────────────────────────────
 Route::get('/', fn() => redirect()->route('login'));
@@ -94,6 +97,29 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments/{vulnAssessment}/report/word',            [VulnAssessmentController::class, 'reportWord'])->name('vuln-assessments.report.word');
     Route::get('/vuln-assessments/{vulnAssessment}/report/excel',           [VulnAssessmentController::class, 'reportExcel'])->name('vuln-assessments.report.excel');
 
+
+    // ─── Secure Configuration (Hardening) ────────────────────────
+    Route::prefix('secure-configuration')->name('hardening.')->group(function () {
+        Route::get('/dashboard',                                                            [HardeningDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/standards',                                                            [HardeningDashboardController::class, 'standards'])->name('standards');
+        Route::get('/reports',                                                              [HardeningDashboardController::class, 'reports'])->name('reports');
+
+        // Hardening Assessments
+        Route::get('/assessments',                                                          [HardeningAssessmentController::class, 'index'])->name('assessments.index');
+        Route::get('/assessments/create',                                                   [HardeningAssessmentController::class, 'create'])->name('assessments.create');
+        Route::post('/assessments',                                                         [HardeningAssessmentController::class, 'store'])->name('assessments.store');
+        Route::get('/assessments/{hardeningAssessment}',                                    [HardeningAssessmentController::class, 'show'])->name('assessments.show');
+        Route::get('/assessments/{hardeningAssessment}/status',                             [HardeningAssessmentController::class, 'uploadStatus'])->name('assessments.status');
+        Route::delete('/assessments/{hardeningAssessment}',                                 [HardeningAssessmentController::class, 'destroy'])->name('assessments.destroy');
+
+        // Hardening Verifications
+        Route::get('/verifications',                                                        [HardeningVerificationController::class, 'index'])->name('verifications.index');
+        Route::get('/verifications/create',                                                 [HardeningVerificationController::class, 'create'])->name('verifications.create');
+        Route::post('/verifications',                                                       [HardeningVerificationController::class, 'store'])->name('verifications.store');
+        Route::get('/verifications/{hardeningVerification}',                                [HardeningVerificationController::class, 'show'])->name('verifications.show');
+        Route::get('/verifications/{hardeningVerification}/status',                         [HardeningVerificationController::class, 'uploadStatus'])->name('verifications.status');
+        Route::delete('/verifications/{hardeningVerification}',                             [HardeningVerificationController::class, 'destroy'])->name('verifications.destroy');
+    });
 
     // Asset Inventory
     Route::get('/asset-inventory',              [AssetInventoryController::class, 'index'])->name('asset-inventory.index');

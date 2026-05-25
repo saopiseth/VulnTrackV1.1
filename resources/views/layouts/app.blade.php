@@ -279,6 +279,43 @@
                 </ul>
             </div>
 
+            <div class="sidebar-section mt-2" id="secureConfigSection">
+                <div class="sidebar-section-head">
+                    <div class="sidebar-label">Secure Configuration</div>
+                    <button type="button" class="sidebar-collapse-btn" id="secureConfigCollapseBtn"
+                            aria-controls="secureConfigLinks" aria-expanded="true" title="Collapse Secure Configuration">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
+                <ul class="list-unstyled mb-0 sidebar-section-body" id="secureConfigLinks">
+                    <li class="nav-item">
+                        <a href="{{ route('hardening.dashboard') }}" class="{{ request()->routeIs('hardening.dashboard') ? 'active' : '' }}">
+                            <i class="bi bi-shield-check"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('hardening.assessments.index') }}" class="{{ request()->routeIs('hardening.assessments.*') ? 'active' : '' }}">
+                            <i class="bi bi-clipboard2-pulse-fill"></i> Hardening Assessment
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('hardening.verifications.index') }}" class="{{ request()->routeIs('hardening.verifications.*') ? 'active' : '' }}">
+                            <i class="bi bi-patch-check-fill"></i> Hardening Verification
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('hardening.standards') }}" class="{{ request()->routeIs('hardening.standards') ? 'active' : '' }}">
+                            <i class="bi bi-journal-bookmark-fill"></i> Hardening Standards
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ route('hardening.reports') }}" class="{{ request()->routeIs('hardening.reports') ? 'active' : '' }}">
+                            <i class="bi bi-file-earmark-bar-graph-fill"></i> Reports
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
             <div class="sidebar-label mt-2">Account</div>
             <ul class="list-unstyled mb-0">
                 <li class="nav-item">
@@ -380,6 +417,26 @@
                 const collapsed = !vulnMgmtSection.classList.contains('is-collapsed');
                 setVulnMgmtCollapsed(collapsed);
                 localStorage.setItem(vulnMgmtStorageKey, collapsed ? '1' : '0');
+            });
+        }
+
+        const secureConfigSection    = document.getElementById('secureConfigSection');
+        const secureConfigCollapseBtn= document.getElementById('secureConfigCollapseBtn');
+        const secureConfigStorageKey = 'sidebar.secureConfiguration.collapsed';
+
+        if (secureConfigSection && secureConfigCollapseBtn) {
+            const setSecureConfigCollapsed = (collapsed) => {
+                secureConfigSection.classList.toggle('is-collapsed', collapsed);
+                secureConfigCollapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                secureConfigCollapseBtn.title = collapsed ? 'Expand Secure Configuration' : 'Collapse Secure Configuration';
+            };
+
+            setSecureConfigCollapsed(localStorage.getItem(secureConfigStorageKey) === '1');
+
+            secureConfigCollapseBtn.addEventListener('click', () => {
+                const collapsed = !secureConfigSection.classList.contains('is-collapsed');
+                setSecureConfigCollapsed(collapsed);
+                localStorage.setItem(secureConfigStorageKey, collapsed ? '1' : '0');
             });
         }
     </script>
