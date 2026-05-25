@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('hardening_verifications')) {
+            return;
+        }
+
         Schema::create('hardening_verifications', function (Blueprint $table) {
             $table->id();
             $table->string('uuid')->unique();
