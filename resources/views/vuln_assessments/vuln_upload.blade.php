@@ -75,7 +75,7 @@
                       font-weight:600;font-size:.81rem;padding:.38rem .9rem;text-decoration:none">
                 <i class="bi bi-table me-1"></i>Findings
             </a>
-            <a href="{{ route('vuln-assessments.progress', $assessment) }}" class="btn btn-sm"
+            <a href="{{ route('vuln-assessments.show', $assessment) }}" class="btn btn-sm"
                style="border:1.5px solid #e2e8f0;border-radius:8px;color:#374151;background:#fff;
                       font-weight:500;font-size:.81rem;padding:.38rem .9rem;text-decoration:none">
                 <i class="bi bi-bar-chart-line me-1"></i>Progress

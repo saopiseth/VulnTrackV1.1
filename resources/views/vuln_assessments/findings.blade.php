@@ -89,7 +89,7 @@
         @endif
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ route('vuln-assessments.progress', $assessment) }}" class="btn btn-sm"
+        <a href="{{ route('vuln-assessments.show', $assessment) }}" class="btn btn-sm"
             style="background:var(--lime);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.38rem .9rem;font-size:.81rem">
             <i class="bi bi-graph-up-arrow me-1"></i>View Progress
         </a>

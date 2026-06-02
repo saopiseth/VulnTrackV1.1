@@ -28,8 +28,7 @@
     <div>
         <nav aria-label="breadcrumb"><ol class="breadcrumb mb-1" style="font-size:.73rem">
             <li class="breadcrumb-item"><a href="{{ route('vuln-assessments.index') }}" style="color:#94a3b8;text-decoration:none">VA Assessments</a></li>
-            <li class="breadcrumb-item"><a href="{{ route('vuln-assessments.show', $assessment) }}" style="color:#94a3b8;text-decoration:none">{{ Str::limit($assessment->name, 40) }}</a></li>
-            <li class="breadcrumb-item active" style="color:#64748b">Progress</li>
+            <li class="breadcrumb-item active" style="color:#64748b">{{ Str::limit($assessment->name, 40) }}</li>
         </ol></nav>
         <h5 style="margin:0;font-weight:700;color:#0f172a">{{ $assessment->name }} — Progress</h5>
         <div style="font-size:.78rem;color:#94a3b8;margin-top:.2rem">
@@ -42,10 +41,6 @@
         <a href="{{ route('vuln-assessments.findings', $assessment) }}" class="btn btn-sm"
             style="background:var(--lime);color:#fff;border-radius:9px;font-weight:600;border:none;padding:.38rem .9rem;font-size:.81rem">
             <i class="bi bi-table me-1"></i>Findings
-        </a>
-        <a href="{{ route('vuln-assessments.show', $assessment) }}" class="btn btn-sm"
-            style="border:1.5px solid var(--lime);border-radius:9px;color:var(--lime-dark);background:#fff;font-weight:600;font-size:.81rem;padding:.38rem .9rem">
-            <i class="bi bi-arrow-left me-1"></i>Overview
         </a>
     </div>
 </div>

@@ -70,11 +70,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/vuln-assessments',                                         [VulnAssessmentController::class, 'index'])->name('vuln-assessments.index');
     Route::get('/vuln-assessments/create',                                  [VulnAssessmentController::class, 'create'])->name('vuln-assessments.create');
     Route::post('/vuln-assessments',                                        [VulnAssessmentController::class, 'store'])->name('vuln-assessments.store');
-    Route::get('/vuln-assessments/{vulnAssessment}',                        [VulnAssessmentController::class, 'show'])->name('vuln-assessments.show');
+    Route::get('/vuln-assessments/{vulnAssessment}',                        [VulnAssessmentController::class, 'progress'])->name('vuln-assessments.show');
     Route::get('/vuln-assessments/{vulnAssessment}/KRI-Report',              [VulnAssessmentController::class, 'kriReport'])->name('vuln-assessments.kri-report');
     Route::get('/vuln-assessments/{vulnAssessment}/KRI-Report/powerpoint',   [VulnAssessmentController::class, 'kriReportPowerPoint'])->name('vuln-assessments.kri-report.powerpoint');
     Route::get('/vuln-assessments/{vulnAssessment}/findings',               [VulnAssessmentController::class, 'findings'])->name('vuln-assessments.findings');
-    Route::get('/vuln-assessments/{vulnAssessment}/progress',               [VulnAssessmentController::class, 'progress'])->name('vuln-assessments.progress');
     Route::get('/vuln-assessments/{vulnAssessment}/vuln-upload',             [VulnAssessmentController::class, 'vulnUpload'])->name('vuln-assessments.vuln-upload');
     Route::post('/vuln-assessments/{vulnAssessment}/upload',                [VulnAssessmentController::class, 'uploadScan'])->middleware('throttle:upload')->name('vuln-assessments.upload');
     Route::get('/vuln-assessments/{vulnAssessment}/scan-status/{scan}',     [VulnAssessmentController::class, 'uploadStatus'])->name('vuln-assessments.upload.status');
