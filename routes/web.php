@@ -14,6 +14,7 @@ use App\Http\Controllers\VulnAssessmentController;
 use App\Http\Controllers\HardeningDashboardController;
 use App\Http\Controllers\HardeningAssessmentController;
 use App\Http\Controllers\HardeningVerificationController;
+use App\Http\Controllers\SegmentationTestController;
 
 // ─── Redirect root to login ───────────────────────────────────
 Route::get('/', fn() => redirect()->route('login'));
@@ -119,6 +120,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/verifications/{hardeningVerification}/status',                         [HardeningVerificationController::class, 'uploadStatus'])->name('verifications.status');
         Route::delete('/verifications/{hardeningVerification}',                             [HardeningVerificationController::class, 'destroy'])->name('verifications.destroy');
     });
+
+    // ─── Segmentation Tests ──────────────────────────────────────
+    Route::get('/segmentation-tests',                              [SegmentationTestController::class, 'index'])->name('segmentation.index');
+    Route::get('/segmentation-tests/create',                       [SegmentationTestController::class, 'create'])->name('segmentation.create');
+    Route::post('/segmentation-tests',                             [SegmentationTestController::class, 'store'])->middleware('throttle:upload')->name('segmentation.store');
+    Route::get('/segmentation-tests/{segmentationTest}',           [SegmentationTestController::class, 'show'])->name('segmentation.show');
+    Route::get('/segmentation-tests/{segmentationTest}/status',    [SegmentationTestController::class, 'status'])->name('segmentation.status');
+    Route::get('/segmentation-tests/{segmentationTest}/export-csv',[SegmentationTestController::class, 'exportCsv'])->name('segmentation.export-csv');
+    Route::delete('/segmentation-tests/{segmentationTest}',        [SegmentationTestController::class, 'destroy'])->name('segmentation.destroy');
 
     // Asset Inventory
     Route::get('/asset-inventory',              [AssetInventoryController::class, 'index'])->name('asset-inventory.index');

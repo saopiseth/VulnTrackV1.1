@@ -316,6 +316,23 @@
                 </ul>
             </div>
 
+            <div class="sidebar-section mt-2" id="netSecSection">
+                <div class="sidebar-section-head">
+                    <div class="sidebar-label">Network Security</div>
+                    <button type="button" class="sidebar-collapse-btn" id="netSecCollapseBtn"
+                            aria-controls="netSecLinks" aria-expanded="true" title="Collapse Network Security">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
+                <ul class="list-unstyled mb-0 sidebar-section-body" id="netSecLinks">
+                    <li class="nav-item">
+                        <a href="{{ route('segmentation.index') }}" class="{{ request()->routeIs('segmentation.*') ? 'active' : '' }}">
+                            <i class="bi bi-diagram-3-fill"></i> Segmentation Tests
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
             <div class="sidebar-label mt-2">Account</div>
             <ul class="list-unstyled mb-0">
                 <li class="nav-item">
@@ -437,6 +454,26 @@
                 const collapsed = !secureConfigSection.classList.contains('is-collapsed');
                 setSecureConfigCollapsed(collapsed);
                 localStorage.setItem(secureConfigStorageKey, collapsed ? '1' : '0');
+            });
+        }
+
+        const netSecSection     = document.getElementById('netSecSection');
+        const netSecCollapseBtn = document.getElementById('netSecCollapseBtn');
+        const netSecStorageKey  = 'sidebar.networkSecurity.collapsed';
+
+        if (netSecSection && netSecCollapseBtn) {
+            const setNetSecCollapsed = (collapsed) => {
+                netSecSection.classList.toggle('is-collapsed', collapsed);
+                netSecCollapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                netSecCollapseBtn.title = collapsed ? 'Expand Network Security' : 'Collapse Network Security';
+            };
+
+            setNetSecCollapsed(localStorage.getItem(netSecStorageKey) === '1');
+
+            netSecCollapseBtn.addEventListener('click', () => {
+                const collapsed = !netSecSection.classList.contains('is-collapsed');
+                setNetSecCollapsed(collapsed);
+                localStorage.setItem(netSecStorageKey, collapsed ? '1' : '0');
             });
         }
     </script>
