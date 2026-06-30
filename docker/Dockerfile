@@ -23,8 +23,7 @@ RUN composer dump-autoload --optimize --no-dev --quiet
 FROM php:8.2-fpm
 
 # ── System packages ───────────────────────────────────────────
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         unzip \
         git \
