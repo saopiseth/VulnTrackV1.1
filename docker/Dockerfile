@@ -24,7 +24,6 @@ FROM php:8.2-fpm
 
 # ── System packages ───────────────────────────────────────────
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
         curl \
         unzip \
@@ -49,7 +48,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && apt-get purge -y --auto-remove git \
-    && rm -rf /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # ── PHP config ────────────────────────────────────────────────
 COPY docker/php/php.ini     /usr/local/etc/php/conf.d/app.ini
