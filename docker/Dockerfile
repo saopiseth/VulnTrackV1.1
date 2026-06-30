@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ─────────────────────────────────────────────────────────────
 # Stage 1 – Composer dependencies (tiny image, no runtime bloat)
 # ─────────────────────────────────────────────────────────────
@@ -22,7 +23,9 @@ RUN composer dump-autoload --optimize --no-dev --quiet
 FROM php:8.2-fpm
 
 # ── System packages ───────────────────────────────────────────
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
         curl \
         unzip \
         git \
@@ -46,8 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && apt-get purge -y --auto-remove git \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /tmp/* /var/tmp/*
 
 # ── PHP config ────────────────────────────────────────────────
 COPY docker/php/php.ini     /usr/local/etc/php/conf.d/app.ini

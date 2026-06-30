@@ -18,7 +18,9 @@
       "Read(//c/xampp/apache/conf/**)",
       "PowerShell($acl = Get-Acl \"c:\\\\xampp\\\\htdocs\\\\myproject\\\\VulnTrackV1.1\\\\storage\\\\logs\\\\laravel.log\"; $acl.Access | Format-Table IdentityReference, FileSystemRights, AccessControlType -AutoSize)",
       "Bash(xargs wc -l)",
-      "Bash(composer install *)"
+      "Bash(composer install *)",
+      "Bash(docker info *)",
+      "PowerShell(docker info 2>&1)"
     ],
     "additionalDirectories": [
       "c:\\xampp\\htdocs\\myproject\\VulnTrackV1.1\\storage\\logs"
